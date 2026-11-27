@@ -1,4 +1,4 @@
-import { instantOf, isBeforeText } from "../../infrastructure/pause-record-instants.js";
+import { copyOf, instantOfText, isBefore } from "../../infrastructure/instants.js";
 import { StepError } from "../../core/error-families/step-errors.js";
 import { LimitError } from "../../core/error-families/limit-errors.js";
 import { PauseError } from "../../core/error-families/pause-errors.js";
@@ -49,9 +49,9 @@ const causeOf = (pause: PauseRecord): PauseError.ExpiryHandlerFailed | undefined
       });
 
 /** How long the run's deadline was given: its frame's, else what the pause waited (asked → deadline). */
-function givenDeadline(pause: PauseRecord, expiresAt: string): Milliseconds {
+function givenDeadline(pause: PauseRecord, expiresAt: Date): Milliseconds {
   const given = currentFrame()?.execution.deadline?.deadline;
-  return given ?? seconds(Math.max(0, Date.parse(expiresAt) - Date.parse(pause.askedAt)) / 1000);
+  return given ?? seconds(Math.max(0, expiresAt.getTime() - pause.askedAt.getTime()) / 1000);
 }
 
 /**
@@ -64,7 +64,11 @@ export function isRunBound(pause: PauseRecord, runDeadlineAt: string | undefined
   // a deadline recorded as the run's is the run's; only a tie of an extended pause is told apart
   if (pause.expiryBound === PauseExpiryBound.RunDeadline) return true;
   return (
-    runDeadlineAt !== undefined && !isBeforeText(pause.expiresAt ?? pause.askedAt, runDeadlineAt)
+    runDeadlineAt !== undefined &&
+    !isBefore(
+      pause.expiresAt ?? pause.askedAt,
+      instantOfText(runDeadlineAt, "execution deadline", "execution"),
+    )
   );
 }
 
@@ -81,7 +85,7 @@ export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
     }
     return new LimitError.Deadline({
       deadline: givenDeadline(pause, expiresAt),
-      deadlineAt: instantOf(expiresAt),
+      deadlineAt: copyOf(expiresAt),
       path: site.path,
       spentUsd: totalCost([...site.state, ...site.usage]),
       usage: site.usage,
@@ -93,7 +97,7 @@ export function expiryFailureOf(pause: PauseRecord, site: ExpirySite): Error {
     target: pause.target,
     channel: pause.channel,
     pauseKind: pause.kind,
-    expiresAt: instantOf(expiresAt),
+    expiresAt: copyOf(expiresAt),
     usage: site.usage,
     cause: causeOf(pause),
   });

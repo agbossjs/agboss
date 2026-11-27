@@ -1,8 +1,7 @@
 import type { ErrorRecord } from "../../core/error-record.js";
 import type { CostReport } from "../../finops/usage.js";
 import type { WorkflowRecord } from "../context/execution-context.js";
-import type { ExecutionPauseRecord, PauseAnswerRecord } from "./execution-record.js";
-import { executionPauseOf } from "../../infrastructure/pause-record-instants.js";
+import type { PauseAnswerRecord } from "./execution-record.js";
 import type { ComponentRecord } from "./records.js";
 import type { ToolCallRecord } from "./tool-calls.js";
 import type { ExecutionStepRecord } from "./step-records.js";
@@ -91,7 +90,7 @@ export interface EndedChildRecord {
 }
 
 /** One child execution that ended, as a result reports it: with the pauses it asked (#267 S124 c). */
-export interface ChildExecutionRecord<TPause = ExecutionPauseRecord> extends Omit<
+export interface ChildExecutionRecord<TPause = PauseAnswerRecord> extends Omit<
   EndedChildRecord,
   "children"
 > {
@@ -109,26 +108,10 @@ export function withChildPauses(
   children: readonly EndedChildRecord[],
   answers: readonly PauseAnswerRecord[],
 ): ChildExecutionRecord[] {
-  return withPauses(children, answers, executionPauseOf);
-}
-
-/** The same for the history, which keeps the answers as the log does (ISO 8601 texts, the stores contract until P6b). */
-export function withHistoryChildPauses(
-  children: readonly EndedChildRecord[],
-  answers: readonly PauseAnswerRecord[],
-): ChildExecutionRecord<PauseAnswerRecord>[] {
-  return withPauses(children, answers, (answer) => answer);
-}
-
-function withPauses<TPause>(
-  children: readonly EndedChildRecord[],
-  answers: readonly PauseAnswerRecord[],
-  shown: (answer: PauseAnswerRecord) => TPause,
-): ChildExecutionRecord<TPause>[] {
   return children.map((child) => ({
     ...child,
-    pauses: answers.filter((answer) => answer.executionId === child.executionId).map(shown),
-    children: withPauses(child.children, answers, shown),
+    pauses: answers.filter((answer) => answer.executionId === child.executionId),
+    children: withChildPauses(child.children, answers),
   }));
 }
 

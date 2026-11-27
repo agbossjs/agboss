@@ -140,7 +140,7 @@ class Instance extends InMemoryPausedExecutionRepository {
 }
 
 /** The reminders sent, by pause id: what a record kept (a fresh map per pair). */
-let REMINDED = new Map<string, string | undefined>();
+let REMINDED = new Map<string, Date | undefined>();
 
 const pairOf = (tweaks: Tweaks) => {
   REMINDED = new Map();
@@ -169,7 +169,7 @@ const REMIND = "remind once";
 const CLOSE = "closeUntaken applies only";
 const STEP = "findByTenantIdAndRootExecutionIdAndStepKey finds";
 
-const time = (iso: string | undefined): number => new Date(iso ?? "").getTime();
+const time = (at: Date | undefined): number => at?.getTime() ?? Number.NaN;
 /** The change names a deadline (a change without one is no extension). */
 const hasExpiry = (change: PauseTimeoutChange): boolean =>
   Object.keys(change).includes("expiresAt");
@@ -319,7 +319,7 @@ const EXTENDING: readonly (readonly [string, string, Tweaks])[] = [
         const closed = await real();
         return closed === undefined
           ? undefined
-          : { ...closed, resolvedAt: "2026-01-05T09:45:00.000Z" };
+          : { ...closed, resolvedAt: new Date("2026-01-05T09:45:00.000Z") };
       },
     },
   ],

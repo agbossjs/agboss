@@ -1,4 +1,4 @@
-import { compareText, isBeforeText } from "../../infrastructure/pause-record-instants.js";
+import { compareInstants, copyOf, instantOfText, isBefore } from "../../infrastructure/instants.js";
 import { definedFields } from "../../core/defined-fields.js";
 import { executionsFromRootOf, type FrameSpec } from "../context/frame.js";
 import { idempotencyKeyOf } from "../context/idempotency.js";
@@ -57,32 +57,35 @@ export function deadlineOf(
   expiresIn: number | undefined,
   now: Date,
 ): Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt"> {
-  const own =
-    expiresIn === undefined ? undefined : new Date(now.getTime() + expiresIn).toISOString();
+  const own = expiresIn === undefined ? undefined : new Date(now.getTime() + expiresIn);
   return boundedDeadlineOf(frame, own);
 }
 
+/** The instant a frame's deadline text names: only the canonical `toISOString()` text a frame is made with is read. */
+const frameInstantOf = (text: string | undefined): Date | undefined =>
+  text === undefined ? undefined : instantOfText(text, "execution deadline", "execution");
+
 /**
- * The deadline fields of a pause whose own deadline is `own` (an ISO instant: plain time added, or
+ * The deadline fields of a pause whose own deadline is `own` (an instant: plain time added, or
  * the calendar's answer for working time): the smallest of it, its run's and its quorum's (#945).
  * A tie goes to the run (D8), else to the quorum over the pause's own; `boundAt` is the smaller of
  * the run's and the quorum's: no extension passes it.
  */
 export function boundedDeadlineOf(
   frame: FrameSpec,
-  own: string | undefined,
+  own: Date | undefined,
 ): Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt"> {
-  const run = frame.execution.deadline?.at;
-  const quorum = frame.execution.quorumDeadlineAt;
+  const run = frameInstantOf(frame.execution.deadline?.at);
+  const quorum = frameInstantOf(frame.execution.quorumDeadlineAt);
   const bounds = [
     { at: run, bound: PauseExpiryBound.RunDeadline },
     { at: quorum, bound: PauseExpiryBound.Quorum },
     { at: own, bound: PauseExpiryBound.Pause },
   ].flatMap(({ at, bound }) => (at === undefined ? [] : [{ at, bound }]));
   // earliest first; on a tie the order above (run, quorum, own) decides
-  const [first] = [...bounds].sort((a, b) => compareText(a.at, b.at));
+  const [first] = [...bounds].sort((a, b) => compareInstants(a.at, b.at));
   if (first === undefined) return {};
-  const [boundAt] = [run, quorum].filter((at) => at !== undefined).sort(compareText);
+  const [boundAt] = [run, quorum].filter((at) => at !== undefined).sort(compareInstants);
   return {
     expiresAt: first.at,
     expiryBound: first.bound,
@@ -96,13 +99,13 @@ export function boundedDeadlineOf(
  * before its deadline), nor without a deadline or a `remindBefore`.
  */
 export function remindAtOf(
-  expiresAt: string | undefined,
+  expiresAt: Date | undefined,
   remindBefore: number | undefined,
   at: Date,
-): string | undefined {
+): Date | undefined {
   if (expiresAt === undefined || remindBefore === undefined) return undefined;
-  const remindAt = Date.parse(expiresAt) - remindBefore;
-  return remindAt > at.getTime() ? new Date(remindAt).toISOString() : undefined;
+  const remindAt = expiresAt.getTime() - remindBefore;
+  return remindAt > at.getTime() ? new Date(remindAt) : undefined;
 }
 
 /*
@@ -126,15 +129,13 @@ export async function instantAfter(span: TimeSpan, from: Date, add: AddWorkingTi
   return isWorkingDuration(span) ? add(from, span) : new Date(from.getTime() + span);
 }
 
-/** The ISO instant an `expiresIn` runs out after `from`; `undefined` without one. */
+/** The instant an `expiresIn` runs out after `from`; `undefined` without one. */
 export async function ownDeadlineOf(
   expiresIn: TimeSpan | undefined,
   from: Date,
   add: AddWorkingTime,
-): Promise<string | undefined> {
-  return expiresIn === undefined
-    ? undefined
-    : (await instantAfter(expiresIn, from, add)).toISOString();
+): Promise<Date | undefined> {
+  return expiresIn === undefined ? undefined : instantAfter(expiresIn, from, add);
 }
 
 /**
@@ -147,18 +148,17 @@ export async function ownDeadlineOf(
  */
 export async function reminderOf(
   at: Date,
-  deadline: { readonly expiresAt: string | undefined; readonly expiresIn: TimeSpan | undefined },
+  deadline: { readonly expiresAt: Date | undefined; readonly expiresIn: TimeSpan | undefined },
   remindBefore: TimeSpan | undefined,
   add: AddWorkingTime,
   remind?: RemindAt,
-): Promise<string | undefined> {
+): Promise<Date | undefined> {
   const { expiresAt, expiresIn } = deadline;
   if (expiresAt === undefined || remindBefore === undefined) return undefined;
   if (!isWorkingDuration(remindBefore)) return remindAtOf(expiresAt, remindBefore, at);
   if (expiresIn === undefined || !isWorkingDuration(expiresIn)) return undefined;
   if (remind !== undefined) {
-    const found = await remind({ at, expiresAt: new Date(expiresAt), expiresIn, remindBefore });
-    return found?.toISOString();
+    return remind({ at, expiresAt: copyOf(expiresAt), expiresIn, remindBefore });
   }
   return addedReminderOf(at, expiresAt, { expiresIn, remindBefore }, add);
 }
@@ -166,17 +166,15 @@ export async function reminderOf(
 /** The reminder a calendar that can only add places: `expiresIn − remindBefore` after `at`, in one unit. */
 async function addedReminderOf(
   at: Date,
-  expiresAt: string,
+  expiresAt: Date,
   spans: { readonly expiresIn: WorkingDuration; readonly remindBefore: WorkingDuration },
   add: AddWorkingTime,
-): Promise<string | undefined> {
+): Promise<Date | undefined> {
   const { expiresIn, remindBefore } = spans;
   const lead = expiresIn.amount - remindBefore.amount;
   if (expiresIn.unit !== remindBefore.unit || lead <= 0) return undefined;
   const remindAt = await add(at, { ...expiresIn, amount: lead });
-  return remindAt.getTime() > at.getTime() && isBeforeText(remindAt.toISOString(), expiresAt)
-    ? remindAt.toISOString()
-    : undefined;
+  return remindAt.getTime() > at.getTime() && isBefore(remindAt, expiresAt) ? remindAt : undefined;
 }
 
 /**
@@ -190,12 +188,12 @@ async function openingDeadlineOf(
   at: { readonly now: Date; readonly add: AddWorkingTime },
 ): Promise<{
   readonly deadline: Pick<PauseRecord, "expiresAt" | "expiryBound" | "boundAt">;
-  readonly maxExpiresAt: string | undefined;
+  readonly maxExpiresAt: Date | undefined;
 }> {
   const own = await ownDeadlineOf(expiresIn, at.now, at.add);
   // the target's total-wait limit caps the pause's own wait, never the run's or a quorum's bound
   const max = await ownDeadlineOf(target.escalationLimits?.maxTotalTimeout, at.now, at.add);
-  const isCapped = own !== undefined && max !== undefined && isBeforeText(max, own);
+  const isCapped = own !== undefined && max !== undefined && isBefore(max, own);
   return { deadline: boundedDeadlineOf(frame, isCapped ? max : own), maxExpiresAt: max };
 }
 
@@ -237,7 +235,7 @@ export async function newRecordOf(
   const { assignees } = hooks;
   const channel = await choose({
     ...definedFields({
-      expiresAt: deadline.expiresAt === undefined ? undefined : new Date(deadline.expiresAt),
+      expiresAt: deadline.expiresAt === undefined ? undefined : copyOf(deadline.expiresAt),
       assignees,
     }),
     trail: [openedEntryOf(target, undefined, now, deadline.expiresAt, assignees)],
@@ -254,9 +252,9 @@ export async function newRecordOf(
     trail: [openedEntryOf(target, channel, now, deadline.expiresAt, assignees)],
     status: PauseStatus.Pending,
     isSent: false,
-    askedAt: now.toISOString(),
+    askedAt: now,
     // the limits are materialized here and read from the record from now on (#1307, Q-D)
-    firstAskedAt: now.toISOString(),
+    firstAskedAt: now,
     escalationLimits: countsOf(target),
     ...deadline,
     ...definedFields({

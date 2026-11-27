@@ -21,16 +21,16 @@ import {
 /** #910 I3: extend, remind and close-untaken — each only in its own state, once. */
 type Instances = ContractInstances<PausedExecutionRepository>;
 const R = NO_RECIPIENTS;
-const LATER = "2026-01-05T12:00:00.000Z";
+const LATER = new Date("2026-01-05T12:00:00.000Z");
 /** The deadline of `expiringPauseOf`: what a caller that read the pause holds as the current one. */
-const FROM = DEADLINE.toISOString();
+const FROM = DEADLINE;
 
 export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
   {
     name: "extend only while Pending and before `expiresAt`; never to a past time",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const extend = async (at: Date, expiresAt: string) =>
+      const extend = async (at: Date, expiresAt: Date) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
@@ -39,13 +39,15 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
           R,
         );
 
-      expect(await extend(BEFORE_DEADLINE, BEFORE_DEADLINE.toISOString())).toBeUndefined();
+      expect(await extend(BEFORE_DEADLINE, BEFORE_DEADLINE)).toBeUndefined();
       expect(await extend(DEADLINE, LATER)).toBeUndefined();
       const moved = await extend(BEFORE_DEADLINE, LATER);
 
       expect(moved).toMatchObject({ expiresAt: LATER, expiryBound: PauseExpiryBound.Pause });
       expect(moved?.remindAt).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(LATER);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(
+        LATER,
+      );
     },
   },
   {
@@ -142,7 +144,7 @@ export const EXTEND_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         status: PauseStatus.Cancelled,
         resolution: PauseResolution.TreeEnded,
         answer: APPROVED_BY_MANAGER,
-        resolvedAt: DEADLINE.toISOString(),
+        resolvedAt: DEADLINE,
       });
       expect(again).toBeUndefined();
     },

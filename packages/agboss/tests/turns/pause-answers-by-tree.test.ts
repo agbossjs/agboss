@@ -45,14 +45,14 @@ describe("#676: the pause answer log, one answer per pause of a tree", () => {
       tenantId: "acme",
       rootExecutionId: "new-root",
       stepKey: STEP_KEY,
-      askedAt: "2026-02-01T09:00:00.000Z",
+      askedAt: new Date("2026-02-01T09:00:00.000Z"),
       record: "another tree's approval",
     });
     await store.appendPauseAnswer({
       tenantId: "acme",
       rootExecutionId: "old-root",
       stepKey: STEP_KEY,
-      askedAt: "2026-02-01T09:00:00.000Z",
+      askedAt: new Date("2026-02-01T09:00:00.000Z"),
       record: "the same pause again",
     });
 

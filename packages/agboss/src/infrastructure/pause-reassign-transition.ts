@@ -8,11 +8,13 @@ import {
   type PauseRecipients,
   type PauseReplacement,
 } from "./pause-notices.js";
-import type { PauseRecord, PauseTrailRecord } from "./pause-record.js";
+import type { PauseTrailEntry } from "../channels/pause-contexts.js";
+import type { PauseRecord } from "./pause-record.js";
+import { assertValidInstant } from "./instants.js";
 import { isWithinCap, narrowedLimits } from "./pause-limits-stored.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
 import { isSeenAs } from "./pause-seen.js";
-import { closing, isDueAt, isOpenAt, type PauseChange } from "./pause-transitions.js";
+import { closing, isDueAt, isOpenAt, type PauseTransition } from "./pause-transitions.js";
 
 /**
  * `Pending → Cancelled / Reassigned` and the replacement made (#946), or the pause changed in place
@@ -73,13 +75,13 @@ const channelOnly = (recipients: PauseRecipients): PauseRecipients => ({
 function inPlaceEntryOf(
   pause: PauseRecord,
   change: PauseInPlaceReassignment,
-  expiresAt: string | undefined,
+  expiresAt: Date | undefined,
   at: Date,
-): PauseTrailRecord {
+): PauseTrailEntry {
   const { assignees, actor, reason } = change;
   return {
     action: "reassigned",
-    at: at.toISOString(),
+    at,
     ...(actor === undefined ? {} : { actor }),
     target: pause.target,
     ...(pause.channel === undefined ? {} : { channel: pause.channel }),
@@ -128,7 +130,7 @@ function inPlaceNotices(
   if (!before.isSent) return [];
   const notice = {
     kind: PauseNoticeKind.Reassigned,
-    writtenAt: at.toISOString(),
+    writtenAt: at,
     ...(after.expiresAt === undefined ? {} : { expiresAt: after.expiresAt }),
     ...(before.expiresAt === undefined ? {} : { previousExpiresAt: before.expiresAt }),
     ...(after.assignees === undefined ? {} : { assignees: after.assignees }),
@@ -150,7 +152,7 @@ function inPlaceChange(
   change: PauseInPlaceReassignment,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange {
+): PauseTransition {
   const after = reassignedInPlace(pause, change, at);
   return { pause: after, notices: inPlaceNotices(pause, after, at, recipients) };
 }
@@ -162,7 +164,7 @@ function replacementChange(
   takenStepKeys: ReadonlySet<string>,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange {
+): PauseTransition {
   const stepKey = replacementStepKeyOf(pause, takenStepKeys);
   return {
     ...closing(pause, reassignedPause(pause, replacement.pauseId, at), at, channelOnly(recipients)),
@@ -176,7 +178,12 @@ export function reassignChange(
   takenStepKeys: ReadonlySet<string>,
   at: Date,
   recipients: PauseRecipients,
-): PauseChange | undefined {
+): PauseTransition | undefined {
+  assertValidInstant(at, "at");
+  assertValidInstant(change.due?.expiresAt, "due.expiresAt");
+  assertValidInstant(change.due?.remindAt, "due.remindAt");
+  assertValidInstant(change.timeout?.expiresAt, "timeout.expiresAt");
+  assertValidInstant(change.timeout?.remindAt, "timeout.remindAt");
   if (!isApplicable(pause, change, at)) return undefined;
   return isInPlace(change)
     ? inPlaceChange(pause, change, at, recipients)

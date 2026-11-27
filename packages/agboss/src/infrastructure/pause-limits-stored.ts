@@ -1,3 +1,5 @@
+import { earliestOf, isAtOrBefore } from "./instants.js";
+
 /**
  * The limits a pause carries and how a move to another target narrows them (#1307, Q-D): each is the
  * smaller of what the record holds and what the destination offers — never larger, so a laxer target
@@ -15,16 +17,16 @@ export interface PauseEscalationCounts {
 
 /** What a destination target offers: its counts and its total-wait instant, counted from the first asking. */
 export interface PauseLimitsOffer {
-  /** The latest instant the destination lets a pause wait until (ISO 8601); absent: none. */
-  readonly maxExpiresAt?: string | undefined;
+  /** The latest instant the destination lets a pause wait until; absent: none. */
+  readonly maxExpiresAt?: Date | undefined;
   /** The destination's counts; absent: none. */
   readonly escalationLimits?: PauseEscalationCounts | undefined;
 }
 
 /** The limits a record carries: its `maxExpiresAt` and `escalationLimits`. */
 export interface PauseLimits {
-  /** The latest instant the pause may wait until (ISO 8601); absent: no limit on the total wait. */
-  readonly maxExpiresAt?: string | undefined;
+  /** The latest instant the pause may wait until; absent: no limit on the total wait. */
+  readonly maxExpiresAt?: Date | undefined;
   /** The counts its chain of custody may hold. */
   readonly escalationLimits: PauseEscalationCounts;
 }
@@ -38,19 +40,13 @@ const smallestCount = (...counts: readonly (number | undefined)[]): number | und
   return given.length === 0 ? undefined : Math.min(...given);
 };
 
-/** The earlier of the ISO 8601 instants given (`toISOString()` texts sort as instants); `undefined`: none was given. */
-const earliestInstant = (...instants: readonly (string | undefined)[]): string | undefined =>
-  defined(instants).sort()[0];
-
 /**
  * Whether a deadline a change sets keeps the cap: with a `maxExpiresAt`, only a deadline at or before
  * it does — none at all is past any cap. The store judges it atomically with the write, over the cap
  * its own record holds (narrowed by the move), whatever the caller planned.
  */
-export const isWithinCap = (
-  maxExpiresAt: string | undefined,
-  expiresAt: string | undefined,
-): boolean => maxExpiresAt === undefined || (expiresAt !== undefined && expiresAt <= maxExpiresAt);
+export const isWithinCap = (maxExpiresAt: Date | undefined, expiresAt: Date | undefined): boolean =>
+  maxExpiresAt === undefined || (expiresAt !== undefined && isAtOrBefore(expiresAt, maxExpiresAt));
 
 /** The limits of `pause` after taking `offer` (none: unchanged): each field the smaller of the two. */
 export function narrowedLimits(pause: PauseLimits, offer?: PauseLimitsOffer): PauseLimits {
@@ -58,7 +54,7 @@ export function narrowedLimits(pause: PauseLimits, offer?: PauseLimitsOffer): Pa
   const offered = offer?.escalationLimits;
   const maxExtensions = smallestCount(held.maxExtensions, offered?.maxExtensions);
   const maxReassignments = smallestCount(held.maxReassignments, offered?.maxReassignments);
-  const maxExpiresAt = earliestInstant(pause.maxExpiresAt, offer?.maxExpiresAt);
+  const maxExpiresAt = earliestOf(pause.maxExpiresAt, offer?.maxExpiresAt);
   return {
     ...(maxExpiresAt === undefined ? {} : { maxExpiresAt }),
     escalationLimits: {

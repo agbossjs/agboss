@@ -399,7 +399,7 @@ describe("#943 AC1: listing pauses", () => {
         threadId: `thread-${id}`,
         ...extra,
       });
-    const soon = "2026-01-05T10:00:00.000Z";
+    const soon = new Date("2026-01-05T10:00:00.000Z");
     await stored("p1", { assignees: ["ann", "bob"], externalRef: "JIRA-1", expiresAt: soon });
     await stored("p2", { assignees: ["bob"], externalRef: "JIRA-2" });
     await stored("p3", { assignees: ["ann"], externalRef: "JIRA-1" }, "tenant-b");

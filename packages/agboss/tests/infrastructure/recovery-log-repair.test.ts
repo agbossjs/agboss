@@ -237,7 +237,7 @@ describe("#946: a reassigned pause writes no entry of its own", () => {
       ...pauseOf("pause-a"),
       status: PauseStatus.Cancelled,
       resolution: PauseResolution.Reassigned,
-      resolvedAt: CLOSED.toISOString(),
+      resolvedAt: CLOSED,
       reassignedTo: "pause-b",
     };
     const store = {

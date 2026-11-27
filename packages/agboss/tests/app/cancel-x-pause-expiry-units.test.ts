@@ -63,9 +63,9 @@ const pause = (overrides: Record<string, unknown> = {}) => ({
   input: {},
   toolCall: { callId: "c-1", tool: "refund", summary: "refund" },
   trail: [],
-  askedAt: "2026-01-01T00:00:00.000Z",
-  firstAskedAt: "2026-01-01T00:00:00.000Z",
-  expiresAt: "2026-01-01T11:00:00.000Z",
+  askedAt: new Date("2026-01-01T00:00:00.000Z"),
+  firstAskedAt: new Date("2026-01-01T00:00:00.000Z"),
+  expiresAt: new Date("2026-01-01T11:00:00.000Z"),
   expiryBound: PauseExpiryBound.Pause,
   ...overrides,
 });

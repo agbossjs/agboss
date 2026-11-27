@@ -24,7 +24,7 @@ import { PauseRespondent } from "../../src/pause/respondent.js";
 import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const NOW = new Date("2026-01-01T00:00:00.000Z");
-const at = (delay: number): string => new Date(NOW.getTime() + delay).toISOString();
+const at = (delay: number): Date => new Date(NOW.getTime() + delay);
 const frameWith = (deadline: number | undefined) => {
   const frame = testFrame();
   return deadline === undefined
@@ -33,7 +33,7 @@ const frameWith = (deadline: number | undefined) => {
         ...frame,
         execution: {
           ...frame.execution,
-          deadline: { at: at(deadline), deadline: deadline as never },
+          deadline: { at: at(deadline).toISOString(), deadline: deadline as never },
         },
       };
 };
@@ -126,8 +126,8 @@ describe("#941 D9: a re-entry finds the record as made", () => {
       testFrame().execution.executionId,
     );
 
-    expect(first?.expiresAt).toBe(new Date(clock.now().getTime() + hours(24)).toISOString());
-    expect(again?.expiresAt).toBe(first?.expiresAt);
+    expect(first?.expiresAt).toEqual(new Date(clock.now().getTime() + hours(24)));
+    expect(again?.expiresAt).toEqual(first?.expiresAt);
     expect(again?.pauseId).toBe(first?.pauseId);
   });
 

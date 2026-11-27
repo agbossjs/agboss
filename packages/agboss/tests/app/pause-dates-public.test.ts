@@ -27,6 +27,15 @@ const manager = { actor: { id: "manager-17" } };
 
 beforeEach(resetTold);
 
+/** Sets to the epoch every Date among `expiresAt` and `previousExpiresAt` of the objects: what user code may do with what it was handed. */
+const moveDatesOf = (handed: readonly (object | undefined)[]): void => {
+  for (const thing of handed)
+    for (const key of ["expiresAt", "previousExpiresAt"]) {
+      const value: unknown = thing === undefined ? undefined : Reflect.get(thing, key);
+      if (value instanceof Date) value.setTime(0);
+    }
+};
+
 const pauseIdOf = (): string => told.sent[0]?.pauseId ?? "";
 
 const recordOf = async (app: TestApp) => {
@@ -154,7 +163,7 @@ describe("P6a: compare-and-set and ceilings by instant", () => {
     expect(second.previousExpiresAt).not.toBe(first.expiresAt);
     expect(second.previousExpiresAt?.getTime()).toBe(first.expiresAt?.getTime());
     expect(second.expiresAt?.getTime()).toBe(clock.now().getTime() + hours(6));
-    expect((await recordOf(app)).expiresAt).toBe(second.expiresAt?.toISOString());
+    expect((await recordOf(app)).expiresAt).toEqual(second.expiresAt);
   });
 
   test("the receivers of a change are told Dates: previousExpiresAt the deadline it had, expiresAt the one it has", async ({
@@ -183,6 +192,34 @@ describe("P6a: compare-and-set and ceilings by instant", () => {
     }
   });
 
+  test("a listener, a hook and a caller that move the Dates they were handed move nothing the store holds: a change from a fresh read still wins", async ({
+    app,
+    clock,
+  }) => {
+    const paused = await execute(app, managerFlow.start, ORDER, THREAD);
+    await clock.advance(hours(1));
+    const changed = await app.setPauseTimeout(
+      { pauseId: pauseIdOf(), timeout: hours(24) },
+      manager,
+    );
+    await until(() => told.raw.length === 2);
+    await clock.advance(seconds(30));
+    const stored = (await recordOf(app)).expiresAt;
+
+    // what a listener does with its event, a caller with the result it got
+    moveDatesOf([
+      ...told.raw,
+      changed,
+      paused.pending[0],
+      (await app.listPauses({ tenantId: "default" })).items[0],
+    ]);
+
+    expect((await recordOf(app)).expiresAt?.getTime()).toBe(stored?.getTime());
+    const next = await app.setPauseTimeout({ pauseId: pauseIdOf(), timeout: hours(6) }, manager);
+    expect(next.previousExpiresAt?.getTime()).toBe(stored?.getTime());
+    expect((await recordOf(app)).expiresAt).toEqual(next.expiresAt);
+  });
+
   test("a deadline shortened to the very instant the clock shows is refused, one a millisecond later is taken", async ({
     app,
     clock,
@@ -196,7 +233,7 @@ describe("P6a: compare-and-set and ceilings by instant", () => {
       expiresAt: new Date(clock.now().getTime() + hours(2)),
     });
     const record = await recordOf(app);
-    expect(record.expiresAt).toBe(new Date(clock.now().getTime() + hours(2)).toISOString());
+    expect(record.expiresAt).toEqual(new Date(clock.now().getTime() + hours(2)));
     // the reminder two hours before a two-hour deadline is not after the change: none
     expect(record.remindAt).toBeUndefined();
   });

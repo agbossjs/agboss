@@ -22,7 +22,7 @@ import {
   StoredToolCall,
 } from "./stored-record-parts.js";
 import { StoredPauseToolCall } from "./stored-pause.js";
-import { readStored, StoredComponent, StoredTrailEntryDated } from "./stored-step.js";
+import { readStored, StoredComponent, StoredInstant, StoredTrailEntry } from "./stored-step.js";
 import { PauseRespondent } from "../pause/respondent.js";
 
 /**
@@ -122,7 +122,9 @@ const StoredWaiting = z
     toolCall: StoredPauseToolCall.optional(),
     assignees: z.array(text).optional(),
     externalRef: text.optional(),
-    trail: z.array(StoredTrailEntryDated),
+    // the deadline it was asked with, as `JSON.stringify` wrote it (`toISOString()`); a pause without one has none
+    expiresAt: StoredInstant.optional(),
+    trail: z.array(StoredTrailEntry),
   })
   .transform((stored, context): WaitingPause => {
     const { respondent, step, toolCall } = stored;
@@ -137,6 +139,7 @@ const StoredWaiting = z
       input: stored.input,
       ...(stored.assignees === undefined ? {} : { assignees: stored.assignees }),
       ...(stored.externalRef === undefined ? {} : { externalRef: stored.externalRef }),
+      ...(stored.expiresAt === undefined ? {} : { expiresAt: stored.expiresAt }),
       trail: stored.trail,
     };
     if (stored.kind === PauseKind.ExternalTask && toolCall === undefined)

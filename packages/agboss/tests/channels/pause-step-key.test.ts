@@ -114,7 +114,7 @@ describe("#946: the audit key of a pause", () => {
   it("a replacement's record is the step's own key; an ordinary key that ends in ~r1 is kept", () => {
     const ordinary = {
       ...pauseOf("p-1", "run-1:agent:1:call~r1"),
-      resolvedAt: "2026-01-05T09:00:00.000Z",
+      resolvedAt: new Date("2026-01-05T09:00:00.000Z"),
     };
     const replacement = { ...ordinary, stepKey: "run-1:agent:1:call~r1~r2", reassignedFrom: "p-0" };
 

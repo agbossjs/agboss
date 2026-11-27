@@ -86,7 +86,7 @@ describe("#941 I17: an any-instance child's pause expires through its root", () 
     const [pause] = await pauses.findAllByTenantIdAndRootExecutionId("acme", paused.executionId);
     expect(pause).toMatchObject({
       resolution: PauseResolution.Expired,
-      expiresAt,
+      expiresAt: new Date(expiresAt),
       executionId: paused.pending[0]?.childExecutionId,
     });
     await until(async () => {

@@ -60,7 +60,9 @@ try {
     const store = app.resolve(PausedExecutionRepository);
     const dump: Record<string, string | undefined> = {};
     for (const pauseId of JSON.parse(first) as string[])
-      dump[pauseId] = (await store.findByTenantIdAndPauseId("default", pauseId))?.expiresAt;
+      dump[pauseId] = (
+        await store.findByTenantIdAndPauseId("default", pauseId)
+      )?.expiresAt?.toISOString();
     await report(dump);
   }
 } finally {

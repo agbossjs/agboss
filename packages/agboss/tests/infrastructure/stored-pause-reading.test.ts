@@ -79,7 +79,10 @@ describe("a store's parsed JSON is read through the core", () => {
       closedFirst,
     });
 
-    expect(pause).toMatchObject({ expiresAt: "2026-01-06T00:00:00.000Z", closedFirst });
+    expect(pause).toMatchObject({
+      expiresAt: new Date("2026-01-06T00:00:00.000Z"),
+      closedFirst: { resolution: "replied", resolvedAt: new Date("2026-01-05T09:05:00.000Z") },
+    });
   });
 
   it("the limits it was opened under are read as written: the first asking, the cap, the counts", () => {
@@ -91,8 +94,8 @@ describe("a store's parsed JSON is read through the core", () => {
     });
 
     expect(pause).toMatchObject({
-      firstAskedAt: "2026-01-04T09:00:00.000Z",
-      maxExpiresAt: "2026-01-09T09:00:00.000Z",
+      firstAskedAt: new Date("2026-01-04T09:00:00.000Z"),
+      maxExpiresAt: new Date("2026-01-09T09:00:00.000Z"),
       escalationLimits: { maxExtensions: 2, maxReassignments: 0 },
     });
     expect(pauseRecordOfJson(PAUSE)).not.toHaveProperty("maxExpiresAt");
@@ -128,6 +131,104 @@ describe("a store's parsed JSON is read through the core", () => {
       respondent: PauseRespondent.Owner,
       actor: { id: "alice" },
     });
+  });
+});
+
+describe("#1307, P6b: the times of a pause are read as Dates, in the canonical spelling only", () => {
+  it("every time of the JSON a store kept is a Date of the very instant, the chain's too", () => {
+    const pause = pauseRecordOfJson({
+      ...PAUSE,
+      status: "pending",
+      resolution: undefined,
+      resolvedAt: undefined,
+      answer: undefined,
+      expiresAt: "2026-01-06T00:00:00.123Z",
+      remindAt: "2026-01-05T23:00:00.456Z",
+      boundAt: "2026-01-06T01:00:00.789Z",
+      trail: [
+        {
+          action: "opened",
+          at: "2026-01-05T09:00:00.001Z",
+          target: "t",
+          expiresAt: "2026-01-06T00:00:00.123Z",
+        },
+      ],
+    });
+
+    for (const at of [
+      pause.askedAt,
+      pause.firstAskedAt,
+      pause.expiresAt,
+      pause.remindAt,
+      pause.boundAt,
+    ])
+      expect(at).toBeInstanceOf(Date);
+    expect(pause.expiresAt?.getTime()).toBe(Date.parse("2026-01-06T00:00:00.123Z"));
+    expect(pause.remindAt?.getTime()).toBe(Date.parse("2026-01-05T23:00:00.456Z"));
+    expect(pause.boundAt?.getTime()).toBe(Date.parse("2026-01-06T01:00:00.789Z"));
+    expect(pause.trail[0]?.at.getTime()).toBe(Date.parse("2026-01-05T09:00:00.001Z"));
+    expect(pause.trail[0]?.expiresAt?.getTime()).toBe(Date.parse("2026-01-06T00:00:00.123Z"));
+  });
+
+  it.each([
+    "2026-01-05T09:00:00Z",
+    "2026-01-05T11:00:00.000+02:00",
+    "2026-01-05T09:00:00.000",
+    "2026-01-05",
+    "+010000-01-01T00:00:00.000Z",
+    "tomorrow",
+    "",
+  ])(
+    "a time spelled %j is unreadable in every field of the record, and the value is never echoed",
+    (text) => {
+      const fields: Record<string, (value: string) => Record<string, unknown>> = {
+        askedAt: (value) => ({ askedAt: value }),
+        firstAskedAt: (value) => ({ firstAskedAt: value }),
+        resolvedAt: (value) => ({ resolvedAt: value }),
+        expiresAt: (value) => ({ expiresAt: value }),
+        remindAt: (value) => ({ remindAt: value }),
+        boundAt: (value) => ({ boundAt: value }),
+        maxExpiresAt: (value) => ({ maxExpiresAt: value }),
+        "closedFirst.resolvedAt": (value) => ({
+          closedFirst: { resolution: "replied", resolvedAt: value },
+        }),
+        "trail.0.at": (value) => ({ trail: [{ action: "opened", at: value, target: "t" }] }),
+        "trail.0.expiresAt": (value) => ({
+          trail: [
+            { action: "opened", at: "2026-01-05T09:00:00.000Z", target: "t", expiresAt: value },
+          ],
+        }),
+      };
+
+      for (const [field, change] of Object.entries(fields)) {
+        const read = (): unknown => pauseRecordOfJson({ ...PAUSE, ...change(text) });
+
+        expect(read, field).toThrow(StoreError.UnreadableRecord);
+        expect(read, field).toThrow(new RegExp(field.replace(".", "\\.")));
+        if (text.length > 3) expect(read, field).not.toThrow(text);
+      }
+    },
+  );
+
+  it("an answer-log entry's times are Dates and read in the canonical spelling only", () => {
+    const entry = pauseAnswerRecordOfValue({
+      ...answerLogEntry,
+      askedAt: "2026-01-05T09:00:00.250Z",
+      resolvedAt: "2026-01-05T09:05:00.500Z",
+      trail: [{ action: "opened", at: "2026-01-05T09:00:00.250Z", target: "t" }],
+    });
+
+    expect(entry.askedAt.getTime()).toBe(Date.parse("2026-01-05T09:00:00.250Z"));
+    expect(entry.resolvedAt?.getTime()).toBe(Date.parse("2026-01-05T09:05:00.500Z"));
+    expect(entry.trail[0]?.at).toBeInstanceOf(Date);
+    for (const change of [
+      { askedAt: "2026-01-05T09:00:00Z" },
+      { resolvedAt: "2026-01-05T11:05:00.000+02:00" },
+      { trail: [{ action: "opened", at: "2026-01-05 09:00:00.000Z", target: "t" }] },
+    ])
+      expect(() => pauseAnswerRecordOfValue({ ...answerLogEntry, ...change })).toThrow(
+        StoreError.UnreadableRecord,
+      );
   });
 });
 

@@ -79,8 +79,8 @@ async function bothHistories(
 const untakenAt = {
   kind: "answer-not-taken",
   reason: PauseClosedReason.TreeEnded,
-  closedAt: LATER.toISOString(),
-  writtenAt: LATER.toISOString(),
+  closedAt: LATER,
+  writtenAt: LATER,
 };
 
 export const LATE_CLOSE_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
@@ -95,8 +95,8 @@ export const LATE_CLOSE_CASES: readonly ContractCase<PausedExecutionRepository>[
       const closed = {
         kind: "closed",
         reason: PauseClosedReason.Expired,
-        closedAt: DEADLINE.toISOString(),
-        writtenAt: AFTER_DEADLINE.toISOString(),
+        closedAt: DEADLINE,
+        writtenAt: AFTER_DEADLINE,
       };
       expect(sentFirst?.slice(-2)).toMatchObject([closed, untakenAt]);
       expect(lateSent?.slice(-2)).toMatchObject([closed, untakenAt]);
@@ -115,8 +115,8 @@ export const LATE_CLOSE_CASES: readonly ContractCase<PausedExecutionRepository>[
       const closed = {
         kind: "closed",
         reason: PauseClosedReason.Answered,
-        closedAt: MID.toISOString(),
-        writtenAt: MID.toISOString(),
+        closedAt: MID,
+        writtenAt: MID,
       };
       expect(sentFirst?.slice(-2)).toMatchObject([closed, untakenAt]);
       expect(lateSent).toEqual(sentFirst);
@@ -147,10 +147,10 @@ export const LATE_CLOSE_CASES: readonly ContractCase<PausedExecutionRepository>[
       expect(again).toBeUndefined();
       expect(closed).toMatchObject({
         resolution: PauseResolution.Cancelled,
-        resolvedAt: LATER.toISOString(),
+        resolvedAt: LATER,
         closedFirst: {
           resolution: PauseResolution.DecidedOnExpiry,
-          resolvedAt: AFTER_DEADLINE.toISOString(),
+          resolvedAt: AFTER_DEADLINE,
         },
       });
       expect(await first.findByTenantIdAndPauseId("default", "pause-a")).toEqual(closed);

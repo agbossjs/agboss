@@ -5,7 +5,7 @@
 export { createSqliteTurnStore, sharedTurnStore, type ThreadIds } from "./sqlite-store.js";
 /** The Turn database itself (opened and migrated), for stores that share it (paused runs, #201). */
 export { openTurnDatabase } from "./schema.js";
-export { pauseAnswerEntryOf } from "./writes.js";
+export { pauseAnswerEntryOf } from "./pause-answer-writes.js";
 // the status history of a thread (#1341d)
 export {
   recordTransitionOf,

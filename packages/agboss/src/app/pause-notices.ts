@@ -9,7 +9,7 @@ import {
 } from "../infrastructure/pause-record.js";
 import { askedOf, deadlineOf, listenedOf, maskedActor } from "./pause-notice-shape.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
-import { instantOf } from "../infrastructure/pause-record-instants.js";
+import { copyOf } from "../infrastructure/instants.js";
 import type {
   ChannelSenderClosed,
   ChannelSenderExpiring,
@@ -108,7 +108,7 @@ export async function channelClosedOf(sources: EventSources): Promise<ChannelSen
   const { pause, notice, deliveryId } = sources;
   const reason = notice.reason ?? PauseClosedReason.Cancelled;
   const base = { deliveryId, pauseId: pause.pauseId, ...askedOf(pause), reason };
-  const closedAt = instantOf(notice.closedAt ?? notice.writtenAt);
+  const closedAt = copyOf(notice.closedAt ?? notice.writtenAt);
   if (!hasAnswer(reason, pause)) return { ...base, closedAt };
   const answer = await sources.masked(pause.answer?.decision);
   const by = reason === PauseClosedReason.Answered ? pause.answer?.actor : undefined;
@@ -124,7 +124,7 @@ export async function channelNotTakenOf(sources: EventSources): Promise<ChannelS
     pauseId: pause.pauseId,
     ...askedOf(pause),
     reason: untakenReasonOf(notice),
-    at: instantOf(notice.closedAt ?? notice.writtenAt),
+    at: copyOf(notice.closedAt ?? notice.writtenAt),
     ...(by === undefined ? {} : { actor: by }),
     answer: await sources.masked(pause.answer?.decision),
   };
@@ -159,8 +159,8 @@ export async function listenerBaseOf(
     ...(pause.channel === undefined ? {} : { channel: pause.channel }),
     respondent: pauseRespondentOf(pause),
     ...(await listenedOf(pause, sources.masked)),
-    askedAt: instantOf(pause.askedAt),
-    ...(expiresAt === undefined ? {} : { expiresAt: instantOf(expiresAt) }),
+    askedAt: copyOf(pause.askedAt),
+    ...(expiresAt === undefined ? {} : { expiresAt: copyOf(expiresAt) }),
   };
 }
 
@@ -178,7 +178,7 @@ export async function listenerClosedOf(
   const { pause, notice } = sources;
   const reason = notice.reason ?? PauseClosedReason.Cancelled;
   const base = await listenerBaseOf(sources, includePauseIds);
-  const closed = { ...base, reason, closedAt: instantOf(notice.closedAt ?? notice.writtenAt) };
+  const closed = { ...base, reason, closedAt: copyOf(notice.closedAt ?? notice.writtenAt) };
   if (!hasAnswer(reason, pause)) return closed;
   const by = reason === PauseClosedReason.Answered ? pause.answer?.actor : undefined;
   const answer = await sources.masked(pause.answer?.decision);
@@ -199,7 +199,7 @@ export async function listenerNotTakenOf(
   return {
     ...(await listenerBaseOf(sources, includePauseIds)),
     reason: untakenReasonOf(notice),
-    at: instantOf(notice.closedAt ?? notice.writtenAt),
+    at: copyOf(notice.closedAt ?? notice.writtenAt),
     ...(by === undefined ? {} : { actor: await maskedActor(sources, by) }),
     answer: await sources.masked(pause.answer?.decision),
   };

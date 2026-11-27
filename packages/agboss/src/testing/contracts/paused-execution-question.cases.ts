@@ -60,7 +60,7 @@ export const QUESTION_PAUSE_CASES: readonly ContractCase<PausedExecutionReposito
         status: PauseStatus.Taken,
         answer: QUESTION_ANSWER,
         resolution: PauseResolution.Replied,
-        resolvedAt: NINE.toISOString(),
+        resolvedAt: NINE,
       });
     },
   },

@@ -1,4 +1,7 @@
 import type { Milliseconds } from "../units/index.js";
+import { isAtOrBefore, isBefore } from "./instants.js";
+import { stepOf } from "./in-memory-step.js";
+import { copiedPause } from "./pause-copies.js";
 import type { InMemoryPauseBook } from "./in-memory-pause-book.js";
 import { InMemoryPausedRunRepository } from "./in-memory-paused-runs.js";
 import type {
@@ -15,30 +18,15 @@ import type {
 import { isExpiredPause, PauseStatus, type PauseRecord } from "./pause-record.js";
 import {
   assertListing,
-  compareText,
   assertScanLimit,
   firstByTime,
   inScope,
-  NEVER,
+  isPast,
   pageOf,
   seqOfCursor,
   type SequencedPause,
   type Timed,
 } from "./pause-scans.js";
-
-/** Whether a pause at `time` comes after the keyset `after` in `(time, tenantId, pauseId)` order. */
-const isPast = (
-  after: PauseScanAfter,
-  time: string,
-  pause: Pick<PauseRecord, "tenantId" | "pauseId">,
-): boolean =>
-  (compareText(time, after.at) ||
-    compareText(pause.tenantId, after.tenantId) ||
-    compareText(pause.pauseId, after.pauseId)) > 0;
-
-/** Whether a pause is open: `Pending` or `Resolved`. */
-const isOpen = (pause: PauseRecord): boolean =>
-  pause.status === PauseStatus.Pending || pause.status === PauseStatus.Resolved;
 
 /**
  * The reads of the in-memory pause store and its mailboxes — the scans, the retention's
@@ -56,9 +44,7 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     at: Date,
     recipients: PauseRecipients,
   ): Promise<boolean> {
-    return Promise.resolve(
-      this.book.noticeOnce(tenantId, pauseId, { kind, facts, at, recipients }),
-    );
+    return stepOf(() => this.book.noticeOnce(tenantId, pauseId, { kind, facts, at, recipients }));
   }
 
   async findPendingByExpiresAtBefore(
@@ -66,16 +52,7 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     limit: number,
     after?: PauseScanAfter,
   ): Promise<readonly PauseRecord[]> {
-    assertScanLimit(limit);
-    const due = this.pauses().flatMap((pause): Timed[] => {
-      const time = pause.expiresAt ?? NEVER;
-      return pause.status === PauseStatus.Pending &&
-        time <= at.toISOString() &&
-        (after === undefined || isPast(after, time, pause))
-        ? [{ time, pause }]
-        : [];
-    });
-    return Promise.resolve(firstByTime(due, limit));
+    return Promise.resolve(this.#dueBy("expiresAt", at, limit, after));
   }
 
   async findPendingByRemindAtBefore(
@@ -83,16 +60,27 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     limit: number,
     after?: PauseScanAfter,
   ): Promise<readonly PauseRecord[]> {
+    return Promise.resolve(this.#dueBy("remindAt", at, limit, after));
+  }
+
+  /** The first `limit` pending pauses whose `column` time is at or before `at`, past the keyset `after`. */
+  #dueBy(
+    column: "expiresAt" | "remindAt",
+    at: Date,
+    limit: number,
+    after: PauseScanAfter | undefined,
+  ): readonly PauseRecord[] {
     assertScanLimit(limit);
     const due = this.pauses().flatMap((pause): Timed[] => {
-      const time = pause.remindAt ?? NEVER;
+      const time = pause[column];
       return pause.status === PauseStatus.Pending &&
-        time <= at.toISOString() &&
+        time !== undefined &&
+        isAtOrBefore(time, at) &&
         (after === undefined || isPast(after, time, pause))
         ? [{ time, pause }]
         : [];
     });
-    return Promise.resolve(firstByTime(due, limit));
+    return firstByTime(due, limit).map(copiedPause);
   }
 
   async findPendingUnsentReassignedBefore(
@@ -101,22 +89,28 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     after?: PauseScanAfter,
   ): Promise<readonly PauseRecord[]> {
     assertScanLimit(limit);
-    const before = cutoff.toISOString();
     const unsent = this.pauses().flatMap((pause): Timed[] =>
       pause.status === PauseStatus.Pending &&
       !pause.isSent &&
       pause.reassignedFrom !== undefined &&
-      pause.askedAt < before &&
+      isBefore(pause.askedAt, cutoff) &&
       (after === undefined || isPast(after, pause.askedAt, pause))
         ? [{ time: pause.askedAt, pause }]
         : [],
     );
-    return Promise.resolve(firstByTime(unsent, limit));
+    return Promise.resolve(firstByTime(unsent, limit).map(copiedPause));
   }
 
   async findOpenAfter(after: string | undefined, limit: number): Promise<PausePage> {
     assertScanLimit(limit);
-    return Promise.resolve(this.#pageAfter(after, limit, ({ pause }) => isOpen(pause)));
+    return Promise.resolve(
+      this.#pageAfter(
+        after,
+        limit,
+        ({ pause }) =>
+          pause.status === PauseStatus.Pending || pause.status === PauseStatus.Resolved,
+      ),
+    );
   }
 
   async findPageByTenantId(
@@ -225,9 +219,10 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     wanted: (entry: SequencedPause) => boolean,
   ): PausePage {
     const from = seqOfCursor(after);
-    return pageOf(
+    const page = pageOf(
       this.book.all().filter((entry) => entry.seq > from && wanted(entry)),
       limit,
     );
+    return { ...page, pauses: page.pauses.map(copiedPause) };
   }
 }

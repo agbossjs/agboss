@@ -11,7 +11,7 @@ import { expiringPauseOf } from "./paused-execution-data.js";
 /** #1070: the due scan's keyset — a look that cannot move the first page still reaches the next. */
 type Instances = ContractInstances<PausedExecutionRepository>;
 
-const minute = (n: number): string => `2026-01-05T10:${String(n).padStart(2, "0")}:00.000Z`;
+const minute = (n: number): Date => new Date(`2026-01-05T10:${String(n).padStart(2, "0")}:00.000Z`);
 const dueAt = (n: number, tenant: string): PauseRecord => ({
   ...expiringPauseOf(`p${String(n)}`, `run-1:s:1:${String(n)}`),
   tenantId: tenant,
@@ -30,14 +30,18 @@ const tied = (n: number): PauseRecord => ({
   stepKey: `run-1:s:1:t${String(n)}`,
 });
 const keys = (pauses: readonly PauseRecord[]): string[] =>
-  pauses.map((pause) => `${pause.tenantId}/${pause.pauseId}@${pause.expiresAt ?? ""}`);
+  pauses.map(
+    (pause) => `${pause.tenantId}/${pause.pauseId}@${pause.expiresAt?.toISOString() ?? ""}`,
+  );
 const remindKeys = (pauses: readonly PauseRecord[]): string[] =>
-  pauses.map((pause) => `${pause.tenantId}/${pause.pauseId}@${pause.remindAt ?? ""}`);
+  pauses.map(
+    (pause) => `${pause.tenantId}/${pause.pauseId}@${pause.remindAt?.toISOString() ?? ""}`,
+  );
 const keysetOf = (
   pause: PauseRecord | undefined,
   column: "expiresAt" | "remindAt" = "expiresAt",
 ): PauseScanAfter => ({
-  at: pause?.[column] ?? "",
+  at: pause?.[column] ?? new Date(0),
   tenantId: pause?.tenantId ?? "",
   pauseId: pause?.pauseId ?? "",
 });
@@ -55,7 +59,7 @@ export const KEYSET_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         [9, "default"],
       ] as const)
         await first.findOrCreateByStepKey(dueAt(n, tenant));
-      const at = new Date(minute(5));
+      const at = minute(5);
       const whole = await second.findPendingByExpiresAtBefore(at, 10);
 
       // (at most as many pages as pauses: a store that ignores `after` repeats a page, never loops)
@@ -90,7 +94,7 @@ export const KEYSET_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         [9, "default"],
       ] as const)
         await first.findOrCreateByStepKey(remindingAt(n, tenant));
-      const at = new Date(minute(5));
+      const at = minute(5);
       const whole = await second.findPendingByRemindAtBefore(at, 10);
 
       // (at most as many pages as pauses: a store that ignores `after` repeats a page, never loops)
@@ -120,7 +124,7 @@ export const KEYSET_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
     run: async ({ first, second }: Instances): Promise<void> => {
       // five pauses of one tenant, one time: only the pause id orders them
       for (const n of [4, 2, 5, 1, 3]) await first.findOrCreateByStepKey(tied(n));
-      const at = new Date(minute(5));
+      const at = minute(5);
       const scan = (limit: number, after?: PauseScanAfter) =>
         second.findPendingByExpiresAtBefore(at, limit, after);
       const whole = await scan(10);
@@ -146,7 +150,7 @@ export const KEYSET_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
     run: async ({ first, second }: Instances): Promise<void> => {
       // five pauses of one tenant, one time: only the pause id orders them
       for (const n of [4, 2, 5, 1, 3]) await first.findOrCreateByStepKey(tied(n));
-      const at = new Date(minute(5));
+      const at = minute(5);
       const scan = (limit: number, after?: PauseScanAfter) =>
         second.findPendingByRemindAtBefore(at, limit, after);
       const whole = await scan(10);

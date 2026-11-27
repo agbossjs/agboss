@@ -29,8 +29,8 @@ import {
 import { PauseNoticeKind, type PauseNotice } from "../../../src/infrastructure/pause-notices.js";
 import { pauseOf } from "../../../src/testing/contracts/paused-execution-data.js";
 
-const WRITTEN = "2026-01-05T10:00:00.000Z";
-const CLOSED = "2026-01-05T09:00:00.000Z";
+const WRITTEN = new Date("2026-01-05T10:00:00.000Z");
+const CLOSED = new Date("2026-01-05T09:00:00.000Z");
 
 const answered: PauseRecord = {
   ...pauseOf("p-1"),
@@ -72,29 +72,29 @@ describe("#1366: a close's time and answer", () => {
     });
 
     expect((await channelClosedOf(sources(answered, withClosed))).closedAt.toISOString()).toBe(
-      CLOSED,
+      CLOSED.toISOString(),
     );
     expect((await channelClosedOf(sources(answered, without))).closedAt.toISOString()).toBe(
-      WRITTEN,
+      WRITTEN.toISOString(),
     );
     expect(
       (await listenerClosedOf(sources(answered, withClosed), false)).closedAt.toISOString(),
-    ).toBe(CLOSED);
+    ).toBe(CLOSED.toISOString());
     expect((await listenerClosedOf(sources(answered, without), false)).closedAt.toISOString()).toBe(
-      WRITTEN,
+      WRITTEN.toISOString(),
     );
     expect((await channelNotTakenOf(sources(answered, untaken(withClosed)))).at.toISOString()).toBe(
-      CLOSED,
+      CLOSED.toISOString(),
     );
     expect((await channelNotTakenOf(sources(answered, untaken(without)))).at.toISOString()).toBe(
-      WRITTEN,
+      WRITTEN.toISOString(),
     );
     expect(
       (await listenerNotTakenOf(sources(answered, untaken(withClosed)), false)).at.toISOString(),
-    ).toBe(CLOSED);
+    ).toBe(CLOSED.toISOString());
     expect(
       (await listenerNotTakenOf(sources(answered, untaken(without)), false)).at.toISOString(),
-    ).toBe(WRITTEN);
+    ).toBe(WRITTEN.toISOString());
   });
 
   it("a close carries the answer only when it is answered or expired and an answer exists", async () => {
@@ -159,8 +159,8 @@ describe("#1366: deadlines", () => {
   it("expiring and extended events carry the notice's deadlines; one without them is refused", async () => {
     const extended = notice({
       kind: PauseNoticeKind.TimeoutChanged,
-      expiresAt: "2026-02-01T00:00:00.000Z",
-      previousExpiresAt: "2026-01-20T00:00:00.000Z",
+      expiresAt: new Date("2026-02-01T00:00:00.000Z"),
+      previousExpiresAt: new Date("2026-01-20T00:00:00.000Z"),
     });
     const deadline = { expiresAt: new Date("2026-02-01T00:00:00.000Z") };
     const both = { ...deadline, previousExpiresAt: new Date("2026-01-20T00:00:00.000Z") };
@@ -179,11 +179,11 @@ describe("#1366: deadlines", () => {
   it("a timeout change names only the deadlines there are: none before (set), none after (taken away)", async () => {
     const set = notice({
       kind: PauseNoticeKind.TimeoutChanged,
-      expiresAt: "2026-02-01T00:00:00.000Z",
+      expiresAt: new Date("2026-02-01T00:00:00.000Z"),
     });
     const taken = notice({
       kind: PauseNoticeKind.TimeoutChanged,
-      previousExpiresAt: "2026-01-20T00:00:00.000Z",
+      previousExpiresAt: new Date("2026-01-20T00:00:00.000Z"),
     });
 
     for (const [one, expected] of [
@@ -206,7 +206,7 @@ describe("#1366: deadlines", () => {
   it("a late delivery names its own change: actor and reason come from the notice, not the chain's newest entry (#1307)", async () => {
     const own = notice({
       kind: PauseNoticeKind.TimeoutChanged,
-      expiresAt: "2026-02-01T00:00:00.000Z",
+      expiresAt: new Date("2026-02-01T00:00:00.000Z"),
       actor: { id: "first-operator" },
       changeReason: "first reason",
     });
@@ -217,7 +217,7 @@ describe("#1366: deadlines", () => {
         ...answered.trail,
         {
           action: "timeout-changed" as const,
-          at: "2026-01-21T00:00:00.000Z",
+          at: new Date("2026-01-21T00:00:00.000Z"),
           actor: { id: "second-operator" },
           reason: "second reason",
           target: "t",
@@ -237,17 +237,15 @@ describe("#1366: deadlines", () => {
   });
 
   it("a listener's expiresAt is the notice's, else the pause's, else absent", async () => {
-    const pause = { ...answered, expiresAt: "2026-03-01T00:00:00.000Z" };
+    const pause = { ...answered, expiresAt: new Date("2026-03-01T00:00:00.000Z") };
     const own = notice({
       kind: PauseNoticeKind.TimeoutChanged,
-      expiresAt: "2026-02-01T00:00:00.000Z",
+      expiresAt: new Date("2026-02-01T00:00:00.000Z"),
     });
     const plain = notice({ kind: PauseNoticeKind.Opened });
 
-    expect((await listenerBaseOf(sources(pause, own), false)).expiresAt?.toISOString()).toBe(
-      own.expiresAt,
-    );
-    expect((await listenerOpenedOf(sources(pause, plain), false)).expiresAt?.toISOString()).toBe(
+    expect((await listenerBaseOf(sources(pause, own), false)).expiresAt).toEqual(own.expiresAt);
+    expect((await listenerOpenedOf(sources(pause, plain), false)).expiresAt).toEqual(
       pause.expiresAt,
     );
     const none = await listenerOpenedOf(

@@ -52,7 +52,7 @@ export const DEADLINE_CASES: readonly Case[] = [
         resolution: PauseResolution.Replied,
       });
       expect(refused).toBeUndefined();
-      expect(reversed?.resolvedAt).toBe(BEFORE_DEADLINE.toISOString());
+      expect(reversed?.resolvedAt).toEqual(BEFORE_DEADLINE);
     },
   },
   {
@@ -188,7 +188,7 @@ export const DEADLINE_CASES: readonly Case[] = [
         status: PauseStatus.Resolved,
         resolution: PauseResolution.DecidedOnExpiry,
         answer: { decision: DECIDED_ANSWER.decision, actor: undefined },
-        resolvedAt: DEADLINE.toISOString(),
+        resolvedAt: DEADLINE,
       });
       expect(failed).toMatchObject({
         status: PauseStatus.Cancelled,

@@ -46,7 +46,7 @@ export const PAUSE_TRANSITION_CASES: readonly ContractCase<PausedExecutionReposi
         status: PauseStatus.Resolved,
         answer: one === undefined ? no : APPROVED_BY_MANAGER,
         resolution: PauseResolution.Replied,
-        resolvedAt: NINE.toISOString(),
+        resolvedAt: NINE,
       };
       expect(outcomes[0]).toMatchObject(replied);
       expect(await second.findByTenantIdAndPauseId("default", "pause-a")).toMatchObject(replied);
@@ -147,7 +147,7 @@ export const PAUSE_TRANSITION_CASES: readonly ContractCase<PausedExecutionReposi
       expect(await second.findByTenantIdAndPauseId("default", "pause-a")).toMatchObject({
         status: PauseStatus.Cancelled,
         resolution: PauseResolution.Withdrawn,
-        resolvedAt: NINE.toISOString(),
+        resolvedAt: NINE,
       });
     },
   },

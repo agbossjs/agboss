@@ -1,5 +1,6 @@
 import { definedOf } from "./clock.js";
-import type { PauseFilter, PausePage } from "./pause-notices.js";
+import { compareInstants, isBefore } from "./instants.js";
+import type { PauseFilter, PausePage, PauseScanAfter } from "./pause-notices.js";
 import type { PauseRecord } from "./pause-record.js";
 
 /**
@@ -8,9 +9,6 @@ import type { PauseRecord } from "./pause-record.js";
  * monotonic insertion sequence, never a position in a list, so a removal between two pages skips
  * nothing (V10.2).
  */
-
-/** A time text after every instant: the deadline of a pause that has none. */
-export const NEVER = "\uffff";
 
 /** The largest page a scan returns. */
 export const MAX_SCAN_LIMIT = 1000;
@@ -40,7 +38,7 @@ export const matchesFilter = (pause: PauseRecord, filter: PauseFilter): boolean 
   (filter.target === undefined || pause.target === filter.target) &&
   (filter.channel === undefined || pause.channel === filter.channel) &&
   (filter.expiresBefore === undefined ||
-    (pause.expiresAt ?? NEVER) < filter.expiresBefore.toISOString()) &&
+    (pause.expiresAt !== undefined && isBefore(pause.expiresAt, filter.expiresBefore))) &&
   heldAs(pause, filter);
 
 /** Whether `pause` is the one `filter`'s assignee and external reference name (those it names). */
@@ -91,7 +89,7 @@ export function pageOf(ordered: readonly SequencedPause[], limit: number): Pause
 
 /** A pause with the time a scan reads on it. */
 export interface Timed {
-  readonly time: string;
+  readonly time: Date;
   readonly pause: PauseRecord;
 }
 
@@ -100,9 +98,19 @@ export const firstByTime = (timed: readonly Timed[], limit: number): PauseRecord
   [...timed]
     .sort(
       (a, b) =>
-        compareText(a.time, b.time) ||
+        compareInstants(a.time, b.time) ||
         compareText(a.pause.tenantId, b.pause.tenantId) ||
         compareText(a.pause.pauseId, b.pause.pauseId),
     )
     .slice(0, limit)
     .map(({ pause }) => pause);
+
+/** Whether a pause at `time` comes after the keyset `after` in `(time, tenantId, pauseId)` order. */
+export const isPast = (
+  after: PauseScanAfter,
+  time: Date,
+  pause: Pick<PauseRecord, "tenantId" | "pauseId">,
+): boolean =>
+  (compareInstants(time, after.at) ||
+    compareText(pause.tenantId, after.tenantId) ||
+    compareText(pause.pauseId, after.pauseId)) > 0;

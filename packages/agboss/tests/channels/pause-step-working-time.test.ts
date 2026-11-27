@@ -24,7 +24,7 @@ import { PauseRespondent } from "../../src/pause/respondent.js";
 import { targetOfChannel, type FlatChannel } from "../helpers/pause-target.js";
 
 const ASKED = new Date("2026-01-08T15:30:00.000Z");
-const at = (delay: number): string => new Date(ASKED.getTime() + delay).toISOString();
+const at = (delay: number): Date => new Date(ASKED.getTime() + delay);
 const question = {
   kind: PauseKind.Approval,
   step: "desk-clerk-agent",
@@ -123,7 +123,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     ]);
     const [pause] = await records();
     expect(pause).toMatchObject({
-      askedAt: ASKED.toISOString(),
+      askedAt: ASKED,
       expiresAt: at(25 * 3_600_000),
       expiryBound: PauseExpiryBound.Pause,
     });
@@ -156,7 +156,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     await enter();
 
     expect(calendar.requests.map((request) => request.amount.amount)).toEqual([minutes(30)]);
-    expect((await records())[0]?.expiresAt).toBe(at(minutes(90)));
+    expect((await records())[0]?.expiresAt).toEqual(at(minutes(90)));
   });
 
   it("AC4: expiresIn and remindBefore both working: remindAt = calendar.add(askedAt, expiresIn − remindBefore)", async () => {
@@ -176,8 +176,8 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
 
     expect(calendar.requests.map((request) => request.amount.amount)).toEqual([hours(3), hours(2)]);
     const [pause] = await records();
-    expect(pause?.expiresAt).toBe(at(hours(30)));
-    expect(pause?.remindAt).toBe(at(hours(26)));
+    expect(pause?.expiresAt).toEqual(at(hours(30)));
+    expect(pause?.remindAt).toEqual(at(hours(26)));
   });
 
   it("AC4: working expiresIn with a plain remindBefore: expiresAt − remindBefore, one calendar call", async () => {
@@ -190,7 +190,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     await enter();
 
     expect(calendar.requests).toHaveLength(1);
-    expect((await records())[0]?.remindAt).toBe(at(hours(28)));
+    expect((await records())[0]?.remindAt).toEqual(at(hours(28)));
   });
 
   it("AC4: a working remindBefore with a plain expiresIn gets no reminder (the assembly refuses it before)", async () => {
@@ -230,7 +230,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     const { enter, records } = setup({
       channel: { expiresIn: workingHours(3), remindBefore: workingHours(1) },
       calendar: calendar.calendar,
-      deadlineAt: at(hours(20)),
+      deadlineAt: at(hours(20)).toISOString(),
     });
 
     await enter();
@@ -252,7 +252,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     const { enter, records } = setup({
       channel: { expiresIn: workingHours(3), remindBefore: workingHours(1) },
       calendar: calendar.calendar,
-      deadlineAt: at(hours(27)),
+      deadlineAt: at(hours(27)).toISOString(),
     });
 
     await enter();
@@ -281,7 +281,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     const { enter, records } = setup({
       channel: { expiresIn: workingHours(3) },
       calendar: calendar.calendar,
-      deadlineAt: at(hours(30)),
+      deadlineAt: at(hours(30)).toISOString(),
     });
 
     await enter();
@@ -298,7 +298,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     const { enter, records } = setup({
       channel: { expiresIn: workingHours(3) },
       calendar: calendar.calendar,
-      deadlineAt: at(hours(10)),
+      deadlineAt: at(hours(10)).toISOString(),
     });
 
     await enter();
@@ -314,7 +314,7 @@ describe("#944 AC1, AC4: the record of a working deadline", () => {
     const { enter, records } = setup({
       channel: { expiresIn: workingHours(3) },
       calendar: calendar.calendar,
-      deadlineAt: at(hours(10)),
+      deadlineAt: at(hours(10)).toISOString(),
     });
 
     await enter();
@@ -435,7 +435,7 @@ describe("#944 AC5: a calendar that cannot answer asks nobody", () => {
       calendar: calendar.calendar,
     });
     await enter();
-    expect((await records())[0]?.expiresAt).toBe(at(1));
+    expect((await records())[0]?.expiresAt).toEqual(at(1));
   });
 
   it("AC5: the re-entry of a step whose calendar failed asks the calendar again", async () => {

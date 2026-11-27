@@ -1,7 +1,7 @@
 import { Injectable } from "../components/decorators.js";
 import type { ErrorRecord } from "../core/error-record.js";
 import type { WorkflowRecord } from "../flow/context/execution-context.js";
-import type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
+import type { ExecutionRecord } from "../flow/runtime/execution-record.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import type { ExecutionAuditEventRecord } from "./execution-audit-log.repository.js";
 import type { OutboundCallRecord } from "./outbound-call.repository.js";
@@ -43,7 +43,7 @@ export interface ExecutionContextRecord {
 }
 
 /** One root execution as the history keeps it: its record and its identity. */
-export interface ExecutionHistoryRecord extends ExecutionRecord<PauseAnswerRecord> {
+export interface ExecutionHistoryRecord extends ExecutionRecord {
   readonly executionId: string;
   /** Its tree's root: its own id (only roots are kept; its children are in `children`). */
   readonly rootExecutionId: string;

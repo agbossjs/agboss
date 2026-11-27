@@ -13,16 +13,17 @@ import {
 } from "../../src/flow/runtime/pause-record-made.js";
 import { hours, minutes, workingHours, type WorkingDuration } from "../../src/units/index.js";
 
-const T05 = "2026-01-01T00:05:00.000Z";
-const T10 = "2026-01-01T00:10:00.000Z";
-const T20 = "2026-01-01T00:20:00.000Z";
+const T05 = new Date("2026-01-01T00:05:00.000Z");
+const T10 = new Date("2026-01-01T00:10:00.000Z");
+const T20 = new Date("2026-01-01T00:20:00.000Z");
 const ASKED = new Date("2026-01-01T00:00:00.000Z");
 
-const frameOf = (run?: string, quorum?: string): FrameSpec =>
+/** The frame as the runtime keeps a deadline: ISO 8601 texts. */
+const frameOf = (run?: Date, quorum?: Date): FrameSpec =>
   ({
     execution: {
-      ...(run === undefined ? {} : { deadline: { at: run, deadline: 1 } }),
-      ...(quorum === undefined ? {} : { quorumDeadlineAt: quorum }),
+      ...(run === undefined ? {} : { deadline: { at: run.toISOString(), deadline: 1 } }),
+      ...(quorum === undefined ? {} : { quorumDeadlineAt: quorum.toISOString() }),
     },
   }) as never;
 
@@ -93,17 +94,17 @@ describe("#1366: a working-time reminder", () => {
   it("is the calendar's instant for the deadline's span less the lead, when it is before the deadline", async () => {
     const at = await reminderOf(
       ASKED,
-      { expiresAt: new Date(ASKED.getTime() + hours(2)).toISOString(), expiresIn: workingHours(2) },
+      { expiresAt: new Date(ASKED.getTime() + hours(2)), expiresIn: workingHours(2) },
       workingHours(1),
       add,
     );
 
-    expect(at).toBe(new Date(ASKED.getTime() + hours(1)).toISOString());
+    expect(at).toEqual(new Date(ASKED.getTime() + hours(1)));
   });
 
   it("is none when the lead is the whole span or more, or the calendar's instant is not before the deadline", async () => {
     const whole = {
-      expiresAt: new Date(ASKED.getTime() + hours(2)).toISOString(),
+      expiresAt: new Date(ASKED.getTime() + hours(2)),
       expiresIn: workingHours(2),
     };
 
@@ -111,7 +112,7 @@ describe("#1366: a working-time reminder", () => {
     expect(await reminderOf(ASKED, whole, workingHours(3), add)).toBeUndefined();
     // the deadline was clamped to the reminder's own instant: strictly before it is required
     const clamped = {
-      expiresAt: new Date(ASKED.getTime() + hours(1)).toISOString(),
+      expiresAt: new Date(ASKED.getTime() + hours(1)),
       expiresIn: workingHours(2),
     };
     expect(await reminderOf(ASKED, clamped, workingHours(1), add)).toBeUndefined();
@@ -124,7 +125,7 @@ describe("#1366: a working-time reminder", () => {
       return add(from, amount);
     };
     const whole = {
-      expiresAt: new Date(ASKED.getTime() + hours(2)).toISOString(),
+      expiresAt: new Date(ASKED.getTime() + hours(2)),
       expiresIn: workingHours(2),
     };
 

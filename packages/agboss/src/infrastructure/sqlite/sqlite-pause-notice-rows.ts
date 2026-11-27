@@ -92,7 +92,7 @@ export class SqlitePauseNoticeRows {
         box.delivered,
         box.attempts,
         box.nextAttemptAt.toISOString(),
-        box.headWrittenAt ?? null,
+        box.headWrittenAt?.toISOString() ?? null,
         box.isDead ? 1 : 0,
         box.problem ?? null,
         box.claim?.token ?? null,

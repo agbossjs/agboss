@@ -38,14 +38,21 @@ const answered: PauseRecord = {
 const closed: PauseNotice = {
   seq: 2,
   kind: PauseNoticeKind.Closed,
-  writtenAt: "2026-01-05T10:00:00.000Z",
+  writtenAt: new Date("2026-01-05T10:00:00.000Z"),
   reason: PauseClosedReason.Answered,
-  closedAt: "2026-01-05T10:00:00.000Z",
+  closedAt: new Date("2026-01-05T10:00:00.000Z"),
 };
 
 /** A mask that hides every email, like the observability policies' detectors. */
-const mask = (value: unknown): Promise<unknown> =>
-  Promise.resolve(JSON.parse(JSON.stringify(value).replaceAll("alice@example.com", "<email>")));
+const maskedCopy = (value: unknown): unknown => {
+  if (value instanceof Date) return value;
+  if (typeof value === "string") return value.replaceAll("alice@example.com", "<email>");
+  if (Array.isArray(value)) return value.map(maskedCopy);
+  if (typeof value === "object" && value !== null)
+    return Object.fromEntries(Object.entries(value).map(([key, one]) => [key, maskedCopy(one)]));
+  return value;
+};
+const mask = (value: unknown): Promise<unknown> => Promise.resolve(maskedCopy(value));
 
 const sources = (pause: PauseRecord, notice: PauseNotice) => ({
   pause,
@@ -134,7 +141,7 @@ describe("#940: the events a receiver is told", () => {
 
     expect(first).toMatch(/^[0-9a-f]{32}$/);
     expect(
-      deliveryIdOf(answered, "listener:a-pause-listener", { ...closed, writtenAt: "later" }),
+      deliveryIdOf(answered, "listener:a-pause-listener", { ...closed, writtenAt: new Date(1) }),
     ).toBe(first);
     expect(deliveryIdOf(answered, "listener:b-pause-listener", closed)).not.toBe(first);
     expect(deliveryIdOf(answered, "listener:a-pause-listener", { ...closed, seq: 3 })).not.toBe(

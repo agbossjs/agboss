@@ -17,22 +17,22 @@ export const CAP_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
     name: "a deadline past the record's maxExpiresAt (or none at all) is refused by the store itself, atomically, whatever the caller planned: a timeout change",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(limitedPause("pause-a"));
-      const change = async (expiresAt: string | undefined) =>
+      const change = async (expiresAt: Date | undefined) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
           await withSeen(second, "pause-a", {
             ...(expiresAt === undefined ? {} : { expiresAt }),
-            previousExpiresAt: DEADLINE.toISOString(),
+            previousExpiresAt: DEADLINE,
           }),
           MID,
           { listeners: [] },
         );
 
-      expect(await change("2026-01-05T20:00:00.001Z")).toBeUndefined();
+      expect(await change(new Date("2026-01-05T20:00:00.001Z"))).toBeUndefined();
       expect(await change(undefined)).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(
-        DEADLINE.toISOString(),
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(
+        DEADLINE,
       );
       // exactly the cap is allowed; a pause with no cap takes none-at-all
       expect(await change(CAP)).toMatchObject({ expiresAt: CAP });
@@ -41,7 +41,7 @@ export const CAP_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
         await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-b",
-          await withSeen(second, "pause-b", { previousExpiresAt: DEADLINE.toISOString() }),
+          await withSeen(second, "pause-b", { previousExpiresAt: DEADLINE }),
           MID,
           { listeners: [] },
         ),
@@ -52,16 +52,16 @@ export const CAP_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
     name: "a deadline a reassignment sets keeps the cap too: in place, an operator's replacement narrowed by the destination, and an expiry's",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(limitedPause("pause-a"));
-      const inPlace = (expiresAt: string) =>
+      const inPlace = (expiresAt: Date) =>
         reassignWith(second, "pause-a", { assignees: ["x"], timeout: { expiresAt } }, MID);
 
-      expect(await inPlace("2026-01-05T20:00:00.001Z")).toBeUndefined();
+      expect(await inPlace(new Date("2026-01-05T20:00:00.001Z"))).toBeUndefined();
       expect(await inPlace(CAP)).toMatchObject({ expiresAt: CAP });
 
       // the destination's tighter cap applies to the deadline of the move itself
       await first.findOrCreateByStepKey(limitedPause("pause-b", "run-1:s:1:call-2"));
       const to = { ...TO, limits: { maxExpiresAt: TIGHTER } };
-      const move = (pauseId: string, expiresAt: string) =>
+      const move = (pauseId: string, expiresAt: Date) =>
         reassignWith(first, "pause-b", { pauseId, to, timeout: { expiresAt } }, MID);
       expect(await move("pause-c", CAP)).toBeUndefined();
       expect(await first.findByTenantIdAndPauseId("default", "pause-c")).toBeUndefined();

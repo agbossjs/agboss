@@ -56,7 +56,7 @@ export const NOTICE_ORDER_CASES: readonly ContractCase<PausedExecutionRepository
       expect(kindsOf(claims, "pause-a", AUDIT)).toEqual(["opened", "closed", "answer-not-taken"]);
       expect(noticesOf(claims, "pause-a", CHANNEL_KEY)[1]).toMatchObject({
         reason: PauseClosedReason.TreeEnded,
-        closedAt: DEADLINE.toISOString(),
+        closedAt: DEADLINE,
       });
     },
   },
@@ -150,7 +150,7 @@ export const NOTICE_ORDER_CASES: readonly ContractCase<PausedExecutionRepository
       const [closed] = await second.claimNoticesDue(DAY3, 10, seconds(60), [AUDIT]);
       expect(closed?.mailbox).toMatchObject({
         delivered: 1,
-        headWrittenAt: DAY3.toISOString(),
+        headWrittenAt: DAY3,
         nextAttemptAt: DAY3,
       });
     },
@@ -170,10 +170,10 @@ export const NOTICE_ORDER_CASES: readonly ContractCase<PausedExecutionRepository
 
       const [claim] = await first.claimNoticesDue(DAY3, 10, seconds(60), [AUDIT]);
 
-      expect(claim?.mailbox.headWrittenAt).toBe(pauseA().askedAt);
+      expect(claim?.mailbox.headWrittenAt).toEqual(pauseA().askedAt);
       if (claim === undefined) return;
       const next = await first.ackNotice(claim, DAY3);
-      expect(next?.mailbox).toMatchObject({ delivered: 1, headWrittenAt: DAY3.toISOString() });
+      expect(next?.mailbox).toMatchObject({ delivered: 1, headWrittenAt: DAY3 });
     },
   },
 ];

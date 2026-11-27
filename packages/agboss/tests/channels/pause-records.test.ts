@@ -240,7 +240,7 @@ describe("#267 S107: ExecutionRecord.pauses — who answered each pause, and how
       expect(stored).toMatchObject({
         status: PauseStatus.Cancelled,
         resolution: PauseResolution.Cancelled,
-        resolvedAt: TEST_START,
+        resolvedAt: new Date(TEST_START),
       });
       expect(stored?.answer).toBeUndefined();
     },

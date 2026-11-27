@@ -29,7 +29,7 @@ import {
   cancelChange,
   expireChange,
   resolveChange,
-  type PauseChange,
+  type PauseTransition,
 } from "../../../../src/infrastructure/pause-transitions.js";
 import type { ContractCase } from "../../../../src/testing/contracts/define.js";
 import { DEADLINE_CASES } from "../../../../src/testing/contracts/paused-execution-deadline.cases.js";
@@ -42,12 +42,12 @@ type Who = "first" | "second";
 type Case = ContractCase<PausedExecutionRepository>;
 type Op = "resolve" | "cancel" | "expire" | "extend";
 /** A planned change that is answered but stored nowhere (`unstored`), or stored but answered nothing (`hidden`). */
-type Planned = PauseChange & { readonly unstored?: boolean; readonly hidden?: boolean };
+type Planned = PauseTransition & { readonly unstored?: boolean; readonly hidden?: boolean };
 
 const EPOCH = new Date(0);
-const FROM = "2026-01-05T10:00:00.000Z";
-const LATER = "2026-01-05T12:00:00.000Z";
-const EVEN_LATER = "2026-01-05T15:00:00.000Z";
+const FROM = new Date("2026-01-05T10:00:00.000Z");
+const LATER = new Date("2026-01-05T12:00:00.000Z");
+const EVEN_LATER = new Date("2026-01-05T15:00:00.000Z");
 const HOUR = 3_600_000;
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 2));
 const shifted = (at: Date, ms: number): Date => new Date(at.getTime() + ms);
@@ -278,7 +278,12 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     {
       cold: "second",
       resolve: (pause, answer, at, recipients) =>
-        resolveChange(pause, answer, shifted(at, at.toISOString() === FROM ? -1 : 0), recipients),
+        resolveChange(
+          pause,
+          answer,
+          shifted(at, at.getTime() === FROM.getTime() ? -1 : 0),
+          recipients,
+        ),
     },
   ],
   [
@@ -286,7 +291,12 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an answer at the deadline is taken",
     {
       resolve: (pause, answer, at, recipients) =>
-        resolveChange(pause, answer, shifted(at, at.toISOString() === FROM ? -1 : 0), recipients),
+        resolveChange(
+          pause,
+          answer,
+          shifted(at, at.getTime() === FROM.getTime() ? -1 : 0),
+          recipients,
+        ),
     },
   ],
   [
@@ -309,7 +319,12 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an answer at the deadline is taken",
     {
       resolve: (pause, answer, at, recipients) =>
-        resolveChange(pause, answer, shifted(at, at.toISOString() === FROM ? -1 : 0), recipients),
+        resolveChange(
+          pause,
+          answer,
+          shifted(at, at.getTime() === FROM.getTime() ? -1 : 0),
+          recipients,
+        ),
     },
   ],
   [
@@ -358,7 +373,7 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
         cancelChange(
           pause,
           resolution,
-          at.toISOString() === pause.expiresAt ? at : EPOCH,
+          at.getTime() === pause.expiresAt?.getTime() ? at : EPOCH,
           recipients,
         ),
     },
@@ -395,7 +410,12 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an expiry before the deadline applies",
     {
       expire: (pause, expiry, at, recipients) =>
-        expireChange(pause, expiry, at.toISOString() < FROM ? new Date(FROM) : at, recipients),
+        expireChange(
+          pause,
+          expiry,
+          at.getTime() < FROM.getTime() ? new Date(FROM.getTime()) : at,
+          recipients,
+        ),
     },
   ],
   [
@@ -434,7 +454,7 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
       answers: {
         expire: (answered) =>
           answered.status === PauseStatus.Resolved
-            ? { ...answered, resolvedAt: "2026-01-05T00:00:00.000Z" }
+            ? { ...answered, resolvedAt: new Date("2026-01-05T00:00:00.000Z") }
             : answered,
       },
     },
@@ -503,7 +523,7 @@ const DEADLINE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
 ];
 
 const sameDeadline = (pause: PauseRecord, change: PauseTimeoutChange): boolean =>
-  change.previousExpiresAt === pause.expiresAt;
+  (change.previousExpiresAt?.getTime() ?? null) === (pause.expiresAt?.getTime() ?? null);
 
 const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
   [
@@ -511,7 +531,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an extension just after the deadline is answered, stored nowhere",
     {
       extend: extendWhen(false, (pause, change, at) => {
-        const past = at.getTime() - Date.parse(pause.expiresAt ?? "");
+        const past = at.getTime() - (pause.expiresAt?.getTime() ?? Number.NaN);
         return sameDeadline(pause, change) && past > 0 && past <= HOUR;
       }),
     },
@@ -521,7 +541,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "an extension long after the deadline is answered, stored nowhere",
     {
       extend: extendWhen(false, (pause, change, at) => {
-        const past = at.getTime() - Date.parse(pause.expiresAt ?? "");
+        const past = at.getTime() - (pause.expiresAt?.getTime() ?? Number.NaN);
         return sameDeadline(pause, change) && past > HOUR;
       }),
     },
@@ -557,7 +577,8 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "the first extension is answered as the pause was",
     {
       answers: {
-        extend: (answered, before) => (answered.expiresAt === LATER ? before : answered),
+        extend: (answered, before) =>
+          answered.expiresAt?.getTime() === LATER.getTime() ? before : answered,
       },
     },
   ],
@@ -566,7 +587,8 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
     "the second extension is answered as the pause was",
     {
       answers: {
-        extend: (answered, before) => (answered.expiresAt === EVEN_LATER ? before : answered),
+        extend: (answered, before) =>
+          answered.expiresAt?.getTime() === EVEN_LATER.getTime() ? before : answered,
       },
     },
   ],
@@ -610,7 +632,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
         timeoutChange(pause, change, at, recipients) ??
         (sameDeadline(pause, change) &&
         pause.status === PauseStatus.Pending &&
-        change.expiresAt === at.toISOString()
+        change.expiresAt?.getTime() === at.getTime()
           ? { pause: { ...pause, expiresAt: change.expiresAt }, notices: [] }
           : undefined),
     },
@@ -624,7 +646,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
         (sameDeadline(pause, change) &&
         pause.status === PauseStatus.Pending &&
         change.expiresAt !== undefined &&
-        change.expiresAt < at.toISOString()
+        change.expiresAt.getTime() < at.getTime()
           ? { pause: { ...pause, expiresAt: change.expiresAt }, notices: [] }
           : undefined),
     },
@@ -636,7 +658,11 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
       extend: (pause, change, at, recipients) =>
         timeoutChange(
           pause,
-          { ...change, previousExpiresAt: pause.expiresAt ?? "", seen: seenOf(pause) },
+          {
+            ...change,
+            ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: pause.expiresAt }),
+            seen: seenOf(pause),
+          },
           at,
           recipients,
         ),
@@ -842,7 +868,11 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
       extend: (pause, change, at, recipients) =>
         timeoutChange(
           pause,
-          { ...change, previousExpiresAt: pause.expiresAt ?? "", seen: seenOf(pause) },
+          {
+            ...change,
+            ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: pause.expiresAt }),
+            seen: seenOf(pause),
+          },
           at,
           recipients,
         ),
@@ -856,8 +886,9 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
         timeoutChange(pause, change, at, recipients) ??
         (pause.status === PauseStatus.Pending &&
         change.expiresAt !== undefined &&
-        change.expiresAt < (pause.expiresAt ?? "") &&
-        change.expiresAt > at.toISOString()
+        pause.expiresAt !== undefined &&
+        change.expiresAt.getTime() < pause.expiresAt.getTime() &&
+        change.expiresAt.getTime() > at.getTime()
           ? { pause: { ...pause, expiresAt: change.expiresAt }, notices: [] }
           : undefined),
     },
@@ -865,21 +896,13 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
   [race("two concurrent extends"), "a lookup finds nothing", { found: () => undefined }],
   [
     race("two concurrent extends"),
-    "the deadline is stored without its milliseconds",
-    {
-      found: (found) =>
-        found?.expiresAt === undefined
-          ? found
-          : { ...found, expiresAt: found.expiresAt.replace(".000Z", "Z") },
-    },
-  ],
-  [
-    race("two concurrent extends"),
     "the first instance is slower and an extension can be taken once only",
     {
       slow: "first",
       extend: (pause, change, at, recipients) =>
-        pause.expiresAt === FROM ? timeoutChange(pause, change, at, recipients) : undefined,
+        pause.expiresAt?.getTime() === FROM.getTime()
+          ? timeoutChange(pause, change, at, recipients)
+          : undefined,
     },
   ],
   [
@@ -901,7 +924,7 @@ const RACE_BROKEN: readonly (readonly [Case, string, Tweaks])[] = [
         timeoutChange(pause, change, at, recipients) ??
         (pause.status === PauseStatus.Resolved
           ? {
-              pause: { ...pause, expiresAt: "2030-01-01T00:00:00.000Z" },
+              pause: { ...pause, expiresAt: new Date("2030-01-01T00:00:00.000Z") },
               notices: [],
               unstored: true,
             }

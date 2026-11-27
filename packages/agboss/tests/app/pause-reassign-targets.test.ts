@@ -39,6 +39,9 @@ import {
 } from "../flow/fixtures/expiry.fixture.js";
 import { onStart } from "../flow/fixtures/paths.js";
 
+/** The milliseconds of a time a record may not have: NaN when it has none. */
+const ms = (at: Date | undefined): number => at?.getTime() ?? Number.NaN;
+
 /** What the targets and channels were asked, and what a test makes them answer. */
 const told = {
   sent: [] as { pauseId: string; assignees?: readonly string[]; replaces?: string }[],
@@ -264,7 +267,7 @@ describe("a pause opens under its target's hooks", () => {
       target: "tier-one-external-task",
       channel: "tier-one-jira-channel",
     });
-    expect(Date.parse(pause?.expiresAt ?? "") - clock.now().getTime()).toBe(hours(6));
+    expect(ms(pause?.expiresAt) - clock.now().getTime()).toBe(hours(6));
     expect(pause?.trail[0]).toMatchObject({
       action: "opened",
       assignees: ["on-duty-1"],
@@ -283,7 +286,7 @@ describe("a pause opens under its target's hooks", () => {
     const [pause] = await pausesOf(app, rootId);
     expect(pause?.assignees).toBeUndefined();
     expect(told.sent[0]?.assignees).toBeUndefined();
-    expect(Date.parse(pause?.expiresAt ?? "") - clock.now().getTime()).toBe(hours(24));
+    expect(ms(pause?.expiresAt) - clock.now().getTime()).toBe(hours(24));
   });
 
   test("a bad list from assign, or a timeout under a second, stops the opening: nothing is recorded", async ({
@@ -351,7 +354,7 @@ describe("a reassignment that keeps the target and the channel changes the pause
 
     const [pause] = await pausesOf(app, rootId);
     expect(pause?.assignees).toBeUndefined();
-    expect(pause?.expiresAt).toBe(before?.expiresAt);
+    expect(pause?.expiresAt).toEqual(before?.expiresAt);
   });
 
   test("a timeout moves the deadline in the same write", async ({ app, clock }) => {
@@ -363,8 +366,8 @@ describe("a reassignment that keeps the target and the channel changes the pause
     );
 
     const [pause] = await pausesOf(app, rootId);
-    expect(Date.parse(pause?.expiresAt ?? "") - clock.now().getTime()).toBe(hours(2));
-    expect(moved.expiresAt?.toISOString()).toBe(pause?.expiresAt);
+    expect(ms(pause?.expiresAt) - clock.now().getTime()).toBe(hours(2));
+    expect(moved.expiresAt?.toISOString()).toEqual(pause?.expiresAt?.toISOString());
   });
 
   test("a deadline alone is setPauseTimeout's change: refused; with other changes it counts as an extension, once, even at once", async ({
@@ -463,7 +466,7 @@ describe("a reassignment to another target is a new pause", () => {
       externalRef: "SAP-9",
     });
     // the destination's own wait, counted from now
-    expect(Date.parse(next?.expiresAt ?? "") - clock.now().getTime()).toBe(hours(4));
+    expect(ms(next?.expiresAt) - clock.now().getTime()).toBe(hours(4));
     expect(next?.trail.map((entry) => entry.action)).toEqual(["opened", "reassigned"]);
     expect(next?.trail[1]).toMatchObject({ target: "tier-two-external-task" });
     expect(moved).toMatchObject({

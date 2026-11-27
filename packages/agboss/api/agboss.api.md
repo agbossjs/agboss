@@ -1266,7 +1266,7 @@ export interface ChildExecutionQueueWatch {
 }
 
 // @public
-export interface ChildExecutionRecord<TPause = ExecutionPauseRecord> extends Omit<EndedChildRecord, "children"> {
+export interface ChildExecutionRecord<TPause = PauseAnswerRecord> extends Omit<EndedChildRecord, "children"> {
     readonly children: readonly ChildExecutionRecord<TPause>[];
     readonly pauses: readonly TPause[];
 }
@@ -2747,7 +2747,7 @@ export interface ExecutionHistoryQuery extends PageQuery {
 }
 
 // @public
-export interface ExecutionHistoryRecord extends ExecutionRecord<PauseAnswerRecord> {
+export interface ExecutionHistoryRecord extends ExecutionRecord {
     // (undocumented)
     readonly application: ApplicationRecord;
     readonly auditLog?: readonly ExecutionAuditEventRecord[];
@@ -3043,15 +3043,7 @@ export interface ExecutionPauseEvent extends ExecutionEvent {
 }
 
 // @public
-export interface ExecutionPauseRecord extends Omit<PauseAnswerRecord, "askedAt" | "resolvedAt" | "trail"> {
-    readonly askedAt: Date;
-    // (undocumented)
-    readonly resolvedAt: Date | undefined;
-    readonly trail: readonly PauseTrailEntry[];
-}
-
-// @public
-export interface ExecutionRecord<TPause = ExecutionPauseRecord> {
+export interface ExecutionRecord<TPause = PauseAnswerRecord> {
     readonly children: readonly ChildExecutionRecord<TPause>[];
     readonly compensations: readonly CompensationRecord[];
     // (undocumented)
@@ -6416,7 +6408,7 @@ export interface PauseActor {
 // @public
 export interface PauseAnswerRecord {
     readonly actor: PauseActor | undefined;
-    readonly askedAt: string;
+    readonly askedAt: Date;
     readonly assignees?: readonly string[];
     readonly channel?: string;
     readonly decision: unknown;
@@ -6428,12 +6420,12 @@ export interface PauseAnswerRecord {
     // (undocumented)
     readonly resolution: PauseResolution;
     // (undocumented)
-    readonly resolvedAt: string | undefined;
+    readonly resolvedAt: Date | undefined;
     readonly respondent: PauseRespondent;
     readonly step: StepRecord;
     readonly target: string;
     readonly toolCall?: unknown;
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public
@@ -6737,34 +6729,34 @@ export interface PauseReassignment {
 // @public
 export interface PauseRecord extends PauseSite {
     readonly answer?: PauseAnswer;
-    readonly askedAt: string;
+    readonly askedAt: Date;
     readonly assignees?: readonly string[];
-    readonly boundAt?: string;
+    readonly boundAt?: Date;
     readonly channel?: string;
     readonly closedFirst?: PauseFirstClose;
     readonly escalationLimits: PauseEscalationCounts;
-    readonly expiresAt?: string;
+    readonly expiresAt?: Date;
     readonly expiryBound?: PauseExpiryBound;
     readonly expiryProblem?: ExpiryProblem;
     readonly externalRef?: string;
-    readonly firstAskedAt: string;
+    readonly firstAskedAt: Date;
     readonly input: Readonly<Record<string, unknown>>;
     readonly isSent: boolean;
     readonly kind: PauseKind;
-    readonly maxExpiresAt?: string;
+    readonly maxExpiresAt?: Date;
     readonly pauseId: string;
     readonly reassignedFrom?: string;
     readonly reassignedTo?: string;
-    readonly remindAt?: string;
+    readonly remindAt?: Date;
     readonly resolution?: PauseResolution;
-    readonly resolvedAt?: string;
+    readonly resolvedAt?: Date;
     readonly respondent: PauseRespondent;
     // (undocumented)
     readonly status: PauseStatus;
     readonly step: string;
     readonly target: string;
     readonly toolCall?: PauseToolCallSummary;
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
 }
 
 // @public
@@ -6900,25 +6892,6 @@ export interface PauseTrailEntry {
     // (undocumented)
     readonly reason?: string;
     // (undocumented)
-    readonly target: string;
-}
-
-// @public
-export interface PauseTrailRecord {
-    // (undocumented)
-    readonly action: "opened" | "reassigned" | "timeout-changed" | "escalated";
-    readonly actor?: PauseActor;
-    // (undocumented)
-    readonly assignees?: readonly string[];
-    readonly at: string;
-    // (undocumented)
-    readonly channel?: string;
-    // (undocumented)
-    readonly expiresAt?: string;
-    // (undocumented)
-    readonly externalRef?: string;
-    // (undocumented)
-    readonly reason?: string;
     readonly target: string;
 }
 
@@ -10704,7 +10677,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "spend".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolution".
 // src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
-// src/flow/runtime/execution-record.ts - (ae-undocumented) Missing documentation for "resolvedAt".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "slot".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "reason".
 // src/flow/runtime/records.ts - (ae-undocumented) Missing documentation for "outdated".
@@ -10875,12 +10847,6 @@ interface WrongKind<TName extends string, TLabel extends string> {
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Withdrawn".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "TreeEnded".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "Reassigned".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "action".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "channel".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "assignees".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "expiresAt".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "externalRef".
-// src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "reason".
 // src/infrastructure/pause-record.ts - (ae-undocumented) Missing documentation for "status".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "ping".
 // src/infrastructure/sqlite/sqlite-child-execution-queue.repository.ts - (ae-undocumented) Missing documentation for "saveIfAbsent".

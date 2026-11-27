@@ -50,9 +50,7 @@ describe("#942 AC3: the reminder", () => {
       const paused = await execute(first(apps), managerFlow.start, ORDER, THREAD);
       const askedAt = clock.now().getTime();
       const firstDeadline = isoOf(paused.pending[0]?.expiresAt);
-      expect((await pauseOf(first(apps)))?.remindAt).toBe(
-        new Date(askedAt + hours(22)).toISOString(),
-      );
+      expect((await pauseOf(first(apps)))?.remindAt).toEqual(new Date(askedAt + hours(22)));
 
       await clock.advance(hours(21));
       expect(expiring()).toEqual([]);
@@ -66,7 +64,7 @@ describe("#942 AC3: the reminder", () => {
           .map((one) => one.receiver)
           .sort(),
       ).toEqual(["channel", "listener"]);
-      for (const one of expiring()) expect(one.expiresAt).toBe(firstDeadline);
+      for (const one of expiring()) expect(one.expiresAt).toEqual(firstDeadline);
       expect((await pauseOf(first(apps)))?.remindAt).toBeUndefined();
 
       // extended after the reminder: a new deadline, a new reminder before it
@@ -74,8 +72,8 @@ describe("#942 AC3: the reminder", () => {
         { pauseId: pauseIdOf(), timeout: hours(24) },
         manager,
       );
-      expect((await pauseOf(first(apps)))?.remindAt).toBe(
-        new Date(Number(extension.expiresAt) - hours(2)).toISOString(),
+      expect((await pauseOf(first(apps)))?.remindAt).toEqual(
+        new Date(Number(extension.expiresAt) - hours(2)),
       );
       await clock.advance(hours(21));
       expect(expiring()).toHaveLength(2);
@@ -85,7 +83,7 @@ describe("#942 AC3: the reminder", () => {
 
       const again = expiring().slice(2);
       expect(again.map((one) => one.receiver).sort()).toEqual(["channel", "listener"]);
-      for (const one of again) expect(one.expiresAt).toBe(extension.expiresAt?.toISOString());
+      for (const one of again) expect(one.expiresAt).toEqual(extension.expiresAt?.toISOString());
       expect(new Set(expiring().map((one) => one.deliveryId)).size).toBe(4);
     },
   );
@@ -105,7 +103,8 @@ describe("#942 AC3: the reminder", () => {
       await clock.advance(hours(1));
       await until(() => expiring().length === 2);
 
-      for (const one of expiring()) expect(one.expiresAt).toBe(extension.expiresAt?.toISOString());
+      for (const one of expiring())
+        expect(one.expiresAt).toEqual(extension.expiresAt?.toISOString());
     },
   );
 
@@ -117,14 +116,12 @@ describe("#942 AC3: the reminder", () => {
         deadline: hours(10),
       });
       const runDeadline = paused.pending[0]?.expiresAt ?? new Date(Number.NaN);
-      expect((await pauseOf(app))?.remindAt).toBe(
-        new Date(runDeadline.getTime() - hours(2)).toISOString(),
-      );
+      expect((await pauseOf(app))?.remindAt).toEqual(new Date(runDeadline.getTime() - hours(2)));
 
       await clock.advance(span(hours(8), seconds(10)));
       await until(() => expiring().length === 2);
 
-      for (const one of expiring()) expect(one.expiresAt).toBe(runDeadline.toISOString());
+      for (const one of expiring()) expect(one.expiresAt).toEqual(runDeadline.toISOString());
     },
   );
 
@@ -142,10 +139,10 @@ describe("#942 AC3: the reminder", () => {
 describe("#942: edges of the reminder's time", () => {
   it("remindAtOf: a reminder exactly at the ask is none, one millisecond after it is set; none without a deadline or a lead", () => {
     const asked = new Date("2026-01-01T00:00:00.000Z");
-    const deadline = "2026-01-01T02:00:00.000Z";
+    const deadline = new Date("2026-01-01T02:00:00.000Z");
 
     expect(remindAtOf(deadline, hours(2), asked)).toBeUndefined();
-    expect(remindAtOf(deadline, hours(2) - 1, asked)).toBe("2026-01-01T00:00:00.001Z");
+    expect(remindAtOf(deadline, hours(2) - 1, asked)).toEqual(new Date("2026-01-01T00:00:00.001Z"));
     expect(remindAtOf(deadline, hours(3), asked)).toBeUndefined();
     expect(remindAtOf(deadline, undefined, asked)).toBeUndefined();
     expect(remindAtOf(undefined, hours(1), asked)).toBeUndefined();

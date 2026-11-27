@@ -47,7 +47,7 @@ export const PAUSE_RECORD_CASES: readonly ContractCase<PausedExecutionRepository
         status: PauseStatus.Taken,
         resolution: PauseResolution.Decided,
         answer: { decision: { approved: true } },
-        resolvedAt: NINE.toISOString(),
+        resolvedAt: NINE,
       });
     },
   },

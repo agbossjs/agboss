@@ -1,3 +1,4 @@
+import { copyOf, sameInstant } from "./instants.js";
 import type { PauseSeen } from "./pause-notices.js";
 import type { PauseRecord } from "./pause-record.js";
 
@@ -16,7 +17,7 @@ export const seenOf = (pause: PauseRecord): PauseSeen => ({
   trailLength: pause.trail.length,
   isSent: pause.isSent,
   ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
-  ...(pause.expiresAt === undefined ? {} : { expiresAt: pause.expiresAt }),
+  ...(pause.expiresAt === undefined ? {} : { expiresAt: copyOf(pause.expiresAt) }),
 });
 
 /**
@@ -27,7 +28,7 @@ export function isAsSeen(pause: PauseRecord, seen: PauseSeen | undefined): boole
   if (seen === undefined) return false;
   return (
     pause.trail.length === seen.trailLength &&
-    pause.expiresAt === seen.expiresAt &&
+    sameInstant(pause.expiresAt, seen.expiresAt) &&
     pause.isSent === seen.isSent &&
     sameAssignees(pause.assignees, seen.assignees)
   );

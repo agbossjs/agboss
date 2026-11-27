@@ -98,7 +98,7 @@ describe("#1366: the record a pause step makes", () => {
     expect(record.toolLoopIteration).toBe(3);
   });
 
-  it("carries the reminder when the deadline is far enough, as an ISO instant", async () => {
+  it("carries the reminder when the deadline is far enough, as an instant", async () => {
     const record = await newRecordOf(
       frameOf(stepOf("ask")),
       targetOfChannel({ ...channel, expiresIn: hours(2), remindBefore: hours(1) }),
@@ -107,8 +107,8 @@ describe("#1366: the record a pause step makes", () => {
       noCalendar,
     );
 
-    expect(record.remindAt).toBe(new Date(ASKED.getTime() + hours(1)).toISOString());
-    expect(record.expiresAt).toBe(new Date(ASKED.getTime() + hours(2)).toISOString());
+    expect(record.remindAt).toEqual(new Date(ASKED.getTime() + hours(1)));
+    expect(record.expiresAt).toEqual(new Date(ASKED.getTime() + hours(2)));
   });
 
   it("materializes the limits from the target alone: a call with no hooks gets the cap and the counts together (#1307, Q-D)", async () => {
@@ -125,8 +125,8 @@ describe("#1366: the record a pause step makes", () => {
       noCalendar,
     );
 
-    expect(record.firstAskedAt).toBe(ASKED.toISOString());
-    expect(record.maxExpiresAt).toBe(new Date(ASKED.getTime() + hours(5)).toISOString());
+    expect(record.firstAskedAt).toEqual(ASKED);
+    expect(record.maxExpiresAt).toEqual(new Date(ASKED.getTime() + hours(5)));
     expect(record.escalationLimits).toEqual({ maxExtensions: 3, maxReassignments: 0 });
     // the cap caps the pause's own wait when that is longer
     const capped = await newRecordOf(
@@ -136,7 +136,7 @@ describe("#1366: the record a pause step makes", () => {
       new VirtualClock(ASKED),
       noCalendar,
     );
-    expect(capped.expiresAt).toBe(record.maxExpiresAt);
+    expect(capped.expiresAt).toEqual(record.maxExpiresAt);
   });
 
   it("a cap with no wait of its own is no deadline: the pause waits for ever, under a cap that is recorded", async () => {
@@ -154,7 +154,7 @@ describe("#1366: the record a pause step makes", () => {
     );
 
     expect("expiresAt" in record).toBe(false);
-    expect(record.maxExpiresAt).toBe(new Date(ASKED.getTime() + hours(5)).toISOString());
+    expect(record.maxExpiresAt).toEqual(new Date(ASKED.getTime() + hours(5)));
   });
 
   it("a target with no limits makes a record with an empty escalationLimits and no maxExpiresAt", async () => {
@@ -205,7 +205,7 @@ describe("#1366: the record a pause step makes", () => {
 
 describe("#1366: the deadline fields hold only what is set", () => {
   it("a pause with only its own deadline has no boundAt key", () => {
-    const own = new Date(ASKED.getTime() + minutes(10)).toISOString();
+    const own = new Date(ASKED.getTime() + minutes(10));
 
     const fields = boundedDeadlineOf({ execution: {} } as never, own);
 
@@ -233,7 +233,7 @@ describe("#1366: a working-time reminder asks the calendar only for a deadline",
   });
 
   it("is none when the calendar's instant is not after the ask (or is the ask itself)", async () => {
-    const expiresAt = new Date(ASKED.getTime() + hours(8)).toISOString();
+    const expiresAt = new Date(ASKED.getTime() + hours(8));
     const deadline = { expiresAt, expiresIn: workingHours(8) };
 
     const same = await reminderOf(ASKED, deadline, workingHours(1), () => Promise.resolve(ASKED));

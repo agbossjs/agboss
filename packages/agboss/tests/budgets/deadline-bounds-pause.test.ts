@@ -189,8 +189,8 @@ describe("#941 V5: the step builds LimitError.Deadline itself when its own check
       target: "expiring-manager-external-task",
       channel: "manager-expiry-channel",
       kind: "external-task",
-      askedAt: "2026-01-01T00:00:00.000Z",
-      expiresAt: "2026-01-01T00:05:00.000Z",
+      askedAt: new Date("2026-01-01T00:00:00.000Z"),
+      expiresAt: new Date("2026-01-01T00:05:00.000Z"),
       expiryBound,
     }) as never;
   const place = (check: () => void) => ({

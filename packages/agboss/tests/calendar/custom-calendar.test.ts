@@ -135,8 +135,8 @@ describe("#944 AC3: a tenant's own holiday table", () => {
       });
 
       // Thursday 17:30 + 2 h: 30 min that day, then acme skips Sunday: Monday 09:00 + 1.5 h = 10:30 IST (08:30Z)
-      expect(acme.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-12T08:30:00.000Z");
-      expect(globex.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-11T08:30:00.000Z");
+      expect(acme.pending[0]?.expiresAt).toEqual(new Date("2026-01-12T08:30:00.000Z"));
+      expect(globex.pending[0]?.expiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
     },
   );
 
@@ -181,14 +181,14 @@ describe("#944 AC3: a tenant's own holiday table", () => {
       await moveTo(clock, "2026-01-08T15:30:00.000Z");
       const first = await execute(app, holidayDesk.start, ORDER, { threadId: "t-1" });
       const firstId = sentId();
-      expect(first.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-11T08:30:00.000Z");
+      expect(first.pending[0]?.expiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
 
       // the tenant adds Sunday as a holiday afterwards
       app.resolve(HolidayRepository).tables.set("default", ["2026-01-11"]);
       const second = await execute(app, holidayDesk.start, ORDER, { threadId: "t-2" });
 
-      expect((await pauseOf(app, firstId)).expiresAt).toBe("2026-01-11T08:30:00.000Z");
-      expect(second.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-12T08:30:00.000Z");
+      expect((await pauseOf(app, firstId)).expiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
+      expect(second.pending[0]?.expiresAt).toEqual(new Date("2026-01-12T08:30:00.000Z"));
     },
   );
 
@@ -199,8 +199,8 @@ describe("#944 AC3: a tenant's own holiday table", () => {
       await execute(app, holidayDesk.start, ORDER, { threadId: "t-1" });
       const pauseId = sentId();
       // Sunday 09:00 IST: deadline 11:00 IST (09:00Z), reminder at 10:15 IST (08:15Z)
-      expect((await pauseOf(app, pauseId)).expiresAt).toBe("2026-01-11T09:00:00.000Z");
-      expect((await pauseOf(app, pauseId)).remindAt).toBe("2026-01-11T08:15:00.000Z");
+      expect((await pauseOf(app, pauseId)).expiresAt).toEqual(new Date("2026-01-11T09:00:00.000Z"));
+      expect((await pauseOf(app, pauseId)).remindAt).toEqual(new Date("2026-01-11T08:15:00.000Z"));
       await moveTo(clock, "2026-01-11T08:50:00.000Z");
       await until(() => holidayDesk.told.expiring.length === 1);
       seen.requests.length = 0;
@@ -210,7 +210,9 @@ describe("#944 AC3: a tenant's own holiday table", () => {
         manager,
       );
 
-      expect(extension.expiresAt?.toISOString()).toBe("2026-01-11T09:20:00.000Z");
+      expect(extension.expiresAt?.toISOString()).toEqual(
+        new Date("2026-01-11T09:20:00.000Z").toISOString(),
+      );
       expect(seen.requests).toHaveLength(1);
       expect(seen.requests[0]).toMatchObject({ amount: workingMinutes(30), tenantId: "default" });
       expect((await pauseOf(app, pauseId)).remindAt).toBeUndefined();
@@ -228,8 +230,10 @@ describe("#944 AC3: a tenant's own holiday table", () => {
       const extension = await app.setPauseTimeout({ pauseId, timeout: workingHours(3) }, manager);
 
       // now Sunday 09:00 IST + 3 h: 09:00–13:00 is 4 h → 12:00 IST; the reminder 3 h − 45 min = 2.25 h → 11:15 IST
-      expect(extension.expiresAt?.toISOString()).toBe("2026-01-11T10:00:00.000Z");
-      expect((await pauseOf(app, pauseId)).remindAt).toBe("2026-01-11T09:15:00.000Z");
+      expect(extension.expiresAt?.toISOString()).toEqual(
+        new Date("2026-01-11T10:00:00.000Z").toISOString(),
+      );
+      expect((await pauseOf(app, pauseId)).remindAt).toEqual(new Date("2026-01-11T09:15:00.000Z"));
       expect(seen.requests.map((one) => one.amount.amount)).toEqual([hours(3), hours(2.25)]);
     },
   );

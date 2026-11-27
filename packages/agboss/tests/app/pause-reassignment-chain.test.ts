@@ -107,7 +107,7 @@ describe("#946: treeResumeOf takes the replacement's answer under the first paus
       reassignedFrom: "p1",
       status: PauseStatus.Resolved,
       answer: { decision: { approved: true }, actor: { id: "deputy-3" } },
-      expiresAt: DEADLINE.toISOString(),
+      expiresAt: DEADLINE,
     });
     const waiting = [{ interruptId: "i-1", pauseId: "p1", via: [] }];
 

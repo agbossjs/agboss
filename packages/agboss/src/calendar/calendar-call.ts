@@ -1,3 +1,4 @@
+import { isBefore } from "../infrastructure/instants.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import { callInFrame, NoticeTimeoutError } from "../app/pause-notice-call.js";
 import type { FrameSpec } from "../flow/context/frame.js";
@@ -176,7 +177,7 @@ export async function workingReminderAt(
   const found = isWorkingWeek(walker)
     ? await asked(site, calendar, () => workingTimeBefore(walker, expiresAt, remindBefore))
     : await forwardReminder(site, calendar, walker, span);
-  return found !== undefined && found.getTime() > at.getTime() && found < expiresAt
+  return found !== undefined && isBefore(at, found) && isBefore(found, expiresAt)
     ? found
     : undefined;
 }

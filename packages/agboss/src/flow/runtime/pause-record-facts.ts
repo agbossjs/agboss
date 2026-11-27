@@ -1,4 +1,5 @@
-import type { PauseRecord, PauseTrailRecord } from "../../infrastructure/pause-record.js";
+import type { PauseTrailEntry } from "../../channels/pause-contexts.js";
+import type { PauseRecord } from "../../infrastructure/pause-record.js";
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 import type { TimeSpan } from "../../units/working-time.js";
 import type { PauseChannel, PauseTarget } from "./pause-channel.js";
@@ -12,11 +13,11 @@ export const openedEntryOf = (
   target: PauseTarget,
   channel: PauseChannel | undefined,
   at: Date,
-  expiresAt: string | undefined,
+  expiresAt: Date | undefined,
   assignees: readonly string[] | undefined,
-): PauseTrailRecord => ({
+): PauseTrailEntry => ({
   action: "opened",
-  at: at.toISOString(),
+  at,
   target: target.name,
   // an owner's pause with no channel is asked of nobody
   ...(channel === undefined ? {} : { channel: channel.name }),

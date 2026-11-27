@@ -37,7 +37,7 @@ describe("#1072: due pauses no instance moves do not starve the ones behind them
   }) => {
     await app.ready();
     const store = expiryStore();
-    const deadline = new Date(clock.now().getTime() + hours(1)).toISOString();
+    const deadline = new Date(clock.now().getTime() + hours(1));
     for (let n = 0; n < STUCK; n += 1) {
       await store.findOrCreateByStepKey({
         ...pauseOf(`foreign-${String(n)}`, `foreign-run-${String(n)}:s:1:c`),

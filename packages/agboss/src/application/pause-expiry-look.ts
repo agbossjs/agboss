@@ -1,5 +1,5 @@
 import type { ExpireRoot } from "../app/expire-root.js";
-import type { Clock } from "../infrastructure/clock.js";
+import { definedOf, type Clock } from "../infrastructure/clock.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
@@ -49,7 +49,7 @@ export interface ExpirySources {
 
 /** The keyset that continues after `pause` in the due-scan's order. */
 const afterOf = (pause: PauseRecord): PauseScanAfter => ({
-  at: pause.expiresAt ?? "",
+  at: definedOf(pause.expiresAt, "a pause the expiry scan found has a deadline"),
   tenantId: pause.tenantId,
   pauseId: pause.pauseId,
 });

@@ -42,12 +42,12 @@ export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionReposito
         ...old.trail,
         {
           action: "reassigned",
-          at: MID.toISOString(),
+          at: MID,
           actor: { id: "counsel-4", orgId: "subsidiary-eu" },
           target: old.target,
           channel: old.channel,
           assignees: ["risk-1", "risk-2", "risk-3"],
-          expiresAt: DEADLINE.toISOString(),
+          expiresAt: DEADLINE,
           reason: "over the legal limit",
         },
       ]);
@@ -67,7 +67,10 @@ export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionReposito
         pauseId: "pause-b",
         assignees: ["deputy-1"],
         reason: "no answer",
-        due: { expiresAt: "2026-01-05T12:00:00.000Z", expiryBound: PauseExpiryBound.Pause },
+        due: {
+          expiresAt: new Date("2026-01-05T12:00:00.000Z"),
+          expiryBound: PauseExpiryBound.Pause,
+        },
       };
 
       // before the deadline the pause is still open: an expiry's reassignment is not for it
@@ -78,14 +81,14 @@ export const REASSIGN_TRAIL_CASES: readonly ContractCase<PausedExecutionReposito
         pauseId: "pause-b",
         status: PauseStatus.Pending,
         assignees: ["deputy-1"],
-        expiresAt: "2026-01-05T12:00:00.000Z",
+        expiresAt: new Date("2026-01-05T12:00:00.000Z"),
         expiryBound: PauseExpiryBound.Pause,
         reassignedFrom: "pause-a",
       });
       expect(moved).not.toHaveProperty("remindAt");
       expect(moved?.trail.at(-1)).toMatchObject({
         action: "reassigned",
-        expiresAt: "2026-01-05T12:00:00.000Z",
+        expiresAt: new Date("2026-01-05T12:00:00.000Z"),
         reason: "no answer",
       });
       expect(await first.findByTenantIdAndPauseId("default", "pause-a")).toMatchObject({

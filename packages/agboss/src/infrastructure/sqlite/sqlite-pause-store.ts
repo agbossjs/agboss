@@ -24,7 +24,7 @@ import {
   onceNotices,
   remindChange,
   resolveChange,
-  type PauseChange,
+  type PauseTransition,
 } from "../pause-transitions.js";
 import { oneRowChanged } from "./sqlite-connection.js";
 import { reassignedIn } from "./sqlite-pause-reassign.js";
@@ -188,8 +188,10 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
   ): Promise<boolean> {
     const wrote = this.connection.transaction(() => {
       const pause = this.pauses.findById(tenantId, pauseId);
-      if (pause === undefined || this.notices.hasNoticeOf(tenantId, pauseId, kind)) return false;
+      if (pause === undefined) return false;
+      // planned even when it is not written: an Invalid Date is refused either way
       const notices = onceNotices(pause, kind, facts, at, recipients);
+      if (this.notices.hasNoticeOf(tenantId, pauseId, kind)) return false;
       this.notices.append(pause, notices);
       return notices.length > 0;
     });
@@ -212,7 +214,7 @@ export class SqlitePauseStore extends SqlitePauseQueryRepository {
   #change(
     tenantId: string,
     pauseId: string,
-    plan: (current: PauseRecord) => PauseChange | undefined,
+    plan: (current: PauseRecord) => PauseTransition | undefined,
   ): PauseRecord | undefined {
     return this.connection.transaction(() => {
       const current = this.pauses.findById(tenantId, pauseId);

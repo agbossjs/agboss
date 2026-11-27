@@ -25,10 +25,13 @@ import type {
   PauseNoticeKind,
   SetAsideMailbox,
 } from "./pause-notices.js";
+import { compareInstants, copyOf } from "./instants.js";
+import { copiedPause } from "./pause-copies.js";
+import { assertPauseInstants } from "./pause-instants-valid.js";
 import type { PauseRecord } from "./pause-record.js";
-import { onceNotices, type PauseChange } from "./pause-transitions.js";
+import { onceNotices, type PauseTransition } from "./pause-transitions.js";
 import type { PauseNoticeFacts, PauseRecipients } from "./pause-notices.js";
-import { compareText, type SequencedPause } from "./pause-scans.js";
+import type { SequencedPause } from "./pause-scans.js";
 
 /**
  * The state of `InMemoryPausedExecutionRepository` (#935): the pauses in their insertion order and
@@ -43,19 +46,24 @@ export class InMemoryPauseBook {
 
   /** The pause of the tenant, or `undefined`. */
   find(tenantId: string, pauseId: string): PauseRecord | undefined {
-    return this.#pauses.get(JSON.stringify([tenantId, pauseId]))?.pause;
+    const stored = this.#pauses.get(JSON.stringify([tenantId, pauseId]));
+    return stored === undefined ? undefined : copiedPause(stored.pause);
   }
 
-  /** Every pause in insertion order, with its sequence. */
+  /**
+   * Every pause in insertion order, with its sequence: the book's own records, to select from —
+   * what is handed out is copied (`copiedPause`), never these instances.
+   */
   all(): readonly SequencedPause[] {
     return [...this.#pauses.values()];
   }
 
   /** Adds a pause as the newest one. */
   insert(pause: PauseRecord): void {
+    assertPauseInstants(pause);
     this.#sequence += 1;
     this.#pauses.set(JSON.stringify([pause.tenantId, pause.pauseId]), {
-      pause,
+      pause: copiedPause(pause),
       seq: this.#sequence,
     });
   }
@@ -64,17 +72,20 @@ export class InMemoryPauseBook {
   change(
     tenantId: string,
     pauseId: string,
-    plan: (current: PauseRecord) => PauseChange | undefined,
+    plan: (current: PauseRecord) => PauseTransition | undefined,
   ): PauseRecord | undefined {
     const key = JSON.stringify([tenantId, pauseId]);
     const stored = this.#pauses.get(key);
     if (stored === undefined) return undefined;
-    const change = plan(stored.pause);
+    const change = plan(copiedPause(stored.pause));
     if (change === undefined) return undefined;
-    this.#pauses.set(key, { ...stored, pause: change.pause });
+    // refused before anything is applied: the change and its notices land together or not at all
+    assertPauseInstants(change.pause);
+    if (change.inserted !== undefined) assertPauseInstants(change.inserted);
+    this.#pauses.set(key, { ...stored, pause: copiedPause(change.pause) });
     this.#append(change.pause, change.notices);
     if (change.inserted !== undefined) this.insert(change.inserted);
-    return change.pause;
+    return copiedPause(change.pause);
   }
 
   /** Appends the planned notices to their mailboxes, created when absent. */
@@ -101,9 +112,9 @@ export class InMemoryPauseBook {
     const already = this.#mailboxesOf(tenantId, pauseId).some((box) =>
       hasNoticeOf(box, notice.kind),
     );
-    const planned = already
-      ? []
-      : onceNotices(pause, notice.kind, notice.facts, notice.at, notice.recipients);
+    // planned even when it is not written: an Invalid Date is refused either way
+    const once = onceNotices(pause, notice.kind, notice.facts, notice.at, notice.recipients);
+    const planned = already ? [] : once;
     this.#append(pause, planned);
     return planned.length > 0;
   }
@@ -143,7 +154,7 @@ export class InMemoryPauseBook {
       const token = randomBytes(16).toString("hex");
       const claimed = claimedMailbox(box, token, until);
       this.#mailboxes.set(mailboxKeyOf(box.tenantId, box.pauseId, box.recipient), claimed);
-      return { mailbox: mailboxOf(claimed), token, until };
+      return { mailbox: mailboxOf(claimed), token, until: copyOf(until) };
     });
   }
 
@@ -162,7 +173,11 @@ export class InMemoryPauseBook {
     this.#mailboxes.set(held[0], acknowledged);
     return acknowledged.claim === undefined
       ? undefined
-      : { mailbox: mailboxOf(acknowledged), token: claim.token, until: acknowledged.claim.until };
+      : {
+          mailbox: mailboxOf(acknowledged),
+          token: claim.token,
+          until: copyOf(acknowledged.claim.until),
+        };
   }
 
   renew(claim: PauseNoticeClaim, at: Date, claimFor: number): PauseNoticeClaim | undefined {
@@ -170,7 +185,7 @@ export class InMemoryPauseBook {
     if (held === undefined || !isClaimedAt(held[1], at)) return undefined;
     const renewed = renewedMailbox(held[1], new Date(at.getTime() + claimFor));
     this.#mailboxes.set(held[0], renewed);
-    return { mailbox: mailboxOf(renewed), token: claim.token, until: renewed.claim.until };
+    return { mailbox: mailboxOf(renewed), token: claim.token, until: copyOf(renewed.claim.until) };
   }
 
   retry(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): boolean {
@@ -194,7 +209,7 @@ export class InMemoryPauseBook {
   ): readonly SetAsideMailbox[] {
     const stale = [...this.#mailboxes.values()]
       .filter((box): box is WrittenMailbox => isStaleAt(box, writtenBefore, at))
-      .sort((a, b) => compareText(a.headWrittenAt, b.headWrittenAt))
+      .sort((a, b) => compareInstants(a.headWrittenAt, b.headWrittenAt))
       .slice(0, limit);
     for (const box of stale)
       this.#mailboxes.set(

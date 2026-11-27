@@ -27,7 +27,7 @@ export const [AUDIT, SLACK] = LISTENER_KEYS;
 export const branchOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1"): PauseRecord => ({
   ...expiringPauseOf(pauseId, stepKey),
   expiryBound: PauseExpiryBound.Quorum,
-  boundAt: "2026-01-05T11:00:00.000Z",
+  boundAt: new Date("2026-01-05T11:00:00.000Z"),
   branchKeys: ["run-1:refund-one-workflow:1:0", "child-1:clerk-agent:1"],
 });
 

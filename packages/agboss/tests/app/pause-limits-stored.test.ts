@@ -234,7 +234,7 @@ async function carried(app: TestApp, now: PauseRecord, written: Partial<PauseRec
   });
 }
 
-const entry = (action: "reassigned" | "timeout-changed", target: string, at: string) =>
+const entry = (action: "reassigned" | "timeout-changed", target: string, at: Date) =>
   ({ action, at, target, channel: "stored-loose-channel" }) as const;
 
 describe("a pause is opened with its limits materialized", () => {
@@ -244,9 +244,9 @@ describe("a pause is opened with its limits materialized", () => {
   }) => {
     const pause = await opened(app, StoredStart, "stored-open");
 
-    expect(pause.firstAskedAt).toBe(pause.askedAt);
-    expect(pause.firstAskedAt).toBe(clock.now().toISOString());
-    expect(pause.maxExpiresAt).toBe(new Date(clock.now().getTime() + days(30)).toISOString());
+    expect(pause.firstAskedAt).toEqual(pause.askedAt);
+    expect(pause.firstAskedAt).toEqual(clock.now());
+    expect(pause.maxExpiresAt).toEqual(new Date(clock.now().getTime() + days(30)));
     expect(pause.escalationLimits).toEqual({ maxExtensions: 99, maxReassignments: 99 });
   });
 
@@ -275,7 +275,7 @@ describe("a pause is opened with its limits materialized", () => {
       target: "stored-tight-external-task",
       firstAskedAt: first.firstAskedAt,
       // ten hours from the first asking, not from the move an hour later
-      maxExpiresAt: new Date(Date.parse(first.firstAskedAt) + hours(10)).toISOString(),
+      maxExpiresAt: new Date(first.firstAskedAt.getTime() + hours(10)),
       escalationLimits: { maxExtensions: 3, maxReassignments: 2 },
     });
     // and the narrowed limits are the ones that now hold: nine hours from now is past the cap
@@ -290,7 +290,7 @@ describe("a pause is opened with its limits materialized", () => {
     clock,
   }) => {
     const first = await opened(app, StoredStart, "stored-clamp");
-    const cap = new Date(Date.parse(first.firstAskedAt) + hours(10)).toISOString();
+    const cap = new Date(first.firstAskedAt.getTime() + hours(10));
     await clock.advance(hours(8));
 
     // four hours from now (hour 12) runs past the cap (hour 10): the deadline is the cap itself
@@ -299,8 +299,8 @@ describe("a pause is opened with its limits materialized", () => {
     const moved = (
       await store(app).findAllByTenantIdAndRootExecutionId("default", first.rootExecutionId)
     ).find((one) => one.reassignedFrom === first.pauseId);
-    expect(moved?.maxExpiresAt).toBe(cap);
-    expect(moved?.expiresAt).toBe(cap);
+    expect(moved?.maxExpiresAt).toEqual(cap);
+    expect(moved?.expiresAt).toEqual(cap);
     expect(moved?.expiryBound).toBe(PauseExpiryBound.Pause);
   });
 
@@ -316,7 +316,7 @@ describe("a pause is opened with its limits materialized", () => {
     const moved = (
       await store(app).findAllByTenantIdAndRootExecutionId("default", first.rootExecutionId)
     ).find((one) => one.reassignedFrom === first.pauseId);
-    expect(moved?.expiresAt).toBe(new Date(clock.now().getTime() + hours(4)).toISOString());
+    expect(moved?.expiresAt).toEqual(new Date(clock.now().getTime() + hours(4)));
     expect(moved?.expiresAt).not.toBe(moved?.maxExpiresAt);
   });
 
@@ -343,8 +343,8 @@ describe("a pause is opened with its limits materialized", () => {
       await store(app).findAllByTenantIdAndRootExecutionId("default", first.rootExecutionId)
     ).find((one) => one.reassignedFrom === first.pauseId);
     // four hours from now is hour 8: past the run's deadline at hour 6
-    expect(moved?.expiresAt).toBe(first.boundAt);
-    expect(moved?.expiresAt).toBe(new Date(Date.parse(first.askedAt) + hours(6)).toISOString());
+    expect(moved?.expiresAt).toEqual(first.boundAt);
+    expect(moved?.expiresAt).toEqual(new Date(first.askedAt.getTime() + hours(6)));
     expect(moved?.expiryBound).toBe(PauseExpiryBound.RunDeadline);
   });
 
@@ -364,7 +364,7 @@ describe("a pause is opened with its limits materialized", () => {
 
     expect(back).toMatchObject({
       target: "stored-back-external-task",
-      maxExpiresAt: new Date(Date.parse(first.firstAskedAt) + hours(10)).toISOString(),
+      maxExpiresAt: new Date(first.firstAskedAt.getTime() + hours(10)),
       escalationLimits: { maxExtensions: 3, maxReassignments: 2 },
     });
   });
@@ -405,7 +405,7 @@ describe("a pause is opened with its limits materialized", () => {
     expect(moved).toMatchObject({
       target: "stored-mid-external-task",
       firstAskedAt: first.firstAskedAt,
-      maxExpiresAt: new Date(Date.parse(first.firstAskedAt) + hours(30)).toISOString(),
+      maxExpiresAt: new Date(first.firstAskedAt.getTime() + hours(30)),
       escalationLimits: { maxExtensions: 5, maxReassignments: 5 },
     });
   });
@@ -438,7 +438,7 @@ describe("the limits are the record's, not the live configuration's", () => {
   }) => {
     const now = await opened(app, StoredStart, "stored-cap");
     const capped = await carried(app, now, {
-      maxExpiresAt: new Date(clock.now().getTime() + hours(48)).toISOString(),
+      maxExpiresAt: new Date(clock.now().getTime() + hours(48)),
     });
 
     await expect(
@@ -450,7 +450,7 @@ describe("the limits are the record's, not the live configuration's", () => {
 
   test("setPauseTimeout: the stored maxExtensions counts", async ({ app, clock }) => {
     const now = await opened(app, StoredStart, "stored-ext");
-    const at = clock.now().toISOString();
+    const at = clock.now();
     const spent = await carried(app, now, {
       escalationLimits: { maxExtensions: 1 },
       trail: [...now.trail, entry("timeout-changed", now.target, at)],
@@ -463,7 +463,7 @@ describe("the limits are the record's, not the live configuration's", () => {
 
   test("reassignPause: the stored maxReassignments counts", async ({ app, clock }) => {
     const now = await opened(app, StoredStart, "stored-reassign");
-    const at = clock.now().toISOString();
+    const at = clock.now();
     const spent = await carried(app, now, {
       escalationLimits: { maxReassignments: 1 },
       trail: [...now.trail, entry("reassigned", now.target, at)],
@@ -483,11 +483,11 @@ describe("the limits are the record's, not the live configuration's", () => {
     clock,
   }) => {
     const now = await opened(app, StoredStart, "stored-removed");
-    const at = clock.now().toISOString();
+    const at = clock.now();
     // the pause was opened under `retired-external-task` (no longer in the application), moved on
     // to the live target; it carries the 10-hour total wait of the one that is gone
     const moved = await carried(app, now, {
-      maxExpiresAt: new Date(clock.now().getTime() + hours(10)).toISOString(),
+      maxExpiresAt: new Date(clock.now().getTime() + hours(10)),
       trail: [
         { ...now.trail[0], target: "retired-external-task" } as never,
         entry("reassigned", now.target, at),
@@ -507,7 +507,7 @@ describe("the limits are the record's, not the live configuration's", () => {
   }) => {
     const now = await opened(app, StoredStart, "stored-deadline");
     const capped = await carried(app, now, {
-      maxExpiresAt: new Date(clock.now().getTime() + hours(6)).toISOString(),
+      maxExpiresAt: new Date(clock.now().getTime() + hours(6)),
     });
 
     await app.reassignPause(
@@ -519,7 +519,7 @@ describe("the limits are the record's, not the live configuration's", () => {
     ).find((one) => one.reassignedFrom === capped.pauseId);
 
     expect(replacement?.status).toBe(PauseStatus.Pending);
-    expect(replacement?.expiresAt).toBe(new Date(clock.now().getTime() + hours(6)).toISOString());
+    expect(replacement?.expiresAt).toEqual(new Date(clock.now().getTime() + hours(6)));
   });
 
   test("a change in place narrows nothing: the stored cap, not the live target's 30 days, bounds its new deadline", async ({
@@ -529,7 +529,7 @@ describe("the limits are the record's, not the live configuration's", () => {
     const now = await opened(app, StoredStart, "stored-in-place");
     // opened under a laxer deploy: sixty days in total, where the live target allows thirty
     const lax = await carried(app, now, {
-      maxExpiresAt: new Date(clock.now().getTime() + days(60)).toISOString(),
+      maxExpiresAt: new Date(clock.now().getTime() + days(60)),
     });
 
     await app.reassignPause(
@@ -538,8 +538,8 @@ describe("the limits are the record's, not the live configuration's", () => {
     );
 
     const after = await store(app).findByTenantIdAndPauseId("default", lax.pauseId);
-    expect(after?.expiresAt).toBe(new Date(clock.now().getTime() + days(40)).toISOString());
-    expect(after?.maxExpiresAt).toBe(lax.maxExpiresAt);
+    expect(after?.expiresAt).toEqual(new Date(clock.now().getTime() + days(40)));
+    expect(after?.maxExpiresAt).toEqual(lax.maxExpiresAt);
   });
 
   test("onExpired reads the pause as the record has it: assignees, the reference, the deadline, the cap and the first asking", async ({
@@ -549,7 +549,7 @@ describe("the limits are the record's, not the live configuration's", () => {
     const now = await opened(app, StoredStart, "stored-context-all");
     const cap = new Date(clock.now().getTime() + days(3));
     const record = await carried(app, now, {
-      maxExpiresAt: cap.toISOString(),
+      maxExpiresAt: cap,
       assignees: ["deputy-1"],
       externalRef: "JIRA-7",
     });
@@ -574,7 +574,7 @@ describe("the limits are the record's, not the live configuration's", () => {
   test("onExpired reads the stored maxExpiresAt and firstAskedAt", async ({ app, clock }) => {
     const now = await opened(app, StoredStart, "stored-context");
     const cap = new Date(clock.now().getTime() + days(3));
-    await carried(app, now, { maxExpiresAt: cap.toISOString() });
+    await carried(app, now, { maxExpiresAt: cap });
 
     await clock.advance(hours(25));
     await until(() => told.expired.length >= 2);

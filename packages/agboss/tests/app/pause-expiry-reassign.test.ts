@@ -22,6 +22,9 @@ import {
   resetExpiry,
 } from "../flow/fixtures/expiry.fixture.js";
 
+/** The milliseconds of a time a record may not have: NaN when it has none. */
+const ms = (at: Date | undefined): number => at?.getTime() ?? Number.NaN;
+
 const test = testWith(ExpiryApplication);
 
 beforeEach(resetExpiry);
@@ -66,7 +69,7 @@ describe("#1310a: an expiry reassigns the pause", () => {
       assignees: ["deputy-1", "deputy-2"],
     });
     expect(next?.reassignedFrom).toBeUndefined();
-    expect(Date.parse(next?.expiresAt ?? "") - clock.now().getTime()).toBeLessThanOrEqual(hours(2));
+    expect(ms(next?.expiresAt) - clock.now().getTime()).toBeLessThanOrEqual(hours(2));
     expect(next?.remindAt).toBeUndefined();
     expect(next?.trail.map((entry) => entry.action)).toEqual(["opened", "reassigned"]);
     expect(next?.trail[1]).toMatchObject({
@@ -175,10 +178,10 @@ describe("#1310a: an expiry reassigns the pause", () => {
         pauseId,
         {
           seen: seenOf(before),
-          expiresAt: new Date(clock.now().getTime() + hours(24)).toISOString(),
+          expiresAt: new Date(clock.now().getTime() + hours(24)),
           previousExpiresAt: before.expiresAt,
         },
-        new Date(Date.parse(before.expiresAt ?? "") - 1),
+        new Date(ms(before.expiresAt) - 1),
         NO_RECIPIENTS,
       );
       return undefined;
@@ -190,7 +193,7 @@ describe("#1310a: an expiry reassigns the pause", () => {
 
     const [pause] = await store.findAllByTenantIdAndRootExecutionId("default", paused.executionId);
     expect(pause?.status).toBe(PauseStatus.Pending);
-    expect(Date.parse(pause?.expiresAt ?? "")).toBeGreaterThan(clock.now().getTime());
+    expect(ms(pause?.expiresAt)).toBeGreaterThan(clock.now().getTime());
     expect(pause?.resolution).toBeUndefined();
   });
 });

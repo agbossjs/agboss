@@ -27,9 +27,9 @@ const AT = "2026-01-01T00:10:00.000Z";
 const pause = (bound: PauseExpiryBound): PauseRecord =>
   ({
     expiryBound: bound,
-    expiresAt: AT,
-    boundAt: AT,
-    askedAt: "2026-01-01T00:00:00.000Z",
+    expiresAt: new Date(AT),
+    boundAt: new Date(AT),
+    askedAt: new Date("2026-01-01T00:00:00.000Z"),
     channel: "desk",
     kind: "approval",
   }) as never;
@@ -80,7 +80,7 @@ describe("#1366: what a pause's expiry fails the step with", () => {
   it("the run's deadline, given as what the pause waited: from the ask to the deadline, none when it ran out before the ask", () => {
     const waited = expiryFailureOf(pause(PauseExpiryBound.RunDeadline), site().site);
     const before = expiryFailureOf(
-      { ...pause(PauseExpiryBound.RunDeadline), askedAt: "2026-01-01T00:20:00.000Z" },
+      { ...pause(PauseExpiryBound.RunDeadline), askedAt: new Date("2026-01-01T00:20:00.000Z") },
       site().site,
     );
 

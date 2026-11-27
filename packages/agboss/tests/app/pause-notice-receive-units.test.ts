@@ -82,7 +82,7 @@ const PAUSE: PauseRecord = { ...pauseOf("p-1"), kind: PauseKind.Approval };
 const noticeOf = (kind: PauseNoticeKind): PauseNotice => ({
   seq: 1,
   kind,
-  writtenAt: "2026-11-20T10:00:00.000Z",
+  writtenAt: new Date("2026-11-20T10:00:00.000Z"),
 });
 
 /** What told receivers: the hook that ran and the event it got. */

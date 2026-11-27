@@ -178,7 +178,7 @@ describe("a target with permitAnswer and no permitTimeoutChange", () => {
 
     expect(refused).toBeInstanceOf(PauseError.PermissionDenied);
     expect(refused).toMatchObject({ message: expect.stringContaining("permitTimeoutChange") });
-    expect(await deadlineOf(app, pauseId)).toBe(before);
+    expect(await deadlineOf(app, pauseId)).toEqual(before);
   });
 
   test("Timeout.None over a deadline is refused too; a longer deadline is allowed", async ({

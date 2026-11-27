@@ -1,4 +1,4 @@
-import { instantOf, isBeforeText, isDueAt } from "../infrastructure/pause-record-instants.js";
+import { copyOf, isBefore, isDeadlineDue } from "../infrastructure/instants.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import { checkedCallers } from "../flow/context/context-values.js";
 import { DEFAULT_TENANT_ID } from "../flow/context/tenant-context.js";
@@ -64,7 +64,7 @@ export interface TimeoutParts extends Pick<AnswerParts, "owned"> {
 
 /** The pause open and not yet past its deadline, or why it is not. */
 async function assertOpen(parts: TimeoutParts, pause: PauseRecord): Promise<void> {
-  const isDue = isDueAt(pause.expiresAt, parts.clock.now());
+  const isDue = isDeadlineDue(pause.expiresAt, parts.clock.now());
   if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
 }
@@ -122,16 +122,16 @@ export const setPauseTimeoutOf =
  * of the run or quorum the pause was made under. A ceiling already behind `now` refuses every
  * deadline, as it is below any that is after `now`.
  */
-function assertWithinLimits(pause: PauseRecord, expiresAt: string | undefined): void {
+function assertWithinLimits(pause: PauseRecord, expiresAt: Date | undefined): void {
   // the record's own limits: a deploy since the pause was opened changes none of them (#1307, Q-D)
   const limits = limitsOf(pause);
   if (limits.maxExtensions !== undefined && timeoutChangesOf(pause) >= limits.maxExtensions)
     throw limitExceeded(pause, "maxExtensions");
   const cap = limits.maxExpiresAt;
-  if (cap !== undefined && (expiresAt === undefined || isBeforeText(cap, expiresAt)))
+  if (cap !== undefined && (expiresAt === undefined || isBefore(cap, expiresAt)))
     throw limitExceeded(pause, "maxTotalTimeout");
   const { boundAt } = pause;
-  if (boundAt !== undefined && (expiresAt === undefined || isBeforeText(boundAt, expiresAt)))
+  if (boundAt !== undefined && (expiresAt === undefined || isBefore(boundAt, expiresAt)))
     throw limitExceeded(pause, "run or quorum deadline");
 }
 
@@ -141,12 +141,11 @@ async function deadlineAfter(
   pause: PauseRecord,
   target: PauseTarget,
   timeout: SetPauseTimeoutRequest["timeout"],
-): Promise<{ expiresAt?: string; remindAt?: string }> {
+): Promise<{ expiresAt?: Date; remindAt?: Date }> {
   const now = parts.clock.now();
   const { add, remind } = calendarOfTarget(parts, pause, target, pause.assignees);
   const span = timeout === Timeout.None ? undefined : checkedTimeout(target, timeout);
-  const expiresAt =
-    span === undefined ? undefined : (await instantAfter(span, now, add)).toISOString();
+  const expiresAt = span === undefined ? undefined : await instantAfter(span, now, add);
   assertWithinLimits(pause, expiresAt);
   assertDeadlineNotGuarded(parts.deps, pause, expiresAt);
   const remindAt = await reminderOf(
@@ -185,9 +184,9 @@ async function permittedTarget(
 }
 
 /** A calendar slower than the timeout: no other writer is to blame, and asking again would not help. */
-function assertAhead(pause: PauseRecord, expiresAt: string | undefined, at: Date): void {
+function assertAhead(pause: PauseRecord, expiresAt: Date | undefined, at: Date): void {
   // no deadline is never due: a change that takes the deadline away has nothing the calendar could be late for
-  if (!isDueAt(expiresAt, at)) return;
+  if (!isDeadlineDue(expiresAt, at)) return;
   throw new PauseError.WorkingCalendar({
     message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: the deadline passed while the calendar was asked; use a longer timeout`,
   });
@@ -239,7 +238,7 @@ async function changedOnce(
     expiresAt,
   });
   return {
-    ...(expiresAt === undefined ? {} : { expiresAt: instantOf(expiresAt) }),
-    ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: instantOf(pause.expiresAt) }),
+    ...(expiresAt === undefined ? {} : { expiresAt: copyOf(expiresAt) }),
+    ...(pause.expiresAt === undefined ? {} : { previousExpiresAt: copyOf(pause.expiresAt) }),
   };
 }

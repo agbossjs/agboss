@@ -160,7 +160,7 @@ function partsOf(lease = leaseOf()) {
             Promise.resolve({
               status: "cancelled",
               resolution: "cancelled",
-              resolvedAt: "2026-01-01T00:00:00.000Z",
+              resolvedAt: new Date("2026-01-01T00:00:00.000Z"),
             }),
           ),
         },

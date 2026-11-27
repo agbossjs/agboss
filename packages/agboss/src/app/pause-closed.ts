@@ -1,7 +1,7 @@
 import { PauseError } from "../core/error-families/pause-errors.js";
 import type { PausedExecutionRepository } from "../infrastructure/paused-execution.repository.js";
 import { closedAtOf, pauseClosedReasonOf } from "../infrastructure/pause-closing.js";
-import { instantOfOptional } from "../infrastructure/pause-record-instants.js";
+import { copyOfOptional } from "../infrastructure/instants.js";
 import { PauseClosedReason, pauseKeyOf, type PauseRecord } from "../infrastructure/pause-record.js";
 
 /**
@@ -23,7 +23,7 @@ export async function pauseClosed(
   const reason = pauseClosedReasonOf(record, at);
   if (reason === undefined) {
     // refused by the store while it still reads pending: its deadline passed on the store's clock
-    const closedAt = instantOfOptional(record.expiresAt) ?? at;
+    const closedAt = copyOfOptional(record.expiresAt) ?? at;
     return new PauseError.Closed({
       pauseId,
       tenantId,
@@ -31,6 +31,6 @@ export async function pauseClosed(
       closedAt,
     });
   }
-  const closedAt = instantOfOptional(closedAtOf(record) ?? record.expiresAt) ?? at;
+  const closedAt = copyOfOptional(closedAtOf(record) ?? record.expiresAt) ?? at;
   return new PauseError.Closed({ pauseId, tenantId, reason, closedAt });
 }

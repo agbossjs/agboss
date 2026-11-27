@@ -1,4 +1,4 @@
-import { instantOf, isDueAt } from "../infrastructure/pause-record-instants.js";
+import { copyOf, isDeadlineDue } from "../infrastructure/instants.js";
 import { effectiveBoundOf } from "../infrastructure/pause-bound.js";
 import { isPauseExpiration, PauseExpirationKind } from "../channels/pause-expiration.js";
 import { movedOnExpiry, reassignmentOf, type ExpiryOutcome } from "./pause-expiry-reassign.js";
@@ -48,7 +48,7 @@ export async function duePausesOf(
   );
   if (records === undefined) return [];
   return records.filter(
-    (pause) => pause.status === PauseStatus.Pending && isDueAt(pause.expiresAt, now),
+    (pause) => pause.status === PauseStatus.Pending && isDeadlineDue(pause.expiresAt, now),
   );
 }
 
@@ -128,10 +128,10 @@ function expiredContextOf(pause: PauseRecord): ExpiredContext<never> {
     pauseKey: pauseKeyOf(pause.tenantId, pause.pauseId),
     input: pause.input as never,
     ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
-    askedAt: instantOf(pause.askedAt),
-    firstAskedAt: instantOf(pause.firstAskedAt),
-    expiresAt: instantOf(pause.expiresAt ?? pause.askedAt),
-    ...(pause.maxExpiresAt === undefined ? {} : { maxExpiresAt: instantOf(pause.maxExpiresAt) }),
+    askedAt: copyOf(pause.askedAt),
+    firstAskedAt: copyOf(pause.firstAskedAt),
+    expiresAt: copyOf(pause.expiresAt ?? pause.askedAt),
+    ...(pause.maxExpiresAt === undefined ? {} : { maxExpiresAt: copyOf(pause.maxExpiresAt) }),
     ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
     ...(pause.externalRef === undefined ? {} : { externalRef: pause.externalRef }),
     trail: trailOf(pause),

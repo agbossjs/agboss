@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 import { EXPIRY_PAGE, ExpiryLook } from "../../src/application/pause-expiry-look.js";
 
 const due = (tenantId: string, rootExecutionId: string, pauseId: string) =>
-  ({ tenantId, rootExecutionId, pauseId }) as never;
+  ({ tenantId, rootExecutionId, pauseId, expiresAt: new Date(0) }) as never;
 
 function look(
   pauses: readonly unknown[],
@@ -210,13 +210,13 @@ describe("#941: the expiry look", () => {
       tenantId: "acme",
       rootExecutionId: `foreign-${String(index)}`,
       pauseId: `s-${String(index).padStart(3, "0")}`,
-      expiresAt: "2026-01-01T00:00:00.000Z",
+      expiresAt: new Date("2026-01-01T00:00:00.000Z"),
     }));
     const movable = {
       tenantId: "acme",
       rootExecutionId: "root-1",
       pauseId: "z-1",
-      expiresAt: "2026-01-01T00:00:01.000Z",
+      expiresAt: new Date("2026-01-01T00:00:01.000Z"),
     };
     const pauses = [...stuck, movable];
     const { looked, find, expire, records } = look(pauses, { capacity: { maxConcurrentSteps: 4 } });
@@ -300,14 +300,14 @@ describe("#941: the expiry look", () => {
           tenantId: "acme",
           rootExecutionId: `foreign-${String(index)}`,
           pauseId: `s-${String(index).padStart(3, "0")}`,
-          expiresAt: "2026-01-01T00:00:00.000Z",
+          expiresAt: new Date("2026-01-01T00:00:00.000Z"),
         }) as never,
     );
     const movable = {
       tenantId: "acme",
       rootExecutionId: "root-1",
       pauseId: "z-1",
-      expiresAt: "2026-01-01T00:00:01.000Z",
+      expiresAt: new Date("2026-01-01T00:00:01.000Z"),
     } as never;
     const { find, expired, run } = look([]);
     find.mockImplementation((...args: unknown[]) => {
@@ -319,7 +319,7 @@ describe("#941: the expiry look", () => {
 
     expect(find).toHaveBeenCalledTimes(2);
     expect(find).toHaveBeenLastCalledWith(expect.any(Date), EXPIRY_PAGE, {
-      at: "2026-01-01T00:00:00.000Z",
+      at: new Date("2026-01-01T00:00:00.000Z"),
       tenantId: "acme",
       pauseId: `s-${String(EXPIRY_PAGE - 1).padStart(3, "0")}`,
     });
