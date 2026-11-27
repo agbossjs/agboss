@@ -466,6 +466,7 @@ describe("#1366: the stop of the instance", () => {
       recovered: vi.fn(() => Promise.resolve("recovered")),
       endIfEnding: vi.fn(() => Promise.resolve(true)),
       expired: vi.fn(() => Promise.resolve(undefined)),
+      unpaused: vi.fn(never),
     };
     const wrapped = runs.abandonable(moves as never);
     const call = (name: keyof typeof moves, ...args: unknown[]): Promise<unknown> =>
@@ -477,6 +478,7 @@ describe("#1366: the stop of the instance", () => {
 
     const first = call("first", "a", 1);
     const resumed = call("resumed", "b", 2);
+    const unpaused = call("unpaused", "f", 6);
     expect(await call("recovered", "c", 3)).toBe("recovered");
     expect(await call("endIfEnding", "d", 4)).toBe(true);
     expect(await call("expired", "e", 5)).toBeUndefined();
@@ -485,7 +487,9 @@ describe("#1366: the stop of the instance", () => {
     expect(moves.recovered).toHaveBeenCalledWith("c", 3);
     expect(moves.endIfEnding).toHaveBeenCalledWith("d", 4);
     expect(moves.expired).toHaveBeenCalledWith("e", 5);
+    expect(moves.unpaused).toHaveBeenCalledWith("f", 6);
     deadline.abort();
+    await expect(unpaused).rejects.toBeInstanceOf(ApplicationStoppingError);
     await expect(first).rejects.toBeInstanceOf(ApplicationStoppingError);
     await expect(resumed).rejects.toBeInstanceOf(ApplicationStoppingError);
   });

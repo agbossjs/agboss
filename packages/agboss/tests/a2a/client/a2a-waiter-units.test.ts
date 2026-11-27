@@ -176,6 +176,8 @@ describe("#1366: the deadline", () => {
       contextId: "c-9",
       deadlineAt: new Date("2026-01-01T00:00:12.000Z"),
       cancel: A2ACancelOutcome.Cancelled,
+      isCancelled: true,
+      details: { deadlineAt: "2026-01-01T00:00:12.000Z" },
     });
     expect(cancelTask).toHaveBeenCalledOnce();
     expect(cancelTask.mock.calls[0]?.[0]).toEqual({ tenant: "", id: "t-1", metadata: undefined });
@@ -206,6 +208,7 @@ describe("#1366: the deadline", () => {
 
     expect(await run(() => Promise.resolve(taskOf(TaskState.TASK_STATE_WORKING)))).toMatchObject({
       cancel: A2ACancelOutcome.NotCancelled,
+      isCancelled: false,
     });
     expect(
       await run(() => Promise.resolve(taskOf(TaskState.TASK_STATE_CANCELED, { id: "other" }))),

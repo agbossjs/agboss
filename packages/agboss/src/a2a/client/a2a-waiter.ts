@@ -121,7 +121,6 @@ export class Waiter {
       taskId,
       contextId: safeTaskIdOf(this.#task?.contextId ?? task?.contextId) ?? "",
       deadlineAt: endedAt,
-      details: { deadlineAt: endedAt.toISOString() },
       cancel: outcome,
       isCancelled: outcome === A2ACancelOutcome.Cancelled,
     });
