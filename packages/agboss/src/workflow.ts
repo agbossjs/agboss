@@ -80,6 +80,8 @@ export interface AssembledWorkflow<TName extends string = string> {
   readonly graph: RuntimeGraph;
   /** Steps per execution: `@Workflow({ maxSteps })`, default (agents + routers + actions + external tasks) × 3. */
   readonly maxSteps: number;
+  /** The `@Application` class that assembled it (none: assembled on its own); a run on its own reads that one's storage and budgets, not whichever loaded application lists the workflow. */
+  readonly application?: Class | undefined;
   /**
    * Its application's model providers (`@Application({ providers })`, #266): the listed
    * `@ModelProvider` classes, else the built-in OpenRouter and Decisions providers.

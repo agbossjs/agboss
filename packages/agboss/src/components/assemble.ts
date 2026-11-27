@@ -29,6 +29,7 @@ import type { ProviderModule } from "./container/registrations.js";
 import { containerPartsOf, toolDependenciesOf } from "./assemble-parts.js";
 import { checkComponents, componentClassesOf, promptsOf, toolNames } from "./assemble-checks.js";
 import type { AgentMeta, WorkflowMeta } from "./meta-types.js";
+import type { ApplicationStorage } from "../storage/storage-assembly.js";
 import { channelPartsOf, questionRolesOf } from "./channel-parts.js";
 import type { ToolClasses } from "./assemble-checks.js";
 import { checkedChannelsOf, createdClassesOf } from "./channel-parts.js";
@@ -53,6 +54,10 @@ import { workflowWindowOf } from "../memory/memory.decorator.js";
 
 /** The application a workflow is assembled in: its name, `defaults` and providers (its model providers). */
 type WorkflowOwner = NonNullable<DefaultsLevels["application"]> & {
+  /** The `@Application` class being assembled: its workflow's bundle remembers it (two may list one workflow). */
+  readonly application?: Class;
+  /** `@Application({ storage })`: the bundle's container outside an application reads it. */
+  readonly storage?: ApplicationStorage | undefined;
   readonly providers?: readonly Provider[];
   /** `@Application({ piiPolicies })`: every agent's and router's, before the workflow's own (#120). */
   readonly piiPolicies?: readonly Class[];
@@ -111,6 +116,12 @@ const maxStepsOf = (
 ): number =>
   stepsLimitOf(graph.analysis.graph, optionsOf(owner?.patch).executionLimitsOf(workflow).maxSteps);
 
+/** The application that assembles the workflow and its storage, for a run on its own to read (none: assembled on its own). */
+const applicationPartsOf = (owner: WorkflowOwner | undefined) =>
+  owner?.application === undefined
+    ? {}
+    : { application: owner.application, storage: owner.storage };
+
 /**
  * The workflow's module with its defaults merged over its application's (#261 cascade) — its
  * window too: its `memory`'s (#1303).
@@ -126,6 +137,7 @@ function withApplicationDefaults(
   const defaults = cascadeDefaults(owner.defaults, options.defaults);
   return {
     ...bundle,
+    ...applicationPartsOf(owner),
     defaults: configDefaultsOf(
       defaults,
       workflowWindowOf(memoryOf(options, owner.patch), owner.patch?.memoryOverrides),
