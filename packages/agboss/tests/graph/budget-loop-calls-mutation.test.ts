@@ -121,7 +121,7 @@ describe("#1356: a tool's output over the inline cap", () => {
   it("with no offload listed the output is as it is; with one it is offered the value", async () => {
     const deps = { inlineFiles: vi.fn(() => Promise.resolve()) };
 
-    expect(await offloadedOutput({} as never, ok)).toEqual({ kind: "ok", value: { f: 1 } });
+    expect(await offloadedOutput({}, ok)).toEqual({ kind: "ok", value: { f: 1 } });
     expect(await offloadedOutput(deps as never, ok)).toEqual({ kind: "ok", value: { f: 1 } });
     expect(deps.inlineFiles).toHaveBeenCalledWith({ f: 1 });
   });
@@ -129,7 +129,7 @@ describe("#1356: a tool's output over the inline cap", () => {
   it("a file over the inline cap is a fixed text with the refusal as its cause", async () => {
     const refusal = fileRefused({ refusal: FileRefusal.InlineTooLarge, sizeBytes: 99 });
 
-    const out = await offloadedOutput(failingWith(refusal) as never, ok);
+    const out = await offloadedOutput(failingWith(refusal), ok);
 
     expect(out).toStrictEqual({
       kind: "error",
@@ -141,7 +141,7 @@ describe("#1356: a tool's output over the inline cap", () => {
   it("a file that does not match its digest is a fixed text with the error as its cause", async () => {
     const mismatch = fileUnavailable({ reason: FileUnavailableReason.DigestMismatch });
 
-    const out = await offloadedOutput(failingWith(mismatch) as never, ok);
+    const out = await offloadedOutput(failingWith(mismatch), ok);
 
     expect(out).toStrictEqual({
       kind: "error",
@@ -158,7 +158,7 @@ describe("#1356: a tool's output over the inline cap", () => {
     ],
     ["an error of the store", new Error("s3 says: secret-bucket")],
   ])("%s is the step's failure, never text the model reads", async (_why, error) => {
-    const failure = await caught(offloadedOutput(failingWith(error) as never, ok));
+    const failure = await caught(offloadedOutput(failingWith(error), ok));
 
     expect(failure).toBe(error);
     expect(FileError.Refused).toBeDefined();
@@ -166,21 +166,32 @@ describe("#1356: a tool's output over the inline cap", () => {
 });
 
 describe("#1356: what a trusted call of the mesh is told it may still use", () => {
-  const meshOf = (budgets: object) =>
-    toolMeshCallOf({ name: "t", timeout: 1000 }, budgets as never, new Date(0)).services;
+  const meshOf = (budgets: object) => {
+    const { services } = toolMeshCallOf(
+      { name: "t", timeout: 1000 },
+      budgets as never,
+      new Date(0),
+    );
+    const told = (read: (() => unknown) | undefined): unknown =>
+      read === undefined ? "not offered" : read();
+    return {
+      remainingBudget: () => told(services.remainingBudget),
+      remainingTokens: () => told(services.remainingTokens),
+    };
+  };
 
   it("the dollars and the tokens left, none for an end that is no number or a budget that tells nothing", () => {
-    expect(meshOf({ remaining: () => 2.5, remainingTokens: () => 900 }).remainingBudget?.()).toBe(
+    expect(meshOf({ remaining: () => 2.5, remainingTokens: () => 900 }).remainingBudget()).toBe(
       2.5,
     );
-    expect(meshOf({ remaining: () => 2.5, remainingTokens: () => 900 }).remainingTokens?.()).toBe(
+    expect(meshOf({ remaining: () => 2.5, remainingTokens: () => 900 }).remainingTokens()).toBe(
       900,
     );
     expect(
-      meshOf({ remaining: () => Infinity, remainingTokens: () => Infinity }).remainingTokens?.(),
+      meshOf({ remaining: () => Infinity, remainingTokens: () => Infinity }).remainingTokens(),
     ).toBeUndefined();
-    expect(meshOf({ remaining: () => Infinity }).remainingBudget?.()).toBeUndefined();
-    expect(meshOf({}).remainingBudget?.()).toBeUndefined();
-    expect(meshOf({}).remainingTokens?.()).toBeUndefined();
+    expect(meshOf({ remaining: () => Infinity }).remainingBudget()).toBeUndefined();
+    expect(meshOf({}).remainingBudget()).toBeUndefined();
+    expect(meshOf({}).remainingTokens()).toBeUndefined();
   });
 });

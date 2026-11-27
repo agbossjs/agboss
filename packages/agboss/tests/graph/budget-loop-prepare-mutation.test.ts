@@ -113,6 +113,10 @@ const nodeOf = (options: { tools?: object[]; pii?: object; interceptors?: object
     inTestFrame(async () => node(state, config));
 };
 
+/** The prepared call c1 of a node's update. */
+const preparedOf = (update: { prepared?: unknown }): unknown =>
+  (update.prepared as Record<string, unknown> | undefined)?.c1;
+
 beforeEach(() => {
   vi.clearAllMocks();
   tally.mockImplementation((records) => records);
@@ -283,13 +287,11 @@ describe("#1356: what an earlier call made is known to the search of the next", 
   });
 
   it("a PII rule that blocks a kind refuses the call, and what its search spent is still the loop's", async () => {
-    const refusal = { content: "refused", refusal: new Error("blocked") };
     const set = piiSet({
       refusalError: vi.fn(() =>
         Promise.resolve(Object.assign(new Error("blocked"), { code: "pii.refused" })),
       ),
     });
-    void refusal;
 
     const out = await nodeOf({ pii: set })(oneCall("write-tool", { to: "a" }), undefined);
 
@@ -402,14 +404,14 @@ describe("#1356: a call through hooks", () => {
     const remote = { application: "peer", executionId: "e-1" };
     const reporting = {
       beforeAnyTool: () => {
-        currentFrame()?.services.meshCall?.recordRemote(remote as never);
+        currentFrame()?.services.meshCall?.recordRemote(remote);
         return ToolCallDecision.allow();
       },
     };
     const silent = { beforeAnyTool: () => ToolCallDecision.allow() };
     const stopped = {
       beforeAnyTool: () => {
-        currentFrame()?.services.meshCall?.recordRemote(remote as never);
+        currentFrame()?.services.meshCall?.recordRemote(remote);
         return ToolCallDecision.block("no");
       },
     };
@@ -427,9 +429,9 @@ describe("#1356: a call through hooks", () => {
       undefined,
     );
 
-    expect(kept.prepared?.c1).toMatchObject({ kind: "ready", remote });
-    expect(Object.keys(none.prepared?.c1 ?? {})).not.toContain("remote");
-    expect(ended.prepared?.c1).toMatchObject({ kind: "stopped", remote });
+    expect(preparedOf(kept)).toMatchObject({ kind: "ready", remote });
+    expect(Object.keys((preparedOf(none) as object | undefined) ?? {})).not.toContain("remote");
+    expect(preparedOf(ended)).toMatchObject({ kind: "stopped", remote });
   });
 
   it("an allow({ input }) is validated, searched again with the tokens known, and its spend and tokens join the first search's", async () => {

@@ -4,7 +4,10 @@
  */
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { QueueBalancingStrategy, RateLimitPolicy } from "../../src/models/policies/rate-limit-policy.js";
+import {
+  QueueBalancingStrategy,
+  RateLimitPolicy,
+} from "../../src/models/policies/rate-limit-policy.js";
 
 describe("#1356: the limits of a rate limit policy", () => {
   it("is refused with no limit at all, saying what one needs", () => {
@@ -116,7 +119,10 @@ describe("#1356: the balancing and the weight of a rate limit policy go together
       tenantWeight: weight,
     });
     const plain = RateLimitPolicy.of({ maxConcurrentCalls: 2 });
-    const fifo = RateLimitPolicy.of({ maxConcurrentCalls: 2, balancing: QueueBalancingStrategy.Fifo });
+    const fifo = RateLimitPolicy.of({
+      maxConcurrentCalls: 2,
+      balancing: QueueBalancingStrategy.Fifo,
+    });
 
     expect(weighted.balancing).toBe(QueueBalancingStrategy.TenantWeighted);
     expect(weighted.tenantWeight).toBe(weight);
