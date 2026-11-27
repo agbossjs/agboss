@@ -1,6 +1,10 @@
 import { createTestAppWith } from "../../src/testing/create-app-with.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { startComponents, stopComponents } from "../../src/components/container/lifecycle.js";
+import {
+  startComponents,
+  stopComponents,
+  withinBound,
+} from "../../src/components/container/lifecycle.js";
 import { ApplicationStoppingError } from "../../src/index.js";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
 import type { AnyTenantApp as App } from "../../src/app/types.js";
@@ -275,6 +279,34 @@ describe("#261 AC3: lifecycle hooks — errors", () => {
       await stopComponents([named("RedisConnection", done)], undefined, stop);
 
       expect(log).toEqual(["onDestroy"]);
+    });
+
+    const never = () => new Promise<void>(() => undefined);
+
+    it("an abandoned onStop (or onBeforeDestroy) does not call onAbandon; an abandoned onDestroy does", async () => {
+      const log: string[] = [];
+      const instance = { onAbandon: () => log.push("onAbandon") };
+      const { stop } = bound(true);
+      const told = new WeakSet<object>();
+
+      await withinBound(never(), stop, { hook: "onStop", instance, told });
+      await withinBound(never(), stop, { hook: "onBeforeDestroy", instance, told });
+      expect(log).toEqual([]);
+
+      await withinBound(never(), stop, { hook: "onDestroy", instance, told });
+      expect(log).toEqual(["onAbandon"]);
+    });
+
+    it("onAbandon runs at most once per instance, though several of its hooks are abandoned", async () => {
+      const log: string[] = [];
+      const instance = { onAbandon: () => log.push("onAbandon") };
+      const { stop } = bound(true);
+      const told = new WeakSet<object>();
+
+      await withinBound(never(), stop, { hook: "onDestroy", instance, told });
+      await withinBound(never(), stop, { hook: "onDestroy", instance, told });
+
+      expect(log).toEqual(["onAbandon"]);
     });
 
     it("a throwing onAbandon is dropped; the other hooks still run", async () => {

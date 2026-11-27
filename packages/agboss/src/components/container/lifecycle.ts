@@ -113,13 +113,23 @@ export interface StopBound {
   abandon(what: string): void;
 }
 
-/** `work`, or — once `bound` ends first — nothing: `abandon`ed, its late failure dropped. */
-async function withinBound(
+/** Whose hook `withinBound` bounds, and which instances `onAbandon` already ran for (once each). */
+export interface BoundedHook {
+  readonly hook: HookName;
+  readonly instance: object;
+  readonly told: WeakSet<object>;
+}
+
+/**
+ * `work`, or — once `bound` ends first — nothing: `abandon`ed, its late failure dropped. Only an
+ * abandoned `onDestroy` calls its instance's `onAbandon`, at most once per instance (#954).
+ */
+export async function withinBound(
   work: Promise<void>,
   bound: StopBound,
-  what: string,
-  instance: object,
+  of: BoundedHook,
 ): Promise<void> {
+  const what = `${of.hook} of ${componentName(of.instance)}`;
   let release = (): void => undefined;
   const ended = new Promise<boolean>((resolve) => {
     // a hook that is done by the next turn of the loop is not abandoned
@@ -141,7 +151,10 @@ async function withinBound(
     if (!abandoned) return;
     work.catch((): undefined => undefined);
     bound.abandon(what);
-    abandonedBy(instance);
+    if (of.hook === "onDestroy" && !of.told.has(of.instance)) {
+      of.told.add(of.instance);
+      abandonedBy(of.instance);
+    }
   } finally {
     release();
   }
@@ -165,12 +178,13 @@ async function runAll(
   bound?: StopBound,
 ): Promise<ConfigError.Component[]> {
   const failures: ConfigError.Component[] = [];
+  const told = new WeakSet<object>();
   for (const instance of [...instances].reverse()) {
     if (!hasHook(instance, hook)) continue;
     try {
       const running = Promise.resolve(instance[hook]());
       if (bound === undefined) await running;
-      else await withinBound(running, bound, `${hook} of ${componentName(instance)}`, instance);
+      else await withinBound(running, bound, { hook, instance, told });
     } catch (error) {
       failures.push(hookFailure(instance, hook, error));
     }
