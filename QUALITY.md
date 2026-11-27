@@ -242,8 +242,8 @@ $40`). Limit errors are one class per limit, all `LimitError`s: `LimitError.Step
   `node scripts/flaky-probe.mjs <file> 50` (50/50).
 - Real-model checks go to `tests/smoke/` and run only via `make smoke`.
 - **The nightly mutation run (`mutation-nightly.yml`, every shard cold) is green on the release head, and red nights are
-  fixed, not waited out** (#1356): a pull request's mutation job runs the shards its change touches
-  (`npm run test:mutation:changed` locally), and a shard's tests must run every file it mutates
+  fixed, not waited out** (#1356): run the shards your change touches with
+  `npm run test:mutation:changed` before you push, and a shard's tests must run every file it mutates
   (`scripts/check-mutation-reach.mjs`).
 - Each spec test case → one test. Name tests by behaviour:
   `it("returns a fallback answer when the model output is empty")`.

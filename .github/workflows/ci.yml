@@ -5,7 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
-  workflow_dispatch: # the mutation job below runs every shard on a dispatch, the touched shards on a pull request
+  workflow_dispatch: # the mutation job below runs only on a dispatch until the 0.1.1 release
 
 permissions:
   contents: read
@@ -167,7 +167,7 @@ jobs:
   # The one required check. Red unless every job above passed: a skipped or cancelled job is not
   # a pass here (GitHub counts a skipped required job as one, hence `always()` and the test).
   check:
-    needs: [static, tests, coverage, packages, engines-floor, mutation-plan, mutation]
+    needs: [static, tests, coverage, packages, engines-floor]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -177,8 +177,7 @@ jobs:
           RESULTS: ${{ toJSON(needs) }}
         run: |
           echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          # the mutation jobs run only on the shards a pull request touches: skipped (none touched, or a push) passes
-          echo "$RESULTS" | jq -e 'length == 7 and (to_entries | all(.[]; .value.result == "success" or (.key | startswith("mutation")) and .value.result == "skipped"))' > /dev/null || {
+          echo "$RESULTS" | jq -e 'length == 5 and all(.[]; .result == "success")' > /dev/null || {
             echo "check: a job did not pass" >&2
             exit 1
           }
@@ -189,45 +188,64 @@ jobs:
   # #533 item 3, #626: mutation testing of the payment-relevant modules, one job per shard of
   # stryker.config.mjs (MUTATION_SHARD), each incremental (its last run's results cached): every
   # mutant killed or justified where it stands, else red. mutation-nightly.yml runs every shard cold.
-  # On a pull request it runs the shards the change touches (a mutated src file, a test of the shard, its vitest
-  # config or its definition: scripts/mutation-changed.mjs), never all of them (CI minutes); a manual dispatch runs
-  # every shard; a push to main runs none (mutation-nightly.yml runs every shard cold every night). Before a shard's
-  # Stryker run, scripts/check-mutation-reach.mjs fails fast when a file the shard mutates is run by no test of it.
-  mutation-plan:
-    if: github.event_name != 'push'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      shards: ${{ steps.plan.outputs.shards }}
-      any: ${{ steps.plan.outputs.any }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0 # the merge base with the base branch, and the base's definition of the shards
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-      - id: plan
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
-            node scripts/mutation-changed.mjs --all --github-output
-          else
-            git fetch --no-tags origin "$BASE_REF"
-            node scripts/mutation-changed.mjs --base "origin/$BASE_REF" --github-output
-          fi
-
+  # Until the 0.1.1 release it does not run on pull requests or pushes (CI minutes): only on a
+  # manual dispatch here, and every night in mutation-nightly.yml.
   mutation:
-    needs: mutation-plan
-    if: needs.mutation-plan.outputs.any == 'true'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     # a cold run of a shard (no cached results) takes up to about 50 min here; an incremental one a few
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(needs.mutation-plan.outputs.shards) }}
+        shard:
+          [
+            fencing,
+            fencing-effects,
+            sqlite-stores,
+            keys-and-calls,
+            takeover,
+            recovery,
+            undo,
+            unwind,
+            money,
+            spend,
+            cancel,
+            fenced-reach,
+            pauses,
+            pauses-sqlite,
+            pause-notices,
+            rate-limits,
+            money-runtime,
+            cancel-stores,
+            mesh-charge,
+            once-state,
+            once-child,
+            once-mesh,
+            fence-checkpoint,
+            fence-tree,
+            fence-workers,
+            fence-config,
+            cancel-x-runs,
+            cancel-x-pauses,
+            ledger-run,
+            ledger-memory,
+            ledger-branch,
+            ledger-a2a-client,
+            ledger-retention,
+            budget-loop,
+            budget-flow,
+            budget-reply,
+            assembly-rules,
+            a2a-tasks,
+            a2a-server,
+            a2a-client,
+            a2a-direct,
+            stream,
+            store-bound,
+            a2a-files,
+            files-pii,
+          ]
     env:
       MUTATION_SHARD: ${{ matrix.shard }}
     steps:
