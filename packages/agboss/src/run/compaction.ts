@@ -215,7 +215,7 @@ export interface CompactedOne {
 
 /** Whether the tokens left (`undefined`: no token budget) are used up after `spent` more. */
 const isTokensLeftUsed = (left: number | undefined, spent: number): boolean =>
-  left !== undefined && left - spent <= 0;
+  (left ?? Number.POSITIVE_INFINITY) - spent <= 0;
 
 /** One compaction before the execution: nothing when nothing is due. */
 async function compactOne<TName extends string>(
