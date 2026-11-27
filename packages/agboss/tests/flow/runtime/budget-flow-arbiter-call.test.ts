@@ -6,12 +6,13 @@
  * answer masked when the answering target has PII policies (#708).
  */
 import { ConfigError } from "../../../src/core/error-families/config-errors.js";
-import { AIMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, SystemMessage, type BaseMessage } from "@langchain/core/messages";
 import { describe, expect, it, vi } from "vitest";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../../src/finops/usage.js";
 import { withDecisionSpend } from "../../../src/finops/failed-decision.js";
 import { createArbiterModels } from "../../../src/flow/runtime/launch/arbiter-call.js";
 import { Decision } from "../../../src/llm/decisions.js";
+import { ModelKind } from "../../../src/llm/decision-errors.js";
 import { usd } from "../../../src/units/index.js";
 
 const record = (costUsd: number, caller = "arbiter:desk-arbiter"): UsageRecord => ({
@@ -232,5 +233,183 @@ describe("#1283: a chat call of the injected ArbiterModel", () => {
     );
 
     await expect(model.metered(call).invoke("q")).rejects.toBe(failure);
+  });
+});
+
+describe("#1356: what a chat call sends and returns, rule by rule", () => {
+  const chatting = (reply: (options: { callbacks?: unknown }) => Promise<AIMessage>) => {
+    const invoke = vi.fn((_asked: BaseMessage[], options: { callbacks?: unknown }) =>
+      reply(options),
+    );
+    const chatModel = vi.fn((_spec: unknown) => ({ invoke }));
+    return {
+      invoke,
+      deps: { gateway: { chatModel, decide: vi.fn() } as never, chatDefaults: { temperature: 0 } },
+    };
+  };
+  const llm = { kind: "llm", model: "chat" } as const;
+  const answer = (text: string) =>
+    Promise.resolve(new AIMessage({ content: text, response_metadata: { usage: { cost: 0.25 } } }));
+  const masking = {
+    mask: vi.fn((texts: readonly string[]) =>
+      Promise.resolve({
+        texts: texts.map((text) => text.replace("a@b.c", "<email:7f3a91>")),
+        tokens: { "<email:7f3a91>": "a@b.c" },
+        usage: [record(0.125, "pii:detect")],
+      }),
+    ),
+  };
+
+  it("a text is sent as one human message, with the call's callbacks beside the chunk counter", async () => {
+    const { deps, invoke } = chatting(() => answer("ok"));
+
+    await createArbiterModels("desk-arbiter", llm, deps, "i")
+      .metered(callOf())
+      .invoke("is it fine?");
+
+    const [asked = [], options] = invoke.mock.calls[0] ?? [];
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toBeInstanceOf(HumanMessage);
+    expect(asked[0]?.content).toBe("is it fine?");
+    expect(options?.callbacks).toEqual(expect.any(Array));
+  });
+
+  it("chat messages are sent as they are, in order", async () => {
+    const { deps, invoke } = chatting(() => answer("ok"));
+
+    await createArbiterModels("desk-arbiter", llm, deps, "i")
+      .metered(callOf())
+      .invoke([
+        { role: "system", content: "be brief" },
+        { role: "user", content: "is it fine?" },
+      ]);
+
+    const [asked = []] = invoke.mock.calls[0] ?? [];
+    expect(asked.map((message) => message.content)).toEqual(["be brief", "is it fine?"]);
+    expect(asked[0]).toBeInstanceOf(SystemMessage);
+    expect(asked[1]).toBeInstanceOf(HumanMessage);
+  });
+
+  it("with a reading the model sees the masked text and the arbiter's code the real one; masking is billed before the call", async () => {
+    const { deps, invoke } = chatting(() => answer("write to <email:7f3a91>"));
+    const call = callOf({ reading: masking.mask });
+
+    const text = await createArbiterModels("desk-arbiter", llm, deps, "i")
+      .metered(call)
+      .invoke("mail a@b.c");
+
+    expect(invoke.mock.calls[0]?.[0][0]?.content).toBe("mail <email:7f3a91>");
+    expect(text).toBe("write to a@b.c");
+    expect(call.spent.map((u) => [u.caller, u.costUsd])).toEqual([
+      ["pii:detect", 0.125],
+      ["arbiter:desk-arbiter", 0.25],
+    ]);
+  });
+
+  it("a call that dies after streaming bills what it spent, at once, and fails as it failed", async () => {
+    const failure = new Error("stream broke");
+    const { deps } = chatting(async (options) => {
+      for (const handler of Array.isArray(options.callbacks) ? options.callbacks : [])
+        await handler.handleLLMNewToken?.("abcdefgh");
+      throw failure;
+    });
+    const call = callOf();
+
+    await expect(
+      createArbiterModels("desk-arbiter", llm, deps, "i").metered(call).invoke("four"),
+    ).rejects.toBe(failure);
+
+    expect(call.spent).toEqual([
+      expect.objectContaining({ caller: "arbiter:desk-arbiter", outputTokens: 2 }),
+    ]);
+  });
+
+  it("a decision model that is asked to chat is ConfigError.ModelKind naming the model, what it is and the call", async () => {
+    const { deps } = chatting(() => answer("x"));
+
+    const error = await createArbiterModels(
+      "desk-arbiter",
+      { kind: "jev", model: "jev-1" },
+      deps,
+      "i",
+    )
+      .metered(callOf())
+      .invoke("q")
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ConfigError.ModelKind);
+    expect(error).toMatchObject({ model: "jev-1", modelKind: ModelKind.Decisions, call: "invoke" });
+  });
+});
+
+describe("#1356: what a decision sends and what a failure leaves, rule by rule", () => {
+  const decisions = (outcome: () => Promise<unknown>) => {
+    const decide = vi.fn((_asked: Record<string, unknown>) => outcome());
+    return {
+      decide,
+      gateway: { decide, chatModel: vi.fn() } as never,
+      chatDefaults: { temperature: 0 },
+    };
+  };
+  const done = () => Promise.resolve({ answers: {}, usage: record(0.25) });
+
+  it("the provider of the model goes to the gateway when there is one, and no such field when there is none", async () => {
+    const withProvider = decisions(done);
+    const without = decisions(done);
+
+    await createArbiterModels(
+      "desk-arbiter",
+      { kind: "jev", model: "m", modelProvider: "acme" },
+      withProvider,
+      "i",
+    )
+      .metered(callOf())
+      .decide({ state: "s", questions });
+    await createArbiterModels("desk-arbiter", { kind: "jev", model: "m" }, without, "i")
+      .metered(callOf())
+      .decide({ state: "s", questions });
+
+    expect(withProvider.decide.mock.calls[0]?.[0]).toStrictEqual({
+      caller: "arbiter:desk-arbiter",
+      model: "m",
+      modelProvider: "acme",
+      request: { state: "s", questions },
+    });
+    expect(Object.keys(without.decide.mock.calls[0]?.[0] as object)).toEqual([
+      "caller",
+      "model",
+      "request",
+    ]);
+  });
+
+  it("a failure that billed nothing bills nothing: the spend holds no empty entry", async () => {
+    const failure = new Error("refused");
+    const deps = decisions(() => Promise.reject(failure));
+    const call = callOf();
+
+    await expect(
+      createArbiterModels("desk-arbiter", { kind: "jev", model: "m" }, deps, "i")
+        .metered(call)
+        .decide({ state: "s", questions }),
+    ).rejects.toBe(failure);
+
+    expect(call.spent).toStrictEqual([]);
+  });
+
+  it("a chat model that is asked to decide is ConfigError.ModelKind naming the model, what it is and the call", async () => {
+    const deps = decisions(done);
+
+    const error = await createArbiterModels(
+      "desk-arbiter",
+      { kind: "llm", model: "chat-1" },
+      deps,
+      "i",
+    )
+      .metered(callOf())
+      .decide({ state: "s", questions })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ConfigError.ModelKind);
+    expect(error).toMatchObject({ model: "chat-1", modelKind: ModelKind.Chat, call: "decide" });
   });
 });

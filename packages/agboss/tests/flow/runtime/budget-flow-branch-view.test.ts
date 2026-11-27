@@ -130,6 +130,21 @@ describe("#1366: the branch's own signal and the spend it reports", () => {
     expect(plain.services).toEqual([{ ...record(0.25), counted: true }]);
   });
 
+  it("the failure a launcher's side path took in is the handled error of every branch it launched, whichever node it is", () => {
+    const { run } = setup();
+    const handled = { error: "e", handler: "h" } as never;
+    const onSidePath = {
+      path: ["a", "b"],
+      sidePath: { next: "launcher", isAfterLimit: false, owed: [], handled },
+    } as never;
+
+    const out = branchFrameOf(run, onSidePath);
+    const none = branchFrameOf(run, { path: ["a"], sidePath: null } as never);
+
+    expect(out.frame.handledError).toBe(handled);
+    expect(Object.keys(none.frame)).not.toContain("handledError");
+  });
+
   it("a branch that is no item of a list has no item index on its step", () => {
     const { run } = setup();
 

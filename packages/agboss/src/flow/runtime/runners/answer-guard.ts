@@ -10,6 +10,7 @@ import type { GraphDeps } from "../../../graph/deps.js";
 import type { GuardedFile } from "../../../guardrails/guarded-text.js";
 import { runGuardrails, type GuardrailsPassed } from "../../../guardrails/runtime.js";
 import { maskedModelText } from "../../../pii/model-boundary.js";
+import type { PiiPolicySet } from "../../../pii/policy-set.js";
 import type { PiiTokenMap } from "../../../pii/tokens.js";
 import { CarriedOrder, carryRecords } from "../carried-records.js";
 import type { ExecutionStateType } from "../state.js";
@@ -76,11 +77,10 @@ export interface GuardedAnswer extends GuardrailsPassed {
  * through its policies for the stream alone, which goes out masked (#1311b). No policy, no read.
  */
 async function maskedForStream(
-  set: Parameters<typeof maskedModelText>[0] | undefined,
+  set: Parameters<typeof maskedModelText>[0],
   reply: string,
   tokens: PiiTokenMap,
 ): Promise<GuardedAnswer> {
-  if (set === undefined) return { usage: [], decisions: [] };
   const masked = await maskedModelText(set, reply, tokens);
   return {
     usage: masked.usage,
@@ -102,11 +102,13 @@ export async function guardedAnswer(
   files: AnswerGuardContext,
 ): Promise<GuardedAnswer> {
   const guardrails = deps.guardrails?.outputOf(name) ?? [];
-  const set = deps.pii?.policiesOf(name).withValues(pii.loop.values).withFieldKey(pii.loop.key);
+  const policies = deps.pii?.policiesOf(name);
+  const keyed = (own: PiiPolicySet): PiiPolicySet =>
+    own.withValues(pii.loop.values).withFieldKey(pii.loop.key);
+  const set = policies === undefined ? undefined : keyed(policies);
   if (guardrails.length === 0) {
-    const isHeld = deps.pii?.policiesOf(name).blocks === true;
-    return isHeld
-      ? await maskedForStream(set, result.reply, pii.tokens)
+    return policies?.blocks === true
+      ? await maskedForStream(keyed(policies), result.reply, pii.tokens)
       : { usage: [], decisions: [] };
   }
   const masked =
