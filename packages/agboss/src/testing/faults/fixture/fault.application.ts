@@ -11,6 +11,7 @@ import {
 } from "../../../index.js";
 import type { Class } from "../../../components/injection.js";
 import type { ApplicationStorage } from "../../../storage/storage-assembly.js";
+import { ExecutionLeaseRepository } from "../../../infrastructure/execution-lease.repository.js";
 import { storeDescriptorOf } from "../../../infrastructure/store-descriptor.js";
 import { defineStorageDriver, StorageRole } from "../../../storage/storage-driver.js";
 import { hours, usd, type Milliseconds, type Usd } from "../../../units/index.js";
@@ -112,6 +113,13 @@ export function faultStorageOf(
   // the stores on the cluster's backend are the cluster's, every other one the database's
   const onCluster = (store: Class): boolean =>
     cluster !== undefined && storeDescriptorOf(store).backend === cluster.kind;
+  const databaseStores = held.filter((store) => !onCluster(store));
+  // #1324: a cluster's lease keeps its ids and marks in the database's durable lease store — the
+  // set's own lease class on the database backend, which the storage rules ask the driver to name
+  const leaseStore =
+    cluster === undefined
+      ? undefined
+      : databaseStores.find((store) => store.prototype instanceof ExecutionLeaseRepository);
   @DatabaseStorage({
     name: "fault-database-storage",
     driver: defineStorageDriver({
@@ -119,7 +127,8 @@ export function faultStorageOf(
       backend,
       describes: `${backend} (the fault suite's database)`,
       settings,
-      providers: held.filter((store) => !onCluster(store)),
+      providers: databaseStores,
+      leaseStore,
     }),
     auditLogTtl: hours(24),
     ledgerEntriesTtl: hours(24),
