@@ -5,6 +5,8 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { observedPass } from "../../src/app/observed-pass.js";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
+import { ExecutionPausedError } from "../../src/app/lease-stopped.js";
 
 const mocks = vi.hoisted(() => ({
   observeLeg: vi.fn(),
@@ -15,13 +17,33 @@ const mocks = vi.hoisted(() => ({
   maskedRecordOf: vi.fn(),
   maskedPendingOf: vi.fn(),
   nodeRecordIn: vi.fn(),
+  cancelledOutputOf: vi.fn(),
+  parkedOutputOf: vi.fn(),
+  storedOutputOf: vi.fn(),
+  interruptOf: vi.fn(),
+  markedInterruptOf: vi.fn(),
+  interruptErrorOf: vi.fn(),
+}));
+vi.mock("../../src/app/cancelled-output.js", () => ({ cancelledOutputOf: mocks.cancelledOutputOf }));
+vi.mock("../../src/app/parked-output.js", () => ({ parkedOutputOf: mocks.parkedOutputOf }));
+vi.mock("../../src/pii/final-output-mask.js", () => ({ storedOutputOf: mocks.storedOutputOf }));
+vi.mock("../../src/app/interrupt-requests.js", () => ({
+  interruptOf: mocks.interruptOf,
+  markedInterruptOf: mocks.markedInterruptOf,
+  interruptErrorOf: mocks.interruptErrorOf,
 }));
 vi.mock("../../src/app/run-events.js", () => ({
   observeLeg: mocks.observeLeg,
   executionEventAt: mocks.executionEventAt,
 }));
 vi.mock("../../src/app/tree-unwind.js", () => ({ unwindingDeps: mocks.unwindingDeps }));
-vi.mock("../../src/app/tree-ends.js", () => ({ leasedDeps: mocks.leasedDeps }));
+vi.mock("../../src/app/tree-ends.js", () => ({
+  leasedDeps: mocks.leasedDeps,
+  treeOf: (state: { tenantId: string; runId: string }) => ({
+    tenantId: state.tenantId,
+    rootExecutionId: state.runId,
+  }),
+}));
 vi.mock("../../src/app/result.js", () => ({
   runResultOf: mocks.runResultOf,
   maskedRecordOf: mocks.maskedRecordOf,
@@ -60,7 +82,7 @@ function setup(
   };
   const settle = vi.fn(() => Promise.resolve());
   const deps = { observer: { id: "observer" } };
-  const parts = { deps, live, paused: { settle } };
+  const parts = { deps, live, paused: { settle }, trees: { id: "trees" }, leases: { id: "leases" } };
   const pass = vi.fn((_deps: unknown, _signal: AbortSignal) => Promise.resolve({ path: ["a"] }));
   const call = {
     ...(options.callSignal === undefined ? {} : { signal: options.callSignal }),
@@ -267,6 +289,85 @@ describe("#1366: the outcome is announced only while the lease is held", () => {
       throw lost;
     });
     await expect(run(lostLease)).rejects.toBe(lost);
+  });
+});
+
+describe("#1366: a pass that ends on a cancel, a pause, and the marks it reads", () => {
+  it("a cancel or a stop is an outcome: the cancelled output built from the error and what the undo ran", async () => {
+    const cancel = new ExecutionCancelledError({ message: "cancelled" });
+    const s = setup({ compensations: [{ id: "u1" }] });
+    failingWith(s, cancel);
+    mocks.cancelledOutputOf.mockResolvedValue("the cancelled output");
+
+    expect(await run(s)).toBe("the cancelled output");
+
+    expect(mocks.cancelledOutputOf).toHaveBeenCalledWith(s.deps, STATE, {
+      cause: cancel,
+      compensations: [{ id: "u1" }],
+    });
+    expect(mocks.parkedOutputOf).not.toHaveBeenCalled();
+  });
+
+  it("an operator's pause parks the tree: the parked output, nothing cancelled", async () => {
+    const pause = new ExecutionPausedError();
+    const s = setup();
+    failingWith(s, pause);
+    mocks.parkedOutputOf.mockResolvedValue("the parked output");
+
+    expect(await run(s)).toBe("the parked output");
+
+    expect(mocks.parkedOutputOf).toHaveBeenCalledWith(s.deps, STATE, pause);
+    expect(mocks.cancelledOutputOf).not.toHaveBeenCalled();
+  });
+
+  it("a failure that is no cancel is thrown as it is, never turned into an output", async () => {
+    const failure = new Error("the leg failed");
+    const s = setup();
+    failingWith(s, failure);
+
+    await expect(run(s)).rejects.toBe(failure);
+
+    expect(mocks.cancelledOutputOf).not.toHaveBeenCalled();
+    expect(mocks.parkedOutputOf).not.toHaveBeenCalled();
+  });
+
+  it("the interrupt the undo asks for is the key's request, the lease row's mark when the key has none, as the error of the thread", async () => {
+    const s = setup();
+    await run(s);
+    const { interrupted } = mocks.unwindingDeps.mock.calls[0]?.[2] as {
+      interrupted: () => Promise<unknown>;
+    };
+    const tree = { tenantId: "acme", rootExecutionId: "root-1" };
+
+    mocks.interruptOf.mockResolvedValue({ kind: "keyed" });
+    mocks.markedInterruptOf.mockResolvedValue({ kind: "marked" });
+    mocks.interruptErrorOf.mockReturnValue("the error");
+    expect(await interrupted()).toBe("the error");
+    expect(mocks.interruptOf).toHaveBeenCalledWith(s.parts.trees, tree, s.parts.leases);
+    expect(mocks.interruptErrorOf).toHaveBeenLastCalledWith({ kind: "keyed" }, "t-1");
+    expect(mocks.markedInterruptOf).not.toHaveBeenCalled();
+
+    mocks.interruptOf.mockResolvedValue(undefined);
+    expect(await interrupted()).toBe("the error");
+    expect(mocks.markedInterruptOf).toHaveBeenCalledWith(s.parts.leases, tree);
+    expect(mocks.interruptErrorOf).toHaveBeenLastCalledWith({ kind: "marked" }, "t-1");
+
+    mocks.interruptErrorOf.mockClear();
+    mocks.markedInterruptOf.mockResolvedValue(undefined);
+    expect(await interrupted()).toBeUndefined();
+    expect(mocks.interruptErrorOf).not.toHaveBeenCalled();
+  });
+
+  it("the finish an end event and the A2A task hold is the output with its DTO's sensitive fields masked; no finish, the output as it is", async () => {
+    const s = setup();
+    await run(s);
+    const masked = mocks.observeLeg.mock.calls[0]?.[5] as (result: unknown) => unknown;
+    mocks.storedOutputOf.mockReturnValue("the masked finish");
+
+    expect(masked({ output: "plain" })).toBe("plain");
+    expect(mocks.storedOutputOf).not.toHaveBeenCalled();
+    expect(masked({ output: "raw", finish: { name: "Reply" } })).toBe("the masked finish");
+    expect(mocks.storedOutputOf).toHaveBeenCalledWith(s.deps, "Reply", "raw");
   });
 });
 
