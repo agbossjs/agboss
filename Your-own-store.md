@@ -199,10 +199,12 @@ log's `PauseAnswerRecord`) and **ISO 8601 text only in your raw columns and JSON
   spelling — a row another version, a migration or `psql` wrote with an offset or without milliseconds is unreadable,
   never an Invalid Date and never a time read in the process's zone. `pauseRecordOfJson` and `pauseAnswerRecordOfValue`
   already do it for the JSON they are given.
-- Refuse an Invalid Date (`new Date(NaN)`) **before you write anything**: `assertPauseInstants(pause)` over the record you
-  are about to keep, `assertValidInstant(at, "at")` for a time you are handed. It throws `StoreError.UnreadableRecord`
+- Refuse an Invalid Date (`new Date(NaN)`, or a date outside the years 0000-9999: its `toISOString()` is the six-digit `+010000-...` form `instantOfText` refuses) **before you write anything**: `assertPauseInstants(pause)` over the record you
+  are about to keep (`assertPauseAnswerInstants(answer)` over a `PauseAnswerRecord` of the answer log), `assertValidInstant(at, "at")` for a time you are handed. It throws `StoreError.UnreadableRecord`
   (kind `unreadable-record`) naming the field, never the value — the error the contract already uses for a time that cannot
-  be kept or read back. `JSON.stringify` writes an Invalid Date as `null` (a row nobody can read again) and `toISOString()`
+  be kept or read back; its message says that an Invalid Date was given and nothing was written (`isInvalidDate`), so it is
+  not read as a row to repair. Do the same in the mailbox operations (claim, acknowledge, renew, retry, the stale set-aside)
+  and when a paused run is saved (`pending[].expiresAt`). `JSON.stringify` writes an Invalid Date as `null` (a row nobody can read again) and `toISOString()`
   throws `RangeError`; the exported transitions throw the same error for an Invalid `at`, deadline or notice time. A call
   that is refused rejects with it and leaves nothing written; the conformance suite checks it. A scan that finds a pause
   without the time it scans for (a stored record the contract says always has it) fails the sweep loudly too.
