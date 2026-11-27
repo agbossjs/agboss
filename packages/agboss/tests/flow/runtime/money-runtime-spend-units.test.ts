@@ -22,6 +22,8 @@ import { recordsOf, reportingOf } from "../../../src/flow/runtime/node-runner.js
 import { countedServiceSpend } from "../../../src/flow/runtime/limits.js";
 import { routerRunner } from "../../../src/flow/runtime/runners/router.js";
 import { failedOutcome, runningOutcome } from "../../../src/run/execute.js";
+import { ExecutionCancelledError } from "../../../src/core/errors.js";
+import { ExecutionStoppedError } from "../../../src/app/lease-stopped.js";
 import { loopOf } from "../../../src/run/paused.js";
 import { modelRouterLaunch } from "../../../src/flow/runtime/launch/router-decision.js";
 import { maskedModelText } from "../../../src/pii/model-boundary.js";
@@ -135,6 +137,19 @@ describe("#1366: what a visit's outcome and its code's services record", () => {
 
     expect(finite.remainingBudget?.()).toBe(3.5);
     expect(endless.remainingBudget?.()).toBeUndefined();
+  });
+
+  it("the tokens left are told to the code, none when no token budget has an end", () => {
+    const tokens = (left: number) =>
+      reportingOf(
+        { budgets: { remaining: () => Infinity, remainingTokens: () => left } } as never,
+        node,
+        [],
+      ).services;
+
+    expect(tokens(1200).remainingTokens?.()).toBe(1200);
+    expect(tokens(0).remainingTokens?.()).toBe(0);
+    expect(tokens(Infinity).remainingTokens?.()).toBeUndefined();
   });
 });
 
@@ -456,6 +471,27 @@ describe("#1366: the cost a child's record and a turn report", () => {
       replyWith: "",
       status: "failed",
       stopReason: "it broke",
+      route: [],
+      steps: [],
+      costUsd: usd(0.75),
+    });
+  });
+
+  it("an execution a stop ended is `stopped`, one a cancel ended is `cancelled`, both with the cost of what they spent", () => {
+    const spent = [record(0.5), record(0.25)];
+
+    expect(failedOutcome(new ExecutionStoppedError(), spent)).toEqual({
+      replyWith: "",
+      status: "stopped",
+      stopReason: "the execution was stopped",
+      route: [],
+      steps: [],
+      costUsd: usd(0.75),
+    });
+    expect(failedOutcome(new ExecutionCancelledError(), spent)).toEqual({
+      replyWith: "",
+      status: "cancelled",
+      stopReason: "the execution was cancelled externally",
       route: [],
       steps: [],
       costUsd: usd(0.75),
