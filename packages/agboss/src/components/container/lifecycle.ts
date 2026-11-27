@@ -53,6 +53,16 @@ export interface OnDestroy {
   onDestroy(): Promise<void> | void;
 }
 
+/**
+ * A connection's last resort at the stop (#954): called at once, synchronously, when the stop's end
+ * passed with its `onDestroy` still running — the stop abandons that hook and returns, so a socket
+ * an orderly close still holds is destroyed here. Not called when `onDestroy` returned in time. A
+ * throw is dropped. Store-author surface (`@agboss/core/stores`).
+ */
+export interface OnAbandon {
+  onAbandon(): void;
+}
+
 type HookName = "onInit" | "onStart" | "onReady" | "onStop" | "onBeforeDestroy" | "onDestroy";
 
 const hasHook = <THook extends HookName>(
@@ -103,8 +113,23 @@ export interface StopBound {
   abandon(what: string): void;
 }
 
-/** `work`, or — once `bound` ends first — nothing: `abandon`ed, its late failure dropped. */
-async function withinBound(work: Promise<void>, bound: StopBound, what: string): Promise<void> {
+/** Whose hook `withinBound` bounds, and which instances `onAbandon` already ran for (once each). */
+export interface BoundedHook {
+  readonly hook: HookName;
+  readonly instance: object;
+  readonly told: WeakSet<object>;
+}
+
+/**
+ * `work`, or — once `bound` ends first — nothing: `abandon`ed, its late failure dropped. Only an
+ * abandoned `onDestroy` calls its instance's `onAbandon`, at most once per instance (#954).
+ */
+export async function withinBound(
+  work: Promise<void>,
+  bound: StopBound,
+  of: BoundedHook,
+): Promise<void> {
+  const what = `${of.hook} of ${componentName(of.instance)}`;
   let release = (): void => undefined;
   const ended = new Promise<boolean>((resolve) => {
     // a hook that is done by the next turn of the loop is not abandoned
@@ -126,8 +151,23 @@ async function withinBound(work: Promise<void>, bound: StopBound, what: string):
     if (!abandoned) return;
     work.catch((): undefined => undefined);
     bound.abandon(what);
+    if (of.hook === "onDestroy" && !of.told.has(of.instance)) {
+      of.told.add(of.instance);
+      abandonedBy(of.instance);
+    }
   } finally {
     release();
+  }
+}
+
+/** The instance's `onAbandon`, when it has one: best effort, a throw dropped (#954). */
+function abandonedBy(instance: object): void {
+  const hook: unknown = Reflect.get(instance, "onAbandon");
+  if (typeof hook !== "function") return;
+  try {
+    Reflect.apply(hook, instance, []);
+  } catch {
+    // the stop has ended: nothing is left to tell
   }
 }
 
@@ -138,12 +178,13 @@ async function runAll(
   bound?: StopBound,
 ): Promise<ConfigError.Component[]> {
   const failures: ConfigError.Component[] = [];
+  const told = new WeakSet<object>();
   for (const instance of [...instances].reverse()) {
     if (!hasHook(instance, hook)) continue;
     try {
       const running = Promise.resolve(instance[hook]());
       if (bound === undefined) await running;
-      else await withinBound(running, bound, `${hook} of ${componentName(instance)}`);
+      else await withinBound(running, bound, { hook, instance, told });
     } catch (error) {
       failures.push(hookFailure(instance, hook, error));
     }

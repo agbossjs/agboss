@@ -1695,6 +1695,12 @@ export const OBJECT_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
 export type ObjectDriver = StorageDriver<StorageRole.Objects>;
 
 // @public
+export interface OnAbandon {
+    // (undocumented)
+    onAbandon(): void;
+}
+
+// @public
 export function onceNotices(pause: PauseRecord, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): readonly PlannedNotice[];
 
 // @public
@@ -3155,6 +3161,7 @@ export interface WrittenLedgerMark {
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "expiresAt".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "externalRef".
 // src/channels/pause-contexts.ts - (ae-undocumented) Missing documentation for "reason".
+// src/components/container/lifecycle.ts - (ae-undocumented) Missing documentation for "onAbandon".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Input".
 // src/components/policy-decorators.ts - (ae-undocumented) Missing documentation for "Output".
 // src/core/error-families/store-errors.ts - (ae-undocumented) Missing documentation for "OutcomeUnknown".

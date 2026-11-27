@@ -17,6 +17,9 @@ import "../polyfills/symbol-metadata.js";
 export * from "./contract-types.js";
 export * from "./pause-contract-types.js";
 
+// a connection's last resort when the stop abandons its onDestroy (#954)
+export type { OnAbandon } from "../components/container/lifecycle.js";
+
 // what a database store package does with its schema at start (#891): `@agboss/postgres` and
 // `@agboss/mongodb` take it and give it to their applications
 export { SchemaSetup } from "./schema-setup.js";

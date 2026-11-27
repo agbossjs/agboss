@@ -430,7 +430,9 @@ quiet server holds — is **abandoned**: `close()` returns, the work is left run
 or failure dropped (no unhandled rejection), and one warning `app.stop-store-call-pending` names
 what is still pending. The store packages close their clients in order and, past a short grace
 (1 s on the `Clock`), destroy the socket where the driver allows it (`@agboss/redis`; the MongoDB
-driver finishes its close by itself once the server answers).
+driver finishes its close by itself once the server answers); an `onDestroy` the stop abandons
+because earlier phases used the whole timeout is followed at once by the connection's `onAbandon`,
+which destroys the socket (#954).
 
 Every hook runs; failures are collected into one `AggregateError`. Calling it again is fine — with
 a shorter `timeout` it interrupts sooner and ends sooner: the stop ends at the earliest end any call
@@ -522,6 +524,10 @@ export class JobIndexService implements OnInit, OnStart, OnStop, OnDestroy {
 failed: …` (the original as `cause`); the components already past `onInit` get `onDestroy`.
 - A failing `onStop` / `onDestroy` → the other hooks still run; the failures are collected into one
   `AggregateError`.
+- A store connection may also have `onAbandon(): void` (`OnAbandon`, `@agboss/core/stores`, #954): the
+  stop calls it, synchronously, when its end passed with the connection's `onDestroy` still running
+  — the stop abandons that hook and returns, so the connection destroys the socket its orderly close
+  still holds. It is not called when `onDestroy` returned in time; a throw is dropped.
 - Values (`provide(TOKEN, value)`) and test mocks have no hooks. Per-execution work is an observer,
   not a hook. `AfterAssemble` and the run-scoped `OnDestroy` are gone (#261).
 
