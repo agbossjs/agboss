@@ -18,7 +18,7 @@ import type { IdempotencyRunOptions } from "./idempotency-types.js";
 import { boundedWork } from "./idempotency-work.js";
 import { callKeyIn } from "./idempotency-keys.js";
 import { assertNotNested, assertOutsideRunOnce, inRunOnce } from "./idempotency-scope.js";
-import { callKeyErrorOf, checkedRecovery } from "./outbound-call-contract.js";
+import { checkedRecovery } from "./outbound-call-contract.js";
 import { expiryOf, type LiveCall } from "./outbound-call-parts.js";
 import type {
   IdempotencySendOptions,
@@ -45,16 +45,18 @@ const DEFAULT_RUN_TIMEOUT: Milliseconds = seconds(15);
 const DEFAULT_PAYLOAD_SIZE: Bytes = kilobytes(64);
 
 /** A refusal of the call's own options, before anything is recorded or run. */
-const refused = (method: string, problem: string): ConfigError.Option =>
-  new ConfigError.Option({
+function refused(method: string, problem: string): ConfigError.Option {
+  return new ConfigError.Option({
     message: `Idempotency.${method}: ${problem} — nothing was recorded, run or sent`,
   });
+}
 
 /** Why a `timeout` is not one (a positive duration, at most a day), or `undefined`. */
 function timeoutProblemOf(timeout: unknown): string | undefined {
-  if (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout <= 0)
+  // `Number.isFinite` is false for anything that is no number
+  if (!Number.isFinite(timeout) || (timeout as number) <= 0)
     return `timeout is ${String(timeout)}, not a positive duration`;
-  return timerProblemOf("timeout", timeout, MAX_TIMEOUT);
+  return timerProblemOf("timeout", timeout as number, MAX_TIMEOUT);
 }
 
 /**
@@ -149,9 +151,8 @@ export class Idempotency {
     const context = liveExecutionContextOf(undefined, "Idempotency");
     // the scope's mark lives as long as the longest ttl written under it (`null`: for good)
     const expiresAt = expiryOf(this.clock, ttl);
+    // Stryker disable next-line StringLiteral: equivalent: the method names the call in the refusal of a fingerprint with no key, and this call passes no fingerprint
     const stepKey = callKeyIn(context, name, { key, expiresAt }, "sendOnce");
-    // the checked copy is the one the protocol reads (`options` as given is the caller's, live)
-    callKeyErrorOf(stepKey);
     const run: OutboundCallRun<TRequest, TResult> = {
       name,
       target,
@@ -186,17 +187,23 @@ markBusinessKeyWriter(Idempotency);
  * builds a workflow's components and never runs them, and a workflow on its own has no
  * infrastructure — every call is refused, since an effect's store is the application's.
  */
+async function runOnceOutsideApplication(): Promise<never> {
+  return Promise.reject(
+    new TypeError(
+      "Idempotency.runOnce: an idempotent effect runs in an application (createApp, testWith, a unit runner) — its store is the application's infrastructure",
+    ),
+  );
+}
+
+async function sendOnceOutsideApplication(): Promise<never> {
+  return Promise.reject(
+    new TypeError(
+      "Idempotency.sendOnce: a call that leaves the system runs in an application (createApp, testWith, a unit runner) — its store is the application's infrastructure",
+    ),
+  );
+}
+
 export const IDEMPOTENCY_OUTSIDE_APPLICATION = Object.freeze({
-  runOnce: async (): Promise<never> =>
-    Promise.reject(
-      new TypeError(
-        "Idempotency.runOnce: an idempotent effect runs in an application (createApp, testWith, a unit runner) — its store is the application's infrastructure",
-      ),
-    ),
-  sendOnce: async (): Promise<never> =>
-    Promise.reject(
-      new TypeError(
-        "Idempotency.sendOnce: a call that leaves the system runs in an application (createApp, testWith, a unit runner) — its store is the application's infrastructure",
-      ),
-    ),
+  runOnce: runOnceOutsideApplication,
+  sendOnce: sendOnceOutsideApplication,
 });

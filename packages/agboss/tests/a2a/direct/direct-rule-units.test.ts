@@ -10,6 +10,10 @@ import { ComponentKind } from "../../../src/flow/runtime/records.js";
 import { hours, minutes, Ttl } from "../../../src/units/index.js";
 import { describe, expect, it } from "vitest";
 import { A2AEndpoint, A2AReply } from "../../../src/a2a/a2a-endpoint.decorator.js";
+import { boundClassesOf, effectOf } from "../../../src/a2a/a2a-effect-reach.js";
+import { Idempotency } from "../../../src/app/idempotency.js";
+import { Injectable } from "../../../src/components/decorators.js";
+import { Clock } from "../../../src/infrastructure/clock.js";
 import { messageSkillViolations } from "../../../src/a2a/a2a-message-skill-rule.js";
 import type { ApplicationOptions } from "../../../src/application/application.js";
 import type { Class } from "../../../src/components/injection.js";
@@ -29,6 +33,9 @@ import {
   CallingAction,
   CommittedAction,
   FirstLedgerAgent,
+  LoopService,
+  REGION,
+  RuleA2AAgent,
   LateEffectAction,
   PlainAgent,
   PlainTool,
@@ -198,3 +205,120 @@ describe("#860: what the direct-reply rule reads past", () => {
     ]);
   });
 });
+
+@Injectable()
+class ReachHarmless {}
+@Injectable({ deps: [Idempotency] })
+class ReachWriter {}
+@Injectable({ deps: [ReachHarmless] })
+class ReachViaHarmless {}
+@Injectable({ deps: [ReachWriter] })
+class ReachViaWriter {}
+@Injectable({ deps: [ReachHarmless, ReachWriter] })
+class ReachSecondDepWrites {}
+abstract class ReachPort {}
+@Injectable()
+class ReachHarmlessPortImpl extends ReachPort {}
+@Injectable({ deps: [Idempotency] })
+class ReachWritingPortImpl extends ReachPort {}
+@Injectable({ deps: [ReachPort] })
+class ReachUsesPort {}
+@Injectable({ deps: [Clock] })
+class ReachUsesClock {}
+abstract class ReachOwnClock extends Clock {}
+@Injectable({ deps: [ReachOwnClock] })
+class ReachUsesOwnClock {}
+class ReachUndecorated {}
+@Injectable({ deps: [ReachUndecorated] })
+class ReachUsesUndecorated {}
+@Injectable({ deps: [RuleA2AAgent] })
+class ReachUsesA2A {}
+
+describe("#1319: the effect a component's deps reach", () => {
+  it("none behind a harmless service; the effect itself; one behind another service; the first of several deps", () => {
+    expect(effectOf(ReachViaHarmless, [])).toBeUndefined();
+    expect(effectOf(ReachWriter, [])).toBe(Idempotency);
+    expect(effectOf(ReachViaWriter, [])).toBe(Idempotency);
+    expect(effectOf(ReachSecondDepWrites, [])).toBe(Idempotency);
+    expect(effectOf(ReachUsesA2A, [])).toBe(RuleA2AAgent);
+  });
+
+  it("a cycle of deps ends with none", () => {
+    expect(effectOf(LoopService, [])).toBeUndefined();
+  });
+
+  it("a port is the effect of the class bound to it, or what that class reaches; a harmless one, none, whatever else is bound", () => {
+    expect(effectOf(ReachUsesPort, [ReachHarmlessPortImpl])).toBeUndefined();
+    expect(effectOf(ReachUsesPort, [ReachHarmlessPortImpl, ReachWriter])).toBeUndefined();
+    expect(effectOf(ReachUsesPort, [ReachWritingPortImpl])).toBe(Idempotency);
+    expect(effectOf(ReachUsesPort, [ReachPort as never])).toBe(ReachPort);
+  });
+
+  it("a port that nothing bound implements is the effect itself", () => {
+    expect(effectOf(ReachUsesPort, [])).toBe(ReachPort);
+    expect(effectOf(ReachUsesUndecorated, [])).toBe(ReachUndecorated);
+  });
+
+  it("the clocks and contexts every container has are no effect, nor a class that extends one", () => {
+    expect(effectOf(ReachUsesClock, [])).toBeUndefined();
+    expect(effectOf(ReachUsesOwnClock, [])).toBeUndefined();
+  });
+
+  it("a port with several implementations is the first effect among them, in the order bound", () => {
+    expect(effectOf(ReachUsesPort, [ReachHarmlessPortImpl, ReachWritingPortImpl])).toBe(Idempotency);
+    expect(effectOf(ReachUsesPort, [ReachWritingPortImpl, ReachHarmlessPortImpl])).toBe(Idempotency);
+  });
+
+  it("a value token and a function with no prototype are read past, the first with bound classes about", () => {
+    const arrow = () => 1;
+    @Injectable({ deps: [REGION as never, arrow as never] })
+    class ReachUsesOdd {}
+
+    expect(effectOf(ReachUsesOdd, [ReachHarmlessPortImpl])).toBe(arrow);
+    @Injectable({ deps: [REGION as never] })
+    class ReachUsesValue {}
+    expect(effectOf(ReachUsesValue, [ReachHarmlessPortImpl, ReachWriter])).toBeUndefined();
+  });
+
+  it("a node of the flow, declared and not a component, is no port without a class", () => {
+    @Injectable({ deps: [PlainAgent] })
+    class ReachUsesAgent {}
+
+    expect(effectOf(ReachUsesAgent, [])).toBeUndefined();
+  });
+
+  it("a port bound to an MCP server is that server", () => {
+    expect(effectOf(PortAction, [PortMcpServer])).toBe(PortMcpServer);
+  });
+});
+
+describe("#1319: the classes an application can bind to a port", () => {
+  it("its providers and services, then those of its workflows and their children", () => {
+    @Workflow({
+      name: "reach-bound-workflow",
+      version: "1.0.0",
+      historyTtl: Ttl.Forever,
+      flow: [onStart(ReachBoundStart).toFinish(UnitRuleFinish)],
+      providers: [ReachHarmless],
+      services: [ReachHarmlessPortImpl],
+    })
+    class BoundWorkflow {}
+    const plain = skillOf([PlainAgent]).workflow;
+
+    const bound = boundClassesOf({
+      providers: [ReachWriter],
+      services: [ReachViaWriter],
+      workflows: [BoundWorkflow, plain, PlainTool],
+    } as unknown as ApplicationOptions);
+
+    expect(bound).toEqual([ReachWriter, ReachViaWriter, ReachHarmless, ReachHarmlessPortImpl]);
+    expect(boundClassesOf({ workflows: [] } as unknown as ApplicationOptions)).toEqual([]);
+  });
+});
+
+@WorkflowStart({
+  name: "reach-bound-workflow-start",
+  description: "Reach",
+  input: WorkflowStartTextDto,
+})
+class ReachBoundStart {}

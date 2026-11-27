@@ -282,7 +282,6 @@ export const pendingOutboundCallOf = (
 export function shownCallOf(record: OutboundCallRecord): OutboundCallRecord {
   const shown = { ...record };
   delete shown.fingerprint;
-  if (record.businessKey === undefined) return shown;
   delete shown.businessKey;
   return shown;
 }

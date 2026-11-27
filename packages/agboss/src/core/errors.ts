@@ -54,7 +54,11 @@ export class AGBossError extends Error {
   }
 }
 
-installReportMembers(AGBossError.prototype, (error) => error instanceof AGBossError);
+function isAGBossError(error: unknown): boolean {
+  return error instanceof AGBossError;
+}
+
+installReportMembers(AGBossError.prototype, isAGBossError);
 
 /** The run was cancelled: its signal aborted, or a cancel was requested before a node ran. */
 export class ExecutionCancelledError extends AGBossError {

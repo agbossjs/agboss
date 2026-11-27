@@ -16,7 +16,11 @@ import {
   FingerprintProblem,
   fingerprintNotJson,
   fingerprintRequired,
+  invalidShortKeyLength,
+  resultTooLarge,
   secretKeyMissing,
+  storeMismatch,
+  unissuedKey,
 } from "../../src/infrastructure/idempotency-errors.js";
 import { testFrame } from "../helpers/frame.js";
 
@@ -176,5 +180,56 @@ describe("#906 AC4: IdempotencyError.FingerprintRequired({ effect, reason, cause
     };
 
     expect(refused()).toMatchObject({ effect: "refund", reason: "contradictory" });
+  });
+});
+
+describe("#1317: the other errors of an idempotent effect", () => {
+  it("IdempotencyError.ResultTooLarge: its text and what it knows", () => {
+    const error = resultTooLarge({ effect: "charge", size: 70_000 as never, maxResultSize: 65_536 as never });
+
+    expect(error).toBeInstanceOf(IdempotencyError.ResultTooLarge);
+    expect(error).toMatchObject({
+      effect: "charge",
+      size: 70_000,
+      maxResultSize: 65_536,
+      message:
+        'the result of idempotent effect "charge" is 70000 bytes, above its maxResultSize of 65536 bytes: nothing was written — store a reference to it, or raise maxResultSize of runOnce',
+    });
+  });
+
+  it("IdempotencyError.StoreMismatch: names the three stores and the way out", () => {
+    const error = storeMismatch({
+      fencedEffectRepository: "InMemoryFencedEffectRepository",
+      leaseRepository: "SqliteExecutionLeaseRepository",
+      expectedLeaseRepository: "InMemoryExecutionLeaseRepository",
+    });
+
+    expect(error).toBeInstanceOf(IdempotencyError.StoreMismatch);
+    expect(error).toMatchObject({
+      fencedEffectRepository: "InMemoryFencedEffectRepository",
+      leaseRepository: "SqliteExecutionLeaseRepository",
+      expectedLeaseRepository: "InMemoryExecutionLeaseRepository",
+      message:
+        "InMemoryFencedEffectRepository checks the leases of InMemoryExecutionLeaseRepository, but the application's leases are in SqliteExecutionLeaseRepository: list the idempotency store of that lease store's database in @Application({ providers })",
+    });
+  });
+
+  it("IdempotencyError.InvalidKey: a short key's length is shown as a number, or by its kind", () => {
+    const text = (length: unknown) => invalidShortKeyLength(length).message;
+    const head =
+      "call.shortKey(length) takes a whole number of characters from 16 to 43 (a shorter prefix of an HMAC is not unique enough), not";
+
+    expect(invalidShortKeyLength(7)).toBeInstanceOf(IdempotencyError.InvalidKey);
+    expect(text(7)).toBe(`${head} 7`);
+    expect(text(Number.NaN)).toBe(`${head} NaN`);
+    expect(text("16")).toBe(`${head} string`);
+    expect(text(undefined)).toBe(`${head} undefined`);
+  });
+
+  it("IdempotencyError.InvalidKey: a key no key-maker made says what it was given", () => {
+    const error = unissuedKey("not a key effectKeyOf made");
+
+    expect(error).toBeInstanceOf(IdempotencyError.InvalidKey);
+    expect(error.message).toBe("not a key effectKeyOf made");
   });
 });
