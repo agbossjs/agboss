@@ -1,7 +1,8 @@
 /**
  * #1186 — the nightly cold mutation run covers every shard the PR run does. `mutation-nightly.yml`
- * once missed `a2a-direct`, so the run that trusts no cache never touched it. The shard lists of the
- * two workflows, and the shards `stryker.config.mjs` defines, must be one set.
+ * once missed `a2a-direct`, so the run that trusts no cache never touched it. The nightly's shard list and
+ * the shards `stryker.config.mjs` defines must be one set; the PR run takes its list from the plan
+ * (`scripts/mutation-changed.mjs`, which reads `stryker.config.mjs`: the touched shards, never a list of its own).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -35,19 +36,22 @@ const shardsOfStryker = (config: string): string[] => {
 
 const sorted = (names: readonly string[]): string[] => [...names].sort();
 
-describe("#1186: the nightly mutation matrix is the PR mutation matrix", () => {
-  const pull = shardsOfWorkflow(read(".github/workflows/ci.yml"));
+describe("#1186: the nightly mutation matrix is every shard the config defines", () => {
   const nightly = shardsOfWorkflow(read(".github/workflows/mutation-nightly.yml"));
   const defined = shardsOfStryker(read("packages/agboss/stryker.config.mjs"));
 
-  it("lists the same shards, none twice", () => {
+  it("lists every shard stryker.config.mjs defines, none twice, and nothing it does not", () => {
+    expect(defined.length).toBeGreaterThan(10);
     expect(new Set(nightly).size).toBe(nightly.length);
-    expect(sorted(nightly)).toEqual(sorted(pull));
+    expect(sorted(nightly)).toEqual(sorted(defined));
   });
 
-  it("the PR list has every shard stryker.config.mjs defines, and nothing it does not", () => {
-    expect(defined.length).toBeGreaterThan(10);
-    expect(sorted(pull)).toEqual(sorted(defined));
+  it("the PR job runs the shards the plan names, from the plan's JSON, never from a list of its own", () => {
+    const pull = read(".github/workflows/ci.yml");
+
+    expect(pull).toContain("shard: ${{ fromJSON(needs.mutation-plan.outputs.shards) }}");
+    expect(pull).toContain("scripts/mutation-changed.mjs");
+    expect(() => shardsOfWorkflow(pull)).toThrow(/no `shard/);
   });
 });
 

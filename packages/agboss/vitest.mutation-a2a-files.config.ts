@@ -17,6 +17,8 @@ export default defineConfig({
       "tests/a2a/files/*.test.ts",
       "tests/a2a/files/mutation/*.test.ts",
       "tests/files/*.test.ts",
+      // #1356: the download bounds
+      "tests/a2a/client/a2a-download-policy-1316.test.ts",
     ],
   },
 });

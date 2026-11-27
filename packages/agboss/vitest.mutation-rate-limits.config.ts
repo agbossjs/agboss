@@ -16,7 +16,6 @@ export default defineConfig({
       "tests/infrastructure/store-conformance.sqlite.test.ts",
       "tests/models/{rate-limit,rate-limit-429,rate-limit-policy}.test.ts",
       "tests/infrastructure/rate-limit-units.test.ts",
-      "tests/infrastructure/sqlite/sqlite-rate-limit-migration.test.ts",
     ],
   },
 });

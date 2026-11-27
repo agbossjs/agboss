@@ -25,6 +25,8 @@ export default defineConfig({
       "tests/budgets/{held-undo,held-branch,exemption-scope}.test.ts",
       "tests/infrastructure/{sqlite/sqlite-unwind,execution-lease-retire-bites}.test.ts",
       "tests/errors/recorded-error.test.ts",
+      // #1356: the held error's join-failure ledger
+      "tests/sweep-1366h/flow/join-failure-ledger.test.ts",
     ],
   },
 });

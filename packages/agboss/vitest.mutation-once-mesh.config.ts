@@ -24,6 +24,9 @@ export default defineConfig({
       "tests/mcp/mcp-mesh-trust.test.ts",
       // the identity and ledger key of a call, keyless included: its position, its arguments, its explicit key
       "tests/mcp/{mcp-client-call,mcp-call-frame-ids}.test.ts",
+      // #1356: the MCP call's identity
+      "tests/mcp/mcp-client-call.test.ts",
+      "tests/mcp/mcp-call-frame-ids.test.ts",
     ],
   },
 });

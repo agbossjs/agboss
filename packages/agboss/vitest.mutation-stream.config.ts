@@ -20,6 +20,8 @@ export default defineConfig({
       // the decision priced by its provider's table (src/finops/decision-price.ts)
       "tests/models/component-prices-kinds.test.ts",
       "tests/a2a/server/{a2a-sse-*,a2a-subscriber-queue*,a2a-artifact-view*,a2a-local-runs*,a2a-stream*}.test.ts",
+      // #1356: the charge of a call
+      "tests/finops/charged-call.test.ts",
     ],
   },
 });

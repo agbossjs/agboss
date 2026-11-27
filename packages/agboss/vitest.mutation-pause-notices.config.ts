@@ -18,6 +18,8 @@ export default defineConfig({
       "tests/application/pause-*.test.ts",
       "tests/infrastructure/sqlite/pause-notice-atomic.test.ts",
       "tests/metrics/{pause-metrics,channel-decision-metrics}.test.ts",
+      // #1356: the pause notice events
+      "tests/sweep-1366h/app/pause-notice-events-1366h.test.ts",
     ],
   },
 });

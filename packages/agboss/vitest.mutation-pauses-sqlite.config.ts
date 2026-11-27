@@ -15,7 +15,6 @@ export default defineConfig({
       "tests/infrastructure/store-conformance.sqlite.test.ts",
       "tests/infrastructure/{pause-store-units,pause-mailbox-store-units}.test.ts",
       "tests/infrastructure/sqlite/{pause-*,pauses-v2-migration,sqlite-pause-*,paused-run-unreadable}.test.ts",
-      "tests/infrastructure/repeated-execution-id-pauses.sqlite.test.ts",
       "tests/app/{pause-reminders.sqlite,pause-expiry-instances.sqlite,pause-notice-crash.sqlite,cancel-paused-crash.sqlite}.test.ts",
     ],
   },

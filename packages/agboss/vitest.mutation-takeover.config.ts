@@ -32,6 +32,14 @@ export default defineConfig({
       "tests/infrastructure/{orphan-pauses,orphan-wakes,recovery-wake-order}.test.ts",
       // #1325a: the hand-over kinds and records, the families' classes and how a class is caught
       "tests/errors/{family-routing,error-families,error-record-families,cancel-fenced}.test.ts",
+      // #1356: the stop marks and the lease that stops, where they are tested
+      "tests/infrastructure/finish-over-mark.test.ts",
+      "tests/infrastructure/pause-fence-units.test.ts",
+      "tests/app/child-pause-watch-units.test.ts",
+      // an operator's pause, its lift and a stop (#1341), end to end through the public calls
+      "tests/app/pause.test.ts",
+      "tests/app/unpause-after-answered-park.test.ts",
+      "tests/app/stop-across-instances.test.ts",
     ],
   },
 });

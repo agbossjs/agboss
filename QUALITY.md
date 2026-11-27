@@ -241,6 +241,10 @@ $40`). Limit errors are one class per limit, all `LimitError`s: `LimitError.Step
   test's own timeout. `npm run check:real-time` fails on one; a rewritten timing test is proven with
   `node scripts/flaky-probe.mjs <file> 50` (50/50).
 - Real-model checks go to `tests/smoke/` and run only via `make smoke`.
+- **The nightly mutation run (`mutation-nightly.yml`, every shard cold) is green on the release head, and red nights are
+  fixed, not waited out** (#1356): a pull request's mutation job runs the shards its change touches
+  (`npm run test:mutation:changed` locally), and a shard's tests must run every file it mutates
+  (`scripts/check-mutation-reach.mjs`).
 - Each spec test case → one test. Name tests by behaviour:
   `it("returns a fallback answer when the model output is empty")`.
 - Arrange / Act / Assert, one behaviour per test, no logic in tests.

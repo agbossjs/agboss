@@ -21,6 +21,9 @@ export default defineConfig({
       "tests/a2a/client/a2a-client-mesh.units.test.ts",
       "tests/a2a/client/mesh-charge-seam.test.ts",
       "tests/a2a/mesh/*.test.ts",
+      // #1356: the MCP call's identity
+      "tests/mcp/mcp-client-call.test.ts",
+      "tests/mcp/mcp-call-frame-ids.test.ts",
     ],
   },
 });
