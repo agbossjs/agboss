@@ -15,7 +15,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
-import { affectedShards, mutatedFilesOf, PACKAGE, readShards } from "./mutation-shards.mjs";
+import { affectedShards, mutatedFilesOf, PACKAGE, readShards, ROOT } from "./mutation-shards.mjs";
 
 /**
  * The files of one shard that no test ran. `coverage` is vitest's coverage-final.json (istanbul shape, keys are
@@ -71,7 +71,6 @@ function dryRun(name, shard, files, workers) {
   const out = mkdtempSync(join(tmpdir(), `mutation-reach-${name}-`));
   try {
     const args = [
-      "vitest",
       "run",
       "--config",
       shard.configFile,
@@ -87,7 +86,11 @@ function dryRun(name, shard, files, workers) {
       ...[...files.keys()].map((file) => `--coverage.include=${file}`),
     ];
     const started = Date.now();
-    const run = spawnSync("npx", args, { cwd: PACKAGE, encoding: "utf8", maxBuffer: 1 << 28 });
+    const run = spawnSync(join(ROOT, "node_modules/.bin/vitest"), args, {
+      cwd: PACKAGE,
+      encoding: "utf8",
+      maxBuffer: 1 << 28,
+    });
     const seconds = Math.round((Date.now() - started) / 1000);
     if (run.status !== 0) return { error: `${run.stdout}\n${run.stderr}`.slice(-3000), seconds };
     return {
