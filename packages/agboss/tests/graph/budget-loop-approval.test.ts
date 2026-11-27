@@ -216,3 +216,26 @@ describe("#1366: a failed ask fails the agent with the loop's spend", () => {
     await expect(node(stateOf(), undefined)).rejects.toThrow("broke");
   });
 });
+
+describe("#1356: a call is asked about only when it was prepared as ready", () => {
+  it.each([
+    ["none", undefined],
+    ["invalid", { kind: "invalid", args: {}, from: "model" }],
+    ["refused", { kind: "refused", args: {}, from: "model" }],
+  ])(
+    "a call prepared as %s is a TypeError that names it, and nobody is asked",
+    async (_why, prepared) => {
+      const { node, requestApproval } = setup();
+      const state = {
+        ...(stateOf() as object),
+        prepared: prepared === undefined ? {} : { c1: prepared },
+      } as never;
+
+      const failure = await node(state, undefined).catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(TypeError);
+      expect((failure as Error).message).toBe("tool call c1 is not ready");
+      expect(requestApproval).not.toHaveBeenCalled();
+    },
+  );
+});
