@@ -51,8 +51,8 @@ const TRANSITIONS: readonly (readonly [
         "default",
         id,
         await withSeen(s, id, {
-          expiresAt: "2026-01-05T12:00:00.000Z",
-          previousExpiresAt: DEADLINE.toISOString(),
+          expiresAt: new Date("2026-01-05T12:00:00.000Z"),
+          previousExpiresAt: DEADLINE,
         }),
         MID,
         RECIPIENTS,

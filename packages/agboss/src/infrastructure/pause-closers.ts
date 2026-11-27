@@ -18,7 +18,7 @@ export const expiredPause = (
   ...pause,
   status: PauseStatus.Cancelled,
   resolution: PauseResolution.Expired,
-  resolvedAt: at.toISOString(),
+  resolvedAt: at,
   ...(problem === undefined ? {} : { expiryProblem: problem }),
 });
 
@@ -32,7 +32,7 @@ export const decidedOnExpiryPause = (
   status: PauseStatus.Resolved,
   answer: { ...answer, actor: undefined },
   resolution: PauseResolution.DecidedOnExpiry,
-  resolvedAt: at.toISOString(),
+  resolvedAt: at,
 });
 
 /**
@@ -47,7 +47,7 @@ export const untakenPause = (
   ...pause,
   status: PauseStatus.Cancelled,
   resolution,
-  resolvedAt: at.toISOString(),
+  resolvedAt: at,
   ...(pause.resolution === undefined || pause.resolvedAt === undefined
     ? {}
     : { closedFirst: { resolution: pause.resolution, resolvedAt: pause.resolvedAt } }),

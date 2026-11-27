@@ -34,8 +34,8 @@ import {
 const test = testWith(ExpiryApplication);
 const ORDER = { orderId: "o-1" };
 const THREAD = { threadId: "expiry-1" };
-const AT = (clock: { now(): Date }, delay: number): string =>
-  new Date(clock.now().getTime() + delay).toISOString();
+const AT = (clock: { now(): Date }, delay: number): Date =>
+  new Date(clock.now().getTime() + delay);
 
 beforeEach(() => {
   resetExpiry();
@@ -49,7 +49,7 @@ describe("#941 AC1: a pause nobody answers expires and the step fails", () => {
   }) => {
     const paused = await execute(app, ExpiryWorkflowStart, ORDER, THREAD);
     expect(paused.status).toBe(ExecutionStatus.Paused);
-    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(AT(clock, hours(24)));
+    expect(paused.pending[0]?.expiresAt).toEqual(AT(clock, hours(24)));
 
     await clock.advance(hours(24));
     await until(() => expiry.directorAsked.length === 1);
@@ -100,7 +100,7 @@ describe("#941 AC1: a pause nobody answers expires and the step fails", () => {
     clock,
   }) => {
     const paused = await execute(app, ShortExpiryWorkflowStart, ORDER, THREAD);
-    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(AT(clock, hours(4)));
+    expect(paused.pending[0]?.expiresAt).toEqual(AT(clock, hours(4)));
 
     await clock.advance(hours(4));
     await until(() => expiry.errors.length === 1);
@@ -250,7 +250,7 @@ describe("#941 (#933's scope note): the shipped toQuestion starters take expires
     ".toExternalTask(Manager, { expiresIn }).onError(StepError.PauseExpired, toExternalTask(Director, { expiresIn })…): the manager's pause expires, the director is asked with his own deadline, the answer goes on the path",
     async ({ app, clock }) => {
       const paused = await execute(app, PublicExpiryWorkflowStart, ORDER, THREAD);
-      expect(paused.pending[0]?.expiresAt?.toISOString()).toBe(AT(clock, hours(4)));
+      expect(paused.pending[0]?.expiresAt).toEqual(AT(clock, hours(4)));
 
       await clock.advance(hours(4));
       await until(() => expiry.directorAsked.length === 1);
@@ -262,7 +262,7 @@ describe("#941 (#933's scope note): the shipped toQuestion starters take expires
         await expiryStore().findAllByTenantIdAndRootExecutionId("default", paused.executionId)
       ).at(-1);
       expect(director?.resolution).toBe(PauseResolution.Expired);
-      expect(open?.expiresAt).toBe(AT(clock, hours(1)));
+      expect(open?.expiresAt).toEqual(AT(clock, hours(1)));
       const done = await app.resume(
         { pauseId: expiry.directorAsked[0]?.pauseId ?? "", decision: { approved: true } },
         { actor: { id: "director-1" } },

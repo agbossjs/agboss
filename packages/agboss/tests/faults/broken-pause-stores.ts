@@ -68,7 +68,7 @@ export class LostAnswerSqlitePausedExecutionRepository extends SqlitePausedExecu
       status: PauseStatus.Resolved,
       resolution: PauseResolution.Replied,
       answer,
-      resolvedAt: at.toISOString(),
+      resolvedAt: at,
     };
   }
 }

@@ -9,7 +9,7 @@ import type { ChannelSender } from "../../channels/channel-sender.js";
 import type { PauseCalendar } from "../../calendar/calendar-call.js";
 import { seconds, type Milliseconds, type WorkingDuration } from "../../units/index.js";
 import type { Class } from "../../components/injection.js";
-import type { PauseTrailRecord } from "../../infrastructure/pause-record.js";
+import type { PauseTrailEntry } from "../../channels/pause-contexts.js";
 
 /** A channel as a pause asks it: the transport of one pause target (#1307). */
 export interface PauseChannel {
@@ -79,7 +79,7 @@ export interface PendingOpening {
   readonly expiresAt?: Date;
   /** Who the pause is for, from the target's `assign`. */
   readonly assignees?: readonly string[];
-  readonly trail: readonly PauseTrailRecord[];
+  readonly trail: readonly PauseTrailEntry[];
 }
 
 /** Picks the channel a new pause is sent through (a target with several channels asks its selector). */

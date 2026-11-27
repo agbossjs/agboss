@@ -4,7 +4,7 @@ import {
   PauseStatus,
   type PauseRecord,
 } from "./pause-record.js";
-import { NEVER } from "./pause-scans.js";
+import { isAtOrBefore } from "./instants.js";
 
 /**
  * Why and when a pause closed (#935, #910): the reasons an error and a notice say, derived from the
@@ -50,14 +50,16 @@ export function closedReasonOf(pause: PauseRecord): PauseClosedReason {
  */
 export function pauseClosedReasonOf(pause: PauseRecord, now: Date): PauseClosedReason | undefined {
   if (pause.status !== PauseStatus.Pending) return closedReasonOf(pause);
-  return (pause.expiresAt ?? NEVER) <= now.toISOString() ? PauseClosedReason.Expired : undefined;
+  return pause.expiresAt !== undefined && isAtOrBefore(pause.expiresAt, now)
+    ? PauseClosedReason.Expired
+    : undefined;
 }
 
 /**
  * When `pause` closed: its `expiresAt` for an expiry (D5), else `resolvedAt` — of its first close
  * when an untaken one followed (`closedFirst`); `undefined` while pending.
  */
-export const closedAtOf = (pause: PauseRecord): string | undefined => {
+export const closedAtOf = (pause: PauseRecord): Date | undefined => {
   const first = pause.closedFirst ?? pause;
   return isExpiredResolution(first.resolution) ? pause.expiresAt : first.resolvedAt;
 };

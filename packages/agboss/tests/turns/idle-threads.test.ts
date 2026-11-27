@@ -73,7 +73,7 @@ describe("#1303c: deleteIdleThreads", () => {
       tenantId: "default",
       rootExecutionId: "run-1",
       stepKey: "k",
-      askedAt: "2026-01-05T09:00:00.000Z",
+      askedAt: new Date("2026-01-05T09:00:00.000Z"),
       record: "{}",
     });
     advance(hours(2));

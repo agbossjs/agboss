@@ -44,8 +44,8 @@ const pause = (id: string, overrides: Record<string, unknown> = {}) => ({
   kind: "external-task",
   ask: {},
   trail: [],
-  askedAt: "2026-01-01T00:00:00.000Z",
-  expiresAt: "2026-01-01T11:00:00.000Z",
+  askedAt: new Date("2026-01-01T00:00:00.000Z"),
+  expiresAt: new Date("2026-01-01T11:00:00.000Z"),
   expiryBound: PauseExpiryBound.Pause,
   ...overrides,
 });
@@ -87,8 +87,8 @@ describe("#941: the pauses due now", () => {
   it("only the pending ones whose deadline is at or before now", async () => {
     const { parts } = partsOf([
       pause("due"),
-      pause("exactly", { expiresAt: NOW.toISOString() }),
-      pause("later", { expiresAt: "2026-01-01T12:00:00.001Z" }),
+      pause("exactly", { expiresAt: NOW }),
+      pause("later", { expiresAt: new Date("2026-01-01T12:00:00.001Z") }),
       pause("none", { expiresAt: undefined }),
       pause("answered", { status: PauseStatus.Resolved }),
     ]);
@@ -207,7 +207,7 @@ describe("#941: the pass an expiry starts (expiredPassOf)", () => {
 
   it("no pause due: nothing is marked, nothing asked, no pass", async () => {
     const { parts, completeIfStatus, expire } = movesOf([
-      pause("later", { expiresAt: "2027-01-01T00:00:00.000Z" }),
+      pause("later", { expiresAt: new Date("2027-01-01T00:00:00.000Z") }),
     ]);
 
     const planned = await expiredPassOf(parts, state, {}, { tried: new Set() });

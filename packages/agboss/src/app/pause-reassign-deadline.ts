@@ -1,4 +1,4 @@
-import { isBeforeText, isDueAt } from "../infrastructure/pause-record-instants.js";
+import { isBefore, isDeadlineDue } from "../infrastructure/instants.js";
 import { trailOf } from "../flow/runtime/pause-chain.js";
 import type { PauseTarget } from "../flow/runtime/pause-channel.js";
 import { checkedTimeout, resolvedTimeoutBy } from "../flow/runtime/pause-hooks.js";
@@ -44,14 +44,14 @@ async function spanOf(
 /** The earlier of the deadlines given, and which bound it is (the pause's own unless the run's or quorum's clamps it). */
 function clamped(
   pause: PauseRecord,
-  own: string | undefined,
-  cap: string | undefined,
-): { expiresAt?: string; expiryBound: PauseExpiryBound } {
+  own: Date | undefined,
+  cap: Date | undefined,
+): { expiresAt?: Date; expiryBound: PauseExpiryBound } {
   // the cap only counts when it is earlier than the pause's own deadline, or the pause has none
-  const earlier = cap === undefined || (own !== undefined && !isBeforeText(cap, own)) ? own : cap;
+  const earlier = cap === undefined || (own !== undefined && !isBefore(cap, own)) ? own : cap;
   const { boundAt } = pause;
   // the run's or quorum's bound takes it only when strictly earlier: a tie stays the pause's own
-  if (boundAt !== undefined && (earlier === undefined || isBeforeText(boundAt, earlier)))
+  if (boundAt !== undefined && (earlier === undefined || isBefore(boundAt, earlier)))
     return { expiresAt: boundAt, expiryBound: boundKindOf(pause) };
   return {
     ...(earlier === undefined ? {} : { expiresAt: earlier }),
@@ -66,7 +66,7 @@ export async function deadlineAfter(
   moves: { readonly from: PauseTarget; readonly to: PauseTarget },
   assignees: readonly string[] | undefined,
   ask: DeadlineAsk,
-  maxExpiresAt: string | undefined,
+  maxExpiresAt: Date | undefined,
 ): Promise<PauseDeadlineSet | undefined> {
   const { from, to } = moves;
   // a pause that stays under its target keeps its deadline, unless the call says otherwise; an expiry always sets one
@@ -74,9 +74,9 @@ export async function deadlineAfter(
   const span = await spanOf(pause, to, assignees, ask.timeout);
   const now = parts.clock.now();
   const { add, remind } = calendarOfTarget(parts, pause, to, assignees);
-  const own = span === undefined ? undefined : (await instantAfter(span, now, add)).toISOString();
+  const own = span === undefined ? undefined : await instantAfter(span, now, add);
   const bound = clamped(pause, own, maxExpiresAt);
-  if (isDueAt(bound.expiresAt, now)) throw limitExceeded(pause, "maxTotalTimeout");
+  if (isDeadlineDue(bound.expiresAt, now)) throw limitExceeded(pause, "maxTotalTimeout");
   return withReminder({ now, span, bound, to, calendar: { add, remind } });
 }
 
@@ -84,7 +84,7 @@ export async function deadlineAfter(
 async function withReminder(site: {
   readonly now: Date;
   readonly span: TimeSpan | undefined;
-  readonly bound: { expiresAt?: string; expiryBound: PauseExpiryBound };
+  readonly bound: { expiresAt?: Date; expiryBound: PauseExpiryBound };
   readonly to: PauseTarget;
   readonly calendar: Pick<ReturnType<typeof calendarOfTarget>, "add" | "remind">;
 }): Promise<PauseDeadlineSet> {

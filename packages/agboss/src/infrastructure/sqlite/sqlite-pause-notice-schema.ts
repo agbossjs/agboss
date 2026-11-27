@@ -3,18 +3,20 @@ import { PauseClosedReason, pauseKeyOf } from "../pause-record.js";
 import type { StoredMailbox } from "../pause-mailboxes.js";
 import { PauseNoticeKind } from "../pause-notices.js";
 import { definedOf } from "../clock.js";
-import { parsedStoredJson } from "../stored-step.js";
+import { instantOfText } from "../instants.js";
+import { parsedStoredJson, readStored, StoredInstant } from "../stored-step.js";
 
-/** The `pause_notices` table (#935) and how its rows read: validated on the way out. */
+/** The `pause_notices` table (#935) and how its rows read: validated on the way out; its times only as `toISOString()` writes them. */
+const MAILBOX = "pause notice mailbox";
 
 const StoredNotice = z.object({
   seq: z.number(),
   kind: z.enum(PauseNoticeKind),
-  writtenAt: z.string(),
+  writtenAt: StoredInstant,
   reason: z.enum(PauseClosedReason).optional(),
-  closedAt: z.string().optional(),
-  expiresAt: z.string().optional(),
-  previousExpiresAt: z.string().optional(),
+  closedAt: StoredInstant.optional(),
+  expiresAt: StoredInstant.optional(),
+  previousExpiresAt: StoredInstant.optional(),
   actor: z.object({ id: z.string(), orgId: z.string().optional() }).optional(),
   changeReason: z.string().optional(),
   previousAssignees: z.array(z.string()).optional(),
@@ -48,29 +50,36 @@ export function toMailbox(row: unknown): StoredMailbox {
     tenantId: r.tenant_id,
     pauseId: r.pause_id,
     recipient: r.recipient,
-    notices: z.array(StoredNotice).parse(
+    notices: readStored(
+      z.array(StoredNotice),
       parsedStoredJson({
         what: "pause notice mailbox",
         text: r.notices,
         ids: { pause: pauseKeyOf(r.tenant_id, r.pause_id) },
       }),
+      "pause notice mailbox",
+      [],
     ),
     delivered: r.delivered,
     attempts: r.attempts,
-    nextAttemptAt: new Date(r.next_attempt_at),
+    nextAttemptAt: instantOfText(r.next_attempt_at, "next_attempt_at", MAILBOX),
     isDead: r.is_dead === 1,
-    ...(r.head_written_at === null ? {} : { headWrittenAt: r.head_written_at }),
+    ...(r.head_written_at === null
+      ? {}
+      : { headWrittenAt: instantOfText(r.head_written_at, "head_written_at", MAILBOX) }),
     ...(r.problem === null ? {} : { problem: r.problem }),
     ...(r.claim_token === null
       ? {}
       : {
           claim: {
             token: r.claim_token,
-            until: new Date(
+            until: instantOfText(
               definedOf(
                 r.claimed_until ?? undefined,
                 "a mailbox claimed under a token is claimed until a time",
               ),
+              "claimed_until",
+              MAILBOX,
             ),
           },
         }),

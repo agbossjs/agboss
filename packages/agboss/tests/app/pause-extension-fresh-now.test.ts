@@ -29,7 +29,7 @@ import { milliseconds } from "../calendar/units.js";
 
 const ORDER = { orderId: "o-1" };
 const manager = { actor: { id: "manager-17" } };
-const DEADLINE = "2026-11-22T08:30:00.000Z";
+const DEADLINE = new Date("2026-11-22T08:30:00.000Z");
 
 /** The calendar's slowness: how long the next call takes on the virtual clock (once). */
 const slow = {
@@ -96,7 +96,7 @@ async function pausedThenSlow(
   await moveTo(clock, "2026-11-19T15:30:00.000Z");
   await execute(app, desk.start, ORDER, { threadId: "t-1" });
   const pauseId = desk.told.sent.at(-1)?.pauseId ?? "";
-  expect((await pauseOf(app, pauseId)).expiresAt).toBe(DEADLINE);
+  expect((await pauseOf(app, pauseId)).expiresAt).toEqual(DEADLINE);
   await moveTo(clock, at);
   slow.takes = takes;
   return pauseId;
@@ -123,7 +123,7 @@ describe("#1148: an extension in working time is decided when it is written", ()
     expect(clock.now().toISOString()).toBe("2026-11-22T08:30:10.000Z");
     expect(refused).toBeInstanceOf(PauseError.Closed);
     await until(async () => (await pauseOf(app, pauseId)).status !== PauseStatus.Pending);
-    expect((await pauseOf(app, pauseId)).expiresAt).toBe(DEADLINE);
+    expect((await pauseOf(app, pauseId)).expiresAt).toEqual(DEADLINE);
   });
 
   test("a slow calendar that answers before the deadline: the extension counts from the call's start", async ({
@@ -135,9 +135,9 @@ describe("#1148: an extension in working time is decided when it is written", ()
     const extension = await app.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
 
     // 08:00:00Z = Sunday 10:00 IST + 8 working hours (10:00–13:00, 14:00–18:00 = 7 h, 09:00–10:00 Monday)
-    expect(extension.previousExpiresAt?.toISOString()).toBe(DEADLINE);
+    expect(extension.previousExpiresAt).toEqual(DEADLINE);
     expect(extension.expiresAt?.toISOString()).toBe("2026-11-23T08:00:00.000Z");
-    expect((await pauseOf(app, pauseId)).expiresAt).toBe("2026-11-23T08:00:00.000Z");
+    expect((await pauseOf(app, pauseId)).expiresAt).toEqual(new Date("2026-11-23T08:00:00.000Z"));
   });
 });
 

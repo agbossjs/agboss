@@ -445,7 +445,7 @@ describe("#943 AC2: the sites that close without a request", () => {
     const pause = {
       ...pauseOf("p", "k"),
       resolution: PauseResolution.Replied,
-      resolvedAt: "2026-01-05T09:05:00.000Z",
+      resolvedAt: new Date("2026-01-05T09:05:00.000Z"),
     };
 
     expect(() => {

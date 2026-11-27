@@ -57,7 +57,7 @@ export function pauseAnswerWrites(
       db.prepare(
         `INSERT OR IGNORE INTO pause_answers (tenant_id, root_execution_id, step_key, asked_at, record)
          VALUES (?, ?, ?, ?, ?)`,
-      ).run(entry.tenantId, entry.rootExecutionId, entry.stepKey, entry.askedAt, entry.record);
+      ).run(entry.tenantId, entry.rootExecutionId, entry.stepKey, entry.askedAt.toISOString(), entry.record);
       return Promise.resolve();
     },
     // the entry's place (`asked_at`, row) stays: only its record is replaced
@@ -66,7 +66,7 @@ export function pauseAnswerWrites(
         `INSERT INTO pause_answers (tenant_id, root_execution_id, step_key, asked_at, record)
          VALUES (?, ?, ?, ?, ?)
          ON CONFLICT (tenant_id, root_execution_id, step_key) DO UPDATE SET record = excluded.record`,
-      ).run(entry.tenantId, entry.rootExecutionId, entry.stepKey, entry.askedAt, entry.record);
+      ).run(entry.tenantId, entry.rootExecutionId, entry.stepKey, entry.askedAt.toISOString(), entry.record);
       return Promise.resolve();
     },
     pauseAnswersOf: (tenantId, rootExecutionId) => {
@@ -227,7 +227,7 @@ export function turnWrites(
 /** What a kept pause answer is keyed by: its step's key and when it was asked (the whole of it as JSON). */
 interface KeptPauseAnswer {
   readonly step: { readonly idempotencyKey: string };
-  readonly askedAt: string;
+  readonly askedAt: Date;
 }
 
 /** A pause answer as a Turn store keeps it: by its tree and its step key, the record as JSON. */

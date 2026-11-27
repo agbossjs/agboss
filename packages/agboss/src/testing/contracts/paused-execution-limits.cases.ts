@@ -161,7 +161,7 @@ export const LIMITS_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
         {
           pauseId: "pause-b",
           to: { ...TO, limits: { escalationLimits: { maxExtensions: 1 } } },
-          timeout: { expiresAt: "2026-01-05T12:00:00.000Z" },
+          timeout: { expiresAt: new Date("2026-01-05T12:00:00.000Z") },
           countsAsExtension: true,
         },
         MID,
@@ -173,7 +173,7 @@ export const LIMITS_CASES: readonly ContractCase<PausedExecutionRepository>[] = 
           "pause-b",
           {
             assignees: ["deputy-3"],
-            timeout: { expiresAt: "2026-01-05T14:00:00.000Z" },
+            timeout: { expiresAt: new Date("2026-01-05T14:00:00.000Z") },
             countsAsExtension: true,
           },
           MID,

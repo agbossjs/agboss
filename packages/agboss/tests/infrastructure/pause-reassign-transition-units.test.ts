@@ -15,11 +15,11 @@ import {
 import { seenOf } from "../../src/infrastructure/pause-seen.js";
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 
-const T9 = "2026-11-20T09:00:00.000Z";
-const T10 = "2026-11-20T10:00:00.000Z";
-const T11 = "2026-11-20T11:00:00.000Z";
-const T12 = "2026-11-20T12:00:00.000Z";
-const AT = new Date(T10);
+const T9 = new Date("2026-11-20T09:00:00.000Z");
+const T10 = new Date("2026-11-20T10:00:00.000Z");
+const T11 = new Date("2026-11-20T11:00:00.000Z");
+const T12 = new Date("2026-11-20T12:00:00.000Z");
+const AT = new Date(T10.getTime());
 const RECIPIENTS = { channel: "refund", listeners: ["metrics"] };
 const actor = { id: "ops-1", orgId: "hq" };
 

@@ -154,7 +154,7 @@ describe("P6a: compare-and-set and ceilings by instant", () => {
     expect(second.previousExpiresAt).not.toBe(first.expiresAt);
     expect(second.previousExpiresAt?.getTime()).toBe(first.expiresAt?.getTime());
     expect(second.expiresAt?.getTime()).toBe(clock.now().getTime() + hours(6));
-    expect((await recordOf(app)).expiresAt).toBe(second.expiresAt?.toISOString());
+    expect((await recordOf(app)).expiresAt).toEqual(second.expiresAt);
   });
 
   test("the receivers of a change are told Dates: previousExpiresAt the deadline it had, expiresAt the one it has", async ({
@@ -196,7 +196,7 @@ describe("P6a: compare-and-set and ceilings by instant", () => {
       expiresAt: new Date(clock.now().getTime() + hours(2)),
     });
     const record = await recordOf(app);
-    expect(record.expiresAt).toBe(new Date(clock.now().getTime() + hours(2)).toISOString());
+    expect(record.expiresAt).toEqual(new Date(clock.now().getTime() + hours(2)));
     // the reminder two hours before a two-hour deadline is not after the change: none
     expect(record.remindAt).toBeUndefined();
   });

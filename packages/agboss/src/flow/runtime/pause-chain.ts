@@ -3,14 +3,15 @@ import type { PausedExecutionRepository } from "../../infrastructure/paused-exec
 import { AGBossError, type MessageErrorOptions } from "../../core/errors.js";
 import type { PauseToolCallSummary, PauseTrailEntry } from "../../channels/pause-contexts.js";
 import { pauseKeyOf, type PauseKind, type PauseRecord } from "../../infrastructure/pause-record.js";
-import { instantOf, trailEntriesOf } from "../../infrastructure/pause-record-instants.js";
+import { copyOf } from "../../infrastructure/instants.js";
+import { copiedTrail } from "../../infrastructure/pause-copies.js";
 import { livePauseOf } from "../../run/waiting-pauses.js";
 
 /** A reassigned pause's chain (#946): what its channel is sent, and the pause a step goes on with. */
 
 /** A pause's chain of custody as a channel and a hook read it. */
 export const trailOf = (pause: Pick<PauseRecord, "trail">): readonly PauseTrailEntry[] =>
-  trailEntriesOf(pause.trail);
+  copiedTrail(pause.trail);
 
 /**
  * What a channel is sent for `pause`: its id, what it asks (`input`, with the tool call an approval
@@ -22,7 +23,7 @@ export const askOfPause = (pause: PauseRecord): ChannelSenderSend => ({
   pauseId: pause.pauseId,
   input: pause.input,
   ...(pause.toolCall === undefined ? {} : { toolCall: pause.toolCall }),
-  ...(pause.expiresAt === undefined ? {} : { expiresAt: instantOf(pause.expiresAt) }),
+  ...(pause.expiresAt === undefined ? {} : { expiresAt: copyOf(pause.expiresAt) }),
   ...(pause.assignees === undefined ? {} : { assignees: pause.assignees }),
   trail: trailOf(pause),
   ...(pause.reassignedFrom === undefined ? {} : { replaces: { pauseId: pause.reassignedFrom } }),

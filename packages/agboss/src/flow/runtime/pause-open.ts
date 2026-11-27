@@ -14,7 +14,8 @@ import {
 } from "../../calendar/calendar-call.js";
 import { rootFactsOf, type FrameSpec } from "../context/frame.js";
 import type { ChooseChannel, PauseChannel, PauseTarget, PendingOpening } from "./pause-channel.js";
-import { trailEntryOf } from "../../infrastructure/pause-record-instants.js";
+import { copyOf } from "../../infrastructure/instants.js";
+import { copiedTrailEntry } from "../../infrastructure/pause-copies.js";
 import { assignedBy, resolvedTimeoutBy, type OpeningFacts } from "./pause-hooks.js";
 import type { OpeningHooks } from "./pause-record-facts.js";
 import { newRecordOf, type RemindAt } from "./pause-record-made.js";
@@ -122,8 +123,8 @@ export async function chosenChannel(
     input: question.input as never,
     ...(opening.assignees === undefined ? {} : { assignees: opening.assignees }),
     ...(question.toolCall === undefined ? {} : { toolCall: question.toolCall }),
-    ...(opening.expiresAt === undefined ? {} : { expiresAt: opening.expiresAt }),
-    trail: opening.trail.map(trailEntryOf),
+    ...(opening.expiresAt === undefined ? {} : { expiresAt: copyOf(opening.expiresAt) }),
+    trail: opening.trail.map(copiedTrailEntry),
   };
   let picked: Class;
   try {

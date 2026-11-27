@@ -54,7 +54,7 @@ test("AC3: three instances on one file: one reminder for each receiver, after an
   const seenByOther = await instance(apps, 1)
     .resolve(SqlitePausedExecutionRepository)
     .findByTenantIdAndPauseId("default", pauseId);
-  expect(seenByOther?.expiresAt).toBe(extension.expiresAt?.toISOString());
+  expect(seenByOther?.expiresAt).toEqual(extension.expiresAt);
   await clock.advance(span(hours(22), minutes(1)));
   await until(() => expiring().length === 4);
   await clock.advance(hours(1));

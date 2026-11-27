@@ -19,7 +19,7 @@ export const answerOf = (
   responder: string,
   approved: boolean,
   key = STEP_KEY,
-  askedAt = "2026-01-05T09:00:00.000Z",
+  askedAt = new Date("2026-01-05T09:00:00.000Z"),
 ): PauseAnswerRecord => ({
   pauseId: undefined,
   executionId: "child-7",
@@ -45,7 +45,7 @@ export const answerOf = (
   actor: { id: responder, orgId: "holding-hq" },
   resolution: PauseResolution.Replied,
   askedAt,
-  resolvedAt: "2026-01-05T09:05:00.000Z",
+  resolvedAt: new Date("2026-01-05T09:05:00.000Z"),
   decision: { approved },
   input: { text: "10 USD" },
   toolCall: { callId: "call-1", tool: "charge", summary: "charge" },
@@ -70,6 +70,50 @@ const respondersOf = async (
   );
 
 const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
+  {
+    name: "#1307: the times of an answer come back as Dates of the very instants written, milliseconds kept",
+    run: async ({ first, second }) => {
+      const askedAt = new Date("2026-01-05T09:00:00.123Z");
+      const answer = {
+        ...answerOf("manager-17", true, STEP_KEY, askedAt),
+        resolvedAt: new Date("2026-01-05T09:05:00.456Z"),
+      };
+      await first.savePauseAnswer("acme", "root-1", answer);
+
+      const [read] = await second.findPauseAnswersByTenantIdAndRootExecutionId("acme", "root-1");
+
+      expect(read?.askedAt).toBeInstanceOf(Date);
+      expect(read?.askedAt.getTime()).toBe(askedAt.getTime());
+      expect(read?.resolvedAt).toBeInstanceOf(Date);
+      expect(read?.resolvedAt?.getTime()).toBe(new Date("2026-01-05T09:05:00.456Z").getTime());
+      expect(read?.trail[0]?.at).toBeInstanceOf(Date);
+      expect(read?.trail[0]?.at.getTime()).toBe(askedAt.getTime());
+    },
+  },
+  {
+    name: "#1307: answers are listed in the order they were asked, by instant (not by a text spelling of it)",
+    run: async ({ first, second }) => {
+      // asked within one second, and across the year 2026's DST changes of a local zone
+      const times = [
+        "2026-03-29T00:30:00.900Z",
+        "2026-03-29T00:30:00.100Z",
+        "2026-10-25T00:30:00.000Z",
+        "2026-10-25T01:30:00.000Z",
+      ].map((text) => new Date(text));
+      for (const [index, asked] of times.entries())
+        await first.savePauseAnswer(
+          "acme",
+          "root-1",
+          answerOf(`manager-${String(index)}`, true, `child-7:refund-agent:1:call-${String(index)}`, asked),
+        );
+
+      const read = await second.findPauseAnswersByTenantIdAndRootExecutionId("acme", "root-1");
+
+      expect(read.map((entry) => entry.askedAt.getTime())).toEqual(
+        times.map((asked) => asked.getTime()).sort((a, b) => a - b),
+      );
+    },
+  },
   {
     name: "#676: two trees whose pauses share a step key each keep their own answer",
     run: async ({ first, second }) => {
@@ -165,13 +209,13 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
         "manager-1",
         true,
         "child-7:refund-agent:1:call-1",
-        "2026-01-05T09:00:00.000Z",
+        new Date("2026-01-05T09:00:00.000Z"),
       );
       const late = answerOf(
         "manager-2",
         true,
         "child-7:refund-agent:1:call-2",
-        "2026-01-05T09:10:00.000Z",
+        new Date("2026-01-05T09:10:00.000Z"),
       );
       await first.savePauseAnswer("acme", "root-1", early);
       await first.savePauseAnswer("acme", "root-1", late);

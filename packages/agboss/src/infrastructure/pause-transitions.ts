@@ -10,7 +10,6 @@ import { isSeenAs } from "./pause-seen.js";
 import {
   closedNotices,
   inFirstSendNotices,
-  instantOf,
   noticesOf,
   openingNotices,
   untakenNotices,
@@ -27,14 +26,14 @@ import {
   type PauseRecord,
   type PauseUntakenResolution,
 } from "./pause-record.js";
-import { NEVER } from "./pause-scans.js";
+import { isAtOrBefore, isBefore } from "./instants.js";
 
 /**
  * Every transition of a pause as a pure function (#935, #910 rules 1–8): the record a change makes
  * and the notices it writes with it, or `undefined` when its condition does not hold. The core's
  * stores apply the answer atomically — the in-memory store in one step, SQLite in one `BEGIN
  * IMMEDIATE` — so no store can read a condition differently, and a change that does not apply
- * writes nothing. Times are ISO 8601 text on the application's `Clock`: they compare as time.
+ * writes nothing. Times are `Date`s on the application's `Clock`, compared by instant (`instants.ts`), never with `===`.
  */
 
 /** A change of a pause with the notices that go in the same transaction. */
@@ -58,11 +57,14 @@ export const closing = (
 
 /** Whether a pending pause takes an answer at `at`: no deadline, or one after it (I2). */
 export const isOpenAt = (pause: PauseRecord, at: Date): boolean =>
-  pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) > at.toISOString();
+  pause.status === PauseStatus.Pending &&
+  (pause.expiresAt === undefined || isBefore(at, pause.expiresAt));
 
 /** Whether a pending pause's deadline is at or before `at`. */
 export const isDueAt = (pause: PauseRecord, at: Date): boolean =>
-  pause.status === PauseStatus.Pending && (pause.expiresAt ?? NEVER) <= at.toISOString();
+  pause.status === PauseStatus.Pending &&
+  pause.expiresAt !== undefined &&
+  isAtOrBefore(pause.expiresAt, at);
 
 /**
  * `Pending → Resolved` with the answer, only while `expiresAt` is after `at` (I1, I2) and, when the
@@ -148,7 +150,7 @@ export function remindChange(
   recipients: PauseRecipients,
 ): PauseChange | undefined {
   if (!isOpenAt(pause, at) || pause.expiresAt === undefined) return undefined;
-  if (pause.remindAt === undefined || pause.remindAt > at.toISOString()) return undefined;
+  if (pause.remindAt === undefined || isBefore(at, pause.remindAt)) return undefined;
   return {
     pause: { ...pause, remindAt: undefined },
     notices: noticesOf(recipients, PauseNoticeKind.Expiring, at, { expiresAt: pause.expiresAt }),
@@ -187,12 +189,13 @@ export function markSentChange(
   if (pause.status === PauseStatus.Pending)
     return { pause: sent, notices: [...opened, ...inFirstSendNotices(sent, recipients)] };
   const first = pause.closedFirst ?? pause;
-  const closedAt = instantOf(first.resolvedAt ?? pause.askedAt);
+  const closedAt = first.resolvedAt ?? pause.askedAt;
   const untaken =
     pause.answer !== undefined &&
+    pause.resolvedAt !== undefined &&
     (pause.resolution === PauseResolution.Cancelled ||
       pause.resolution === PauseResolution.TreeEnded)
-      ? untakenNotices(pause.resolution, instantOf(pause.resolvedAt), recipients)
+      ? untakenNotices(pause.resolution, pause.resolvedAt, recipients)
       : [];
   return {
     pause: sent,

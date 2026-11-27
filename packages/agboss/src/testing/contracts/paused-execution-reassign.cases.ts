@@ -48,7 +48,7 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
         ...old,
         status: PauseStatus.Cancelled,
         resolution: PauseResolution.Reassigned,
-        resolvedAt: MID.toISOString(),
+        resolvedAt: MID,
       });
       expect(reassignedTo).toBe("pause-b");
       const expected = {
@@ -57,17 +57,17 @@ export const REASSIGN_CASES: readonly ContractCase<PausedExecutionRepository>[] 
         stepKey: `${old.stepKey}~r1`,
         status: PauseStatus.Pending,
         isSent: false,
-        askedAt: MID.toISOString(),
+        askedAt: MID,
         assignees: ["deputy-3"],
         trail: [
           ...old.trail,
           {
             action: "reassigned",
-            at: MID.toISOString(),
+            at: MID,
             target: old.target,
             channel: old.channel,
             assignees: ["deputy-3"],
-            expiresAt: DEADLINE.toISOString(),
+            expiresAt: DEADLINE,
           },
         ],
         reassignedFrom: "pause-a",

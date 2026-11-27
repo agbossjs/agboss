@@ -59,13 +59,13 @@ import { pauseOf, questionPauseOf } from "../../src/testing/contracts/paused-exe
 import { PauseRespondent } from "../../src/pause/respondent.js";
 
 const AT = new Date("2026-11-20T10:00:00.000Z");
-const T9 = "2026-11-20T09:00:00.000Z";
-const T10 = AT.toISOString();
-const T11 = "2026-11-20T11:00:00.000Z";
+const T9 = new Date("2026-11-20T09:00:00.000Z");
+const T10 = new Date(AT.getTime());
+const T11 = new Date("2026-11-20T11:00:00.000Z");
 
 describe("#1356: the bound of a deadline (#942)", () => {
   it("a pause extended to the deadline it was made under is the run's deadline: a tie goes to the run", () => {
-    const of = (expiresAt?: string, boundAt?: string, expiryBound = PauseExpiryBound.Pause) =>
+    const of = (expiresAt?: Date, boundAt?: Date, expiryBound = PauseExpiryBound.Pause) =>
       effectiveBoundOf({
         expiryBound,
         ...(expiresAt === undefined ? {} : { expiresAt }),
@@ -272,7 +272,7 @@ describe("#1356: why and when a pause closed", () => {
   });
 
   it("a pending pause has none until its deadline is over, then it expired", () => {
-    const pending = (expiresAt?: string): PauseRecord => ({
+    const pending = (expiresAt?: Date): PauseRecord => ({
       ...pauseOf("p-1"),
       ...(expiresAt === undefined ? {} : { expiresAt }),
     });
@@ -441,7 +441,7 @@ describe("#1356: the log entry of a pause's answer (#267 S107)", () => {
       resolution: PauseResolution.Replied,
       target: "refund-tool-approval",
       channel: "refund-approval-channel",
-      askedAt: "2026-01-05T09:00:00.000Z",
+      askedAt: new Date("2026-01-05T09:00:00.000Z"),
       resolvedAt: T10,
       decision: { approved: true },
       input: answered.input,

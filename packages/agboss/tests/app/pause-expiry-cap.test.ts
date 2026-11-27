@@ -33,7 +33,7 @@ describe("#1092: unmovable due pauses take no place of maxConcurrentSteps", () =
     async (stuck, { app, clock }) => {
       await app.ready();
       const store = expiryStore();
-      const deadline = new Date(clock.now().getTime() + hours(1)).toISOString();
+      const deadline = new Date(clock.now().getTime() + hours(1));
       for (let n = 0; n < stuck; n += 1) {
         await store.findOrCreateByStepKey({
           ...pauseOf(`foreign-${String(n)}`, `foreign-run-${String(n)}:s:1:c`),

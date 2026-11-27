@@ -30,8 +30,8 @@ const pauseOf = (changes: Partial<PauseRecord> = {}): PauseRecord =>
     pauseId: "p1",
     channel: "ops",
     kind: "external-task",
-    askedAt: ASKED,
-    expiresAt: EXPIRES,
+    askedAt: new Date(ASKED),
+    expiresAt: new Date(EXPIRES),
     expiryBound: PauseExpiryBound.RunDeadline,
     ...changes,
   }) as never;
@@ -123,7 +123,7 @@ describe("#1366: a pause with its own bound", () => {
   it("fails with StepError.PauseExpired, its expiry problem kept as the cause", () => {
     const pause = pauseOf({
       expiryBound: PauseExpiryBound.Pause,
-      boundAt: "2099-01-01T00:00:00.000Z",
+      boundAt: new Date("2099-01-01T00:00:00.000Z"),
       expiryProblem: ExpiryProblem.HandlerFailed,
     });
     const error = expiryFailureOf(pause, siteOf());
@@ -143,7 +143,7 @@ describe("#1366: a pause with its own bound", () => {
   it("has no cause when it recorded no expiry problem", () => {
     const pause = pauseOf({
       expiryBound: PauseExpiryBound.Pause,
-      boundAt: "2099-01-01T00:00:00.000Z",
+      boundAt: new Date("2099-01-01T00:00:00.000Z"),
     });
 
     expect((expiryFailureOf(pause, siteOf()) as StepError.PauseExpired).cause).toBeUndefined();

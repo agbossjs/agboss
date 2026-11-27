@@ -1,4 +1,4 @@
-import { instantOf } from "../infrastructure/pause-record-instants.js";
+import { copyOf } from "../infrastructure/instants.js";
 import { definedFields } from "../core/defined-fields.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import type { PauseTarget } from "../flow/runtime/pause-channel.js";
@@ -22,8 +22,8 @@ import { calendarOfTarget, type CalendarParts } from "./pause-calendar.js";
 
 /** What a pause's chain allows: the record's limits, or those after a move. */
 export interface ChainLimits extends PauseEscalationCounts {
-  /** The latest instant the pause may wait until (ISO 8601); absent: no limit on the total wait. */
-  readonly maxExpiresAt: string | undefined;
+  /** The latest instant the pause may wait until ; absent: no limit on the total wait. */
+  readonly maxExpiresAt: Date | undefined;
 }
 
 /** The limits of `pause` as it holds them, optionally after taking what a destination `offer`s. */
@@ -54,7 +54,7 @@ export async function limitsOffered(
   const counts = countsOffered(to);
   if (span === undefined) return counts;
   const { add } = calendarOfTarget(parts, pause, to, assignees);
-  const maxExpiresAt = (await instantAfter(span, instantOf(pause.firstAskedAt), add)).toISOString();
+  const maxExpiresAt = await instantAfter(span, copyOf(pause.firstAskedAt), add);
   return { ...counts, maxExpiresAt };
 }
 

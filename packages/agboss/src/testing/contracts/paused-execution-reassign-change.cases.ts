@@ -50,10 +50,10 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
       // what the channel's system needs to find and update its old item
       const told = noticesOf(claims, "pause-a", CHANNEL_KEY)[0];
       expect(told).toMatchObject({
-        writtenAt: MID.toISOString(),
+        writtenAt: MID,
         assignees: ["deputy-3"],
-        expiresAt: DEADLINE.toISOString(),
-        previousExpiresAt: DEADLINE.toISOString(),
+        expiresAt: DEADLINE,
+        previousExpiresAt: DEADLINE,
         previousTarget: "refund-tool-approval",
         previousChannel: "refund-approval-channel",
         previousExternalRef: "JIRA-1",
@@ -106,7 +106,7 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
         await withSeenNow(second, "pause-a", {
           pauseId: "pause-b",
           to: { target: "tier-two-external-task", respondent: "delegate" as never, channel: "sap" },
-          timeout: { expiresAt: "2026-01-05T12:00:00.000Z" },
+          timeout: { expiresAt: new Date("2026-01-05T12:00:00.000Z") },
         }),
         MID,
         RECIPIENTS,
@@ -116,7 +116,7 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
         target: "tier-two-external-task",
         channel: "sap",
         isSent: false,
-        expiresAt: "2026-01-05T12:00:00.000Z",
+        expiresAt: new Date("2026-01-05T12:00:00.000Z"),
       });
       expect(made?.externalRef).toBeUndefined();
       expect(made?.trail.at(-1)).toMatchObject({
@@ -146,7 +146,7 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
         {
           pauseId: "pause-b",
           to: { ...to, channel: "backup" },
-          timeout: { expiresAt: "2026-01-05T12:00:00.000Z" },
+          timeout: { expiresAt: new Date("2026-01-05T12:00:00.000Z") },
           ...limited,
         },
         MID,
@@ -160,7 +160,7 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
 
       // the chain holds one extension: no second, moved back or changed in place
       const again = {
-        timeout: { expiresAt: "2026-01-05T14:00:00.000Z" },
+        timeout: { expiresAt: new Date("2026-01-05T14:00:00.000Z") },
         ...limited,
       };
       const moved = { pauseId: "pause-c", to: { ...to, channel: "main" }, ...again };
@@ -169,8 +169,8 @@ export const REASSIGN_CHANGE_CASES: readonly ContractCase<PausedExecutionReposit
         await reassignWith(first, "pause-b", { assignees: ["deputy-3"], ...again }, MID, R),
       ).toBeUndefined();
       expect(await first.findByTenantIdAndPauseId("default", "pause-c")).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-b"))?.expiresAt).toBe(
-        "2026-01-05T12:00:00.000Z",
+      expect((await first.findByTenantIdAndPauseId("default", "pause-b"))?.expiresAt).toEqual(
+        new Date("2026-01-05T12:00:00.000Z"),
       );
     },
   },

@@ -64,15 +64,15 @@ export const pauseOf = (pauseId: string, stepKey = "run-1:clerk-agent:1:call-1")
   trail: [
     {
       action: "opened",
-      at: "2026-01-05T09:00:00.000Z",
+      at: new Date("2026-01-05T09:00:00.000Z"),
       target: "refund-tool-approval",
       channel: "refund-approval-channel",
     },
   ],
   status: PauseStatus.Pending,
   isSent: false,
-  askedAt: "2026-01-05T09:00:00.000Z",
-  firstAskedAt: "2026-01-05T09:00:00.000Z",
+  askedAt: new Date("2026-01-05T09:00:00.000Z"),
+  firstAskedAt: new Date("2026-01-05T09:00:00.000Z"),
   escalationLimits: {},
 });
 
@@ -135,6 +135,11 @@ export const QUESTION_ANSWER: PauseAnswer = {
   actor: { id: "manager-17" },
 };
 
+/**
+ * The deadline of the pauses of the deadline cases. A pause is made with its own copies of these
+ * (`expiringPauseOf`): the cases pass the constants to the store, so the instance a store holds is
+ * never the one a case compares against — a store that compares by reference loses every time.
+ */
 /** The deadline of the pauses of the deadline cases, and the instants a millisecond around it. */
 export const DEADLINE = new Date("2026-01-05T10:00:00.000Z");
 export const BEFORE_DEADLINE = new Date(DEADLINE.getTime() - 1);
@@ -153,11 +158,11 @@ export const expiringPauseOf = (
   // as a pause opened under a deadline records it in its first entry (`openedEntryOf`)
   trail: pauseOf(pauseId, stepKey).trail.map((entry) => ({
     ...entry,
-    expiresAt: DEADLINE.toISOString(),
+    expiresAt: new Date(DEADLINE.getTime()),
   })),
-  expiresAt: DEADLINE.toISOString(),
+  expiresAt: new Date(DEADLINE.getTime()),
   expiryBound: PauseExpiryBound.Pause,
-  remindAt: "2026-01-05T09:30:00.000Z",
+  remindAt: new Date("2026-01-05T09:30:00.000Z"),
 });
 
 /** The receivers of the notice cases: the pause's channel and two listeners. */
@@ -212,6 +217,6 @@ export const withSeenNow = async <C extends object>(
 export const changeFromDeadline = (
   store: Pick<PausedExecutionRepository, "findByTenantIdAndPauseId">,
   pauseId: string,
-  expiresAt: string,
+  expiresAt: Date,
 ): Promise<PauseTimeoutChange> =>
-  withSeen(store, pauseId, { expiresAt, previousExpiresAt: DEADLINE.toISOString() });
+  withSeen(store, pauseId, { expiresAt, previousExpiresAt: new Date(DEADLINE.getTime()) });

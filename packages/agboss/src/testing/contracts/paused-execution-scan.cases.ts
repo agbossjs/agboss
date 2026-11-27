@@ -23,14 +23,15 @@ type Store = PausedExecutionRepository;
 const ids = (pauses: readonly PauseRecord[]): readonly string[] =>
   pauses.map((pause) => pause.pauseId);
 const keyOf = (n: number): string => `run-1:s:1:${String(n)}`;
-const minute = (n: number): string => `2026-01-05T10:${String(n).padStart(2, "0")}:00.000Z`;
+const minute = (n: number): Date =>
+  new Date(`2026-01-05T10:${String(n).padStart(2, "0")}:00.000Z`);
 
 /** Pause `p<n>` of `tenant`, due at minute `n`, reminded at minute `n` of the hour before. */
 const dueAt = (n: number, tenant = "default"): PauseRecord => ({
   ...expiringPauseOf(`p${String(n)}`, keyOf(n)),
   tenantId: tenant,
   expiresAt: minute(n),
-  remindAt: minute(n).replace("T10", "T09"),
+  remindAt: new Date(minute(n).getTime() - 60 * 60_000),
 });
 
 export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
@@ -49,13 +50,13 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
         "default",
         "p2",
         APPROVED_BY_MANAGER,
-        new Date(minute(0)),
+        minute(0),
         { listeners: [] },
       );
 
-      const due = await second.findPendingByExpiresAtBefore(new Date(minute(3)), 10);
+      const due = await second.findPendingByExpiresAtBefore(minute(3), 10);
       const reminded = await second.findPendingByRemindAtBefore(
-        new Date(minute(3).replace("T10", "T09")),
+        new Date(minute(3).getTime() - 60 * 60_000),
         10,
       );
 
@@ -64,7 +65,7 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
         "default/p1",
         "default/p3",
       ]);
-      expect(ids(await second.findPendingByExpiresAtBefore(new Date(minute(3)), 2))).toEqual([
+      expect(ids(await second.findPendingByExpiresAtBefore(minute(3), 2))).toEqual([
         "p1",
         "p1",
       ]);
@@ -73,7 +74,7 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
         "default/p1",
         "default/p3",
       ]);
-      expect(await second.findPendingByExpiresAtBefore(new Date(minute(0)), 1000)).toEqual([]);
+      expect(await second.findPendingByExpiresAtBefore(minute(0), 1000)).toEqual([]);
     },
   },
   {
@@ -141,7 +142,7 @@ export const SCAN_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
         ids((await page({ statuses: pending, target: "other-tool-approval" })).pauses),
       ).toEqual(["p2"]);
       expect(
-        ids((await page({ statuses: pending, expiresBefore: new Date(minute(3)) })).pauses),
+        ids((await page({ statuses: pending, expiresBefore: minute(3) })).pauses),
       ).toEqual(["p1", "p2"]);
       const one = await page({ statuses: pending }, 2);
       const two = await page({ statuses: pending }, 2, one.next);

@@ -550,7 +550,7 @@ priceUsd })` (typed by the task's input); `agboss describe` prints `asked at <ag
   and answering one continues it while the rest keep waiting.
 - **`PauseStatus`**: `Pending` → `Resolved` (an answer recorded, atomically) → `Taken` (its step went
   on), or `Cancelled` (withdrawn, cancelled, its tree ended — an answer no step took is closed _not taken_).
-  Every time a pause shows a caller, a channel or a listener is a `Date` (`expiresAt`, `askedAt`, `closedAt`, `previousExpiresAt`, `trail[].at`; print one with `.toISOString()`); an ISO 8601 text is only what the wire and `details` carry.
+  Every time a pause shows a caller, a channel or a listener is a `Date` (`expiresAt`, `askedAt`, `closedAt`, `previousExpiresAt`, `trail[].at`; print one with `.toISOString()`); an ISO 8601 text is only what the wire and `details` carry. The store contract (`PauseRecord`, `PauseNotice`, the answer log) is `Date` too: a store of your own writes `toISOString()` into its raw columns, reads only that canonical text back (`instantOfText`, else `StoreError.UnreadableRecord`) and compares times with `sameInstant` / `isBefore`, never `===`.
   An answer to anything but `Pending` → `PauseError.Closed` with its `reason` and `closedAt?: Date` (a double
   click: `answered`; over A2A `-32004` with `code: a2a.pause-closed`); `NotPausedError` stays for the thread-level paths
   only (a thread with no paused run); an unknown id or another tenant's → `PauseError.UnknownPause`. Resolved records are kept

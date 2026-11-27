@@ -140,8 +140,8 @@ export class SqlitePauseRows {
         pause.status,
         pause.isSent ? 1 : 0,
         storedOf(pause),
-        pause.expiresAt ?? null,
-        pause.remindAt ?? null,
+        pause.expiresAt?.toISOString() ?? null,
+        pause.remindAt?.toISOString() ?? null,
         pause.target,
       );
   }
@@ -176,9 +176,9 @@ export class SqlitePauseRows {
         storedOf(changed),
         changed.answer === undefined ? null : JSON.stringify(changed.answer),
         changed.resolution ?? null,
-        changed.resolvedAt ?? null,
-        changed.expiresAt ?? null,
-        changed.remindAt ?? null,
+        changed.resolvedAt?.toISOString() ?? null,
+        changed.expiresAt?.toISOString() ?? null,
+        changed.remindAt?.toISOString() ?? null,
         changed.tenantId,
         changed.pauseId,
         was,

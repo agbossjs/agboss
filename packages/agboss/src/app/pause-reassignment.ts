@@ -1,4 +1,4 @@
-import { instantOfOptional, isDueAt } from "../infrastructure/pause-record-instants.js";
+import { copyOfOptional, isDeadlineDue } from "../infrastructure/instants.js";
 import { isChannelOutcome, ChannelOutcomeKind } from "../channels/channel-outcome.js";
 import { definedFields } from "../core/defined-fields.js";
 import { checked } from "./reassign-request.js";
@@ -159,7 +159,7 @@ export const resendOf =
 
 /** The pause open and not yet past its deadline, or why it is not. */
 async function assertOpen(parts: ReassignParts, pause: PauseRecord): Promise<void> {
-  const isDue = isDueAt(pause.expiresAt, parts.clock.now());
+  const isDue = isDeadlineDue(pause.expiresAt, parts.clock.now());
   if (pause.status !== PauseStatus.Pending || isDue)
     throw await pauseClosed(parts.pauses, pause, parts.clock.now());
 }
@@ -213,7 +213,7 @@ function reassignedAnswer(tenantId: string, changed: PauseRecord) {
     ...definedFields({
       channel: changed.channel,
       assignees: changed.assignees,
-      expiresAt: instantOfOptional(changed.expiresAt),
+      expiresAt: copyOfOptional(changed.expiresAt),
     }),
   };
 }

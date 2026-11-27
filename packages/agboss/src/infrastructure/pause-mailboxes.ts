@@ -1,3 +1,5 @@
+import { copyOf, copyOfOptional, isBefore } from "./instants.js";
+import { copiedNotice } from "./pause-copies.js";
 import { PauseNoticeKind, type PauseMailbox, type PauseNotice } from "./pause-notices.js";
 
 /**
@@ -23,11 +25,11 @@ export const mailboxOf = (stored: StoredMailbox): PauseMailbox => ({
   tenantId: stored.tenantId,
   pauseId: stored.pauseId,
   recipient: stored.recipient,
-  notices: stored.notices,
+  notices: stored.notices.map(copiedNotice),
   delivered: stored.delivered,
   attempts: stored.attempts,
-  nextAttemptAt: stored.nextAttemptAt,
-  headWrittenAt: stored.headWrittenAt,
+  nextAttemptAt: copyOf(stored.nextAttemptAt),
+  headWrittenAt: copyOfOptional(stored.headWrittenAt),
   isDead: stored.isDead,
   problem: stored.problem,
 });
@@ -50,7 +52,7 @@ export type ClaimedMailbox = StoredMailbox & {
 };
 
 /** A mailbox whose head was written: what a stale look takes. */
-export type WrittenMailbox = StoredMailbox & { readonly headWrittenAt: string };
+export type WrittenMailbox = StoredMailbox & { readonly headWrittenAt: Date };
 
 /** Whether a claim is held at `at`. */
 export const isClaimedAt = (mailbox: StoredMailbox, at: Date): mailbox is ClaimedMailbox =>
@@ -66,9 +68,13 @@ export const isStaleAt = (
   writtenBefore: Date,
   at: Date,
 ): mailbox is WrittenMailbox => {
-  const cutoff = writtenBefore.toISOString();
   // a mailbox with no head written is no older than the cutoff
-  return isLive(mailbox) && (mailbox.headWrittenAt ?? cutoff) < cutoff && !isClaimedAt(mailbox, at);
+  return (
+    isLive(mailbox) &&
+    mailbox.headWrittenAt !== undefined &&
+    isBefore(mailbox.headWrittenAt, writtenBefore) &&
+    !isClaimedAt(mailbox, at)
+  );
 };
 
 /**
@@ -88,18 +94,18 @@ export function appendedMailbox(
     notices: [],
     delivered: 0,
     attempts: 0,
-    nextAttemptAt: at,
+    nextAttemptAt: copyOf(at),
     isDead: false,
   };
   const isIdle = !hasUndelivered(base);
-  const notice: PauseNotice = { ...planned.notice, seq: base.notices.length + 1 };
+  const notice = copiedNotice({ ...planned.notice, seq: base.notices.length + 1 });
   const notices = [...base.notices, notice];
   return isIdle
     ? {
         ...base,
         notices,
         headWrittenAt: notice.writtenAt,
-        nextAttemptAt: at,
+        nextAttemptAt: copyOf(at),
         attempts: 0,
         problem: undefined,
       }

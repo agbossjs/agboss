@@ -25,10 +25,12 @@ import type {
   PauseNoticeKind,
   SetAsideMailbox,
 } from "./pause-notices.js";
+import { compareInstants } from "./instants.js";
+import { copiedPause } from "./pause-copies.js";
 import type { PauseRecord } from "./pause-record.js";
 import { onceNotices, type PauseChange } from "./pause-transitions.js";
 import type { PauseNoticeFacts, PauseRecipients } from "./pause-notices.js";
-import { compareText, type SequencedPause } from "./pause-scans.js";
+import type { SequencedPause } from "./pause-scans.js";
 
 /**
  * The state of `InMemoryPausedExecutionRepository` (#935): the pauses in their insertion order and
@@ -43,10 +45,14 @@ export class InMemoryPauseBook {
 
   /** The pause of the tenant, or `undefined`. */
   find(tenantId: string, pauseId: string): PauseRecord | undefined {
-    return this.#pauses.get(JSON.stringify([tenantId, pauseId]))?.pause;
+    const stored = this.#pauses.get(JSON.stringify([tenantId, pauseId]));
+    return stored === undefined ? undefined : copiedPause(stored.pause);
   }
 
-  /** Every pause in insertion order, with its sequence. */
+  /**
+   * Every pause in insertion order, with its sequence: the book's own records, to select from —
+   * what is handed out is copied (`copiedPause`), never these instances.
+   */
   all(): readonly SequencedPause[] {
     return [...this.#pauses.values()];
   }
@@ -55,7 +61,7 @@ export class InMemoryPauseBook {
   insert(pause: PauseRecord): void {
     this.#sequence += 1;
     this.#pauses.set(JSON.stringify([pause.tenantId, pause.pauseId]), {
-      pause,
+      pause: copiedPause(pause),
       seq: this.#sequence,
     });
   }
@@ -69,12 +75,12 @@ export class InMemoryPauseBook {
     const key = JSON.stringify([tenantId, pauseId]);
     const stored = this.#pauses.get(key);
     if (stored === undefined) return undefined;
-    const change = plan(stored.pause);
+    const change = plan(copiedPause(stored.pause));
     if (change === undefined) return undefined;
-    this.#pauses.set(key, { ...stored, pause: change.pause });
+    this.#pauses.set(key, { ...stored, pause: copiedPause(change.pause) });
     this.#append(change.pause, change.notices);
     if (change.inserted !== undefined) this.insert(change.inserted);
-    return change.pause;
+    return copiedPause(change.pause);
   }
 
   /** Appends the planned notices to their mailboxes, created when absent. */
@@ -194,7 +200,7 @@ export class InMemoryPauseBook {
   ): readonly SetAsideMailbox[] {
     const stale = [...this.#mailboxes.values()]
       .filter((box): box is WrittenMailbox => isStaleAt(box, writtenBefore, at))
-      .sort((a, b) => compareText(a.headWrittenAt, b.headWrittenAt))
+      .sort((a, b) => compareInstants(a.headWrittenAt, b.headWrittenAt))
       .slice(0, limit);
     for (const box of stale)
       this.#mailboxes.set(

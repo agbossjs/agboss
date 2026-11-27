@@ -5,8 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { narrowedLimits } from "../../src/infrastructure/pause-limits-stored.js";
 
-const EARLY = "2026-01-05T10:00:00.000Z";
-const LATE = "2026-01-06T10:00:00.000Z";
+const EARLY = new Date("2026-01-05T10:00:00.000Z");
+const LATE = new Date("2026-01-06T10:00:00.000Z");
 
 describe("narrowedLimits", () => {
   it("takes the smaller of each field, the record's or the destination's", () => {

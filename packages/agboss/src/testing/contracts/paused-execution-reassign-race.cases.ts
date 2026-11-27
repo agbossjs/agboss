@@ -104,7 +104,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
     name: "a reassignment planned against a pause that has changed since — another reassignment, an extension — is refused whole, in place or as a replacement (#1307)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const seen = { trailLength: 1, expiresAt: DEADLINE.toISOString(), isSent: false };
+      const seen = { trailLength: 1, expiresAt: DEADLINE, isSent: false };
       const inPlace = (store: PausedExecutionRepository, who: string) =>
         store.reassignByTenantIdAndPauseId(
           "default",
@@ -136,7 +136,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
       const now = {
         trailLength: stored?.trail.length ?? 0,
         assignees: ["deputy-1"],
-        expiresAt: DEADLINE.toISOString(),
+        expiresAt: DEADLINE,
         isSent: false,
       };
       expect(
@@ -166,7 +166,7 @@ export const REASSIGN_RACE_CASES: readonly ContractCase<PausedExecutionRepositor
         await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
-          await changeFromDeadline(second, "pause-a", "2026-01-05T12:00:00.000Z"),
+          await changeFromDeadline(second, "pause-a", new Date("2026-01-05T12:00:00.000Z")),
           MID,
           R,
         ),

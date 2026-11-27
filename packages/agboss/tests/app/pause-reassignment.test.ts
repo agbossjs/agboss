@@ -779,7 +779,7 @@ describe("#946 AC3: the deadline, and the races", () => {
       const newId = told.sent.find((ask) => ask.replaces !== undefined)?.pauseId ?? "";
       const store = app.resolve(PausedExecutionRepository);
 
-      expect((await store.findByTenantIdAndPauseId("default", newId))?.expiresAt).toBe(deadline);
+      expect((await store.findByTenantIdAndPauseId("default", newId))?.expiresAt).toEqual(new Date(deadline));
       await clock.advance(hours(22));
       expect((await store.findByTenantIdAndPauseId("default", newId))?.status).toBe(
         PauseStatus.Pending,

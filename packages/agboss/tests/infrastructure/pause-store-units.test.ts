@@ -29,7 +29,8 @@ const kinds: readonly (readonly [string, () => PausedExecutionRepository])[] = [
   ],
 ];
 
-const T = (hour: number): string => `2026-11-20T${String(hour).padStart(2, "0")}:00:00.000Z`;
+const T = (hour: number): Date =>
+  new Date(`2026-11-20T${String(hour).padStart(2, "0")}:00:00.000Z`);
 const at = (hour: number): Date => new Date(T(hour));
 const answer = { decision: { approved: true }, actor: undefined };
 

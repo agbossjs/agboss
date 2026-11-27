@@ -1,7 +1,6 @@
 import { compensationRecordsOf } from "../flow/compensation.js";
 import { withChildPauses } from "../flow/runtime/child-records.js";
 import type { ExecutionRecord, PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import { executionPauseOf } from "../infrastructure/pause-record-instants.js";
 import type { AgentExecutionDeps } from "../run/types.js";
 import type { AgentExecutionOutput } from "../run/types.js";
 import { ExecutionStatus, type ExecutionOutput } from "./types.js";
@@ -135,7 +134,7 @@ function withAnswers(
   if (record === undefined) return { ...result, children };
   const recorded = {
     ...record,
-    pauses: answers.map(executionPauseOf),
+    pauses: answers,
     children: withChildPauses(record.children, answers),
   };
   return { ...result, children, record: recorded };

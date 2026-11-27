@@ -288,14 +288,14 @@ const BROKEN: readonly (readonly [string, string, Make])[] = [
     E,
     "a refusal after the deadline leaves a replacement",
     writesYetRefuses((pause, at) =>
-      pause.expiresAt !== undefined && pause.expiresAt < at.toISOString() ? {} : undefined,
+      pause.expiresAt !== undefined && pause.expiresAt.getTime() < at.getTime() ? {} : undefined,
     ),
   ],
   [
     E,
     "a refusal at the deadline leaves a replacement of another tree",
     writesYetRefuses((pause, at) =>
-      pause.expiresAt === at.toISOString() ? { rootExecutionId: "run-other" } : undefined,
+      pause.expiresAt?.getTime() === at.getTime() ? { rootExecutionId: "run-other" } : undefined,
     ),
   ],
   [
@@ -311,7 +311,7 @@ const BROKEN: readonly (readonly [string, string, Make])[] = [
   [
     F,
     "the replacement has a deadline",
-    tweaked({ plan: inserting((one) => ({ ...one, expiresAt: "2031-01-01T00:00:00.000Z" })) }),
+    tweaked({ plan: inserting((one) => ({ ...one, expiresAt: new Date("2031-01-01T00:00:00.000Z") })) }),
   ],
   [
     F,

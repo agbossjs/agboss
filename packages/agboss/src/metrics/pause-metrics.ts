@@ -27,11 +27,11 @@ function timeToAnswerOf(meter: Meter): Histogram {
   });
 }
 
-/** Seconds from asked to resolved; `undefined` when either time is missing or unreadable. */
+/** Seconds from asked to resolved; `undefined` when the pause has no resolution time. */
 function secondsToAnswer(pause: PauseRecord): number | undefined {
   if (pause.resolvedAt === undefined) return undefined;
-  const seconds = (Date.parse(pause.resolvedAt) - Date.parse(pause.askedAt)) / 1000;
-  return Number.isFinite(seconds) ? Math.max(0, seconds) : undefined;
+  const seconds = (pause.resolvedAt.getTime() - pause.askedAt.getTime()) / 1000;
+  return Math.max(0, seconds);
 }
 
 /** A pause's labels: its workflow, its target and its channel (empty for a channel-less target). */

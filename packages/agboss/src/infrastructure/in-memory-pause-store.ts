@@ -1,4 +1,5 @@
 import { InMemoryPauseBook } from "./in-memory-pause-book.js";
+import { copiedPause } from "./pause-copies.js";
 import { timeoutChange } from "./pause-timeout-change.js";
 import { InMemoryPauseQueryRepository } from "./in-memory-pause-queries.js";
 import {
@@ -37,7 +38,7 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
 
   findOrCreateByStepKey(pause: PauseRecord): Promise<PauseRecord> {
     const found = this.#find(pause.tenantId, pause.rootExecutionId, pause.stepKey);
-    if (found !== undefined) return Promise.resolve(found);
+    if (found !== undefined) return Promise.resolve(copiedPause(found));
     this.book.insert(pause);
     return Promise.resolve(pause);
   }
@@ -47,7 +48,8 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     rootExecutionId: string,
     stepKey: string,
   ): Promise<PauseRecord | undefined> {
-    return Promise.resolve(this.#find(tenantId, rootExecutionId, stepKey));
+    const found = this.#find(tenantId, rootExecutionId, stepKey);
+    return Promise.resolve(found === undefined ? undefined : copiedPause(found));
   }
 
   findByTenantIdAndPauseId(tenantId: string, pauseId: string): Promise<PauseRecord | undefined> {
@@ -59,9 +61,9 @@ export class InMemoryPauseStore extends InMemoryPauseQueryRepository {
     rootExecutionId: string,
   ): Promise<readonly PauseRecord[]> {
     return Promise.resolve(
-      this.pauses().filter(
-        (pause) => pause.tenantId === tenantId && pause.rootExecutionId === rootExecutionId,
-      ),
+      this.pauses()
+        .filter((pause) => pause.tenantId === tenantId && pause.rootExecutionId === rootExecutionId)
+        .map(copiedPause),
     );
   }
 

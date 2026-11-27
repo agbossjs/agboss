@@ -281,7 +281,7 @@ describe("the chain of custody and the reason", () => {
     expect(entry).toMatchObject({
       action: "timeout-changed",
       actor: { id: "operator-1", orgId: "hq" },
-      expiresAt: changed.expiresAt?.toISOString(),
+      expiresAt: changed.expiresAt,
       reason: "urgent",
     });
   });

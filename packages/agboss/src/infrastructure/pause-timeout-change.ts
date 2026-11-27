@@ -1,6 +1,8 @@
 import { PauseNoticeKind, type PauseRecipients, type PauseTimeoutChange } from "./pause-notices.js";
 import { noticesOf } from "./pause-notice-plans.js";
-import { PauseExpiryBound, type PauseRecord, type PauseTrailRecord } from "./pause-record.js";
+import type { PauseTrailEntry } from "../channels/pause-contexts.js";
+import { PauseExpiryBound, type PauseRecord } from "./pause-record.js";
+import { isAtOrBefore, sameInstant } from "./instants.js";
 import { isWithinCap } from "./pause-limits-stored.js";
 import { isSeenAs } from "./pause-seen.js";
 import { isOpenAt, type PauseChange } from "./pause-transitions.js";
@@ -14,8 +16,9 @@ import { isOpenAt, type PauseChange } from "./pause-transitions.js";
  */
 function isChangeable(pause: PauseRecord, change: PauseTimeoutChange, at: Date): boolean {
   if (!isOpenAt(pause, at)) return false;
-  if (pause.expiresAt !== change.previousExpiresAt || !isSeenAs(pause, change.seen)) return false;
-  if (change.expiresAt !== undefined && change.expiresAt <= at.toISOString()) return false;
+  if (!sameInstant(pause.expiresAt, change.previousExpiresAt) || !isSeenAs(pause, change.seen))
+    return false;
+  if (change.expiresAt !== undefined && isAtOrBefore(change.expiresAt, at)) return false;
   // the total wait: the record's own cap, whatever the caller planned
   if (!isWithinCap(pause.maxExpiresAt, change.expiresAt)) return false;
   const changes = pause.trail.filter((entry) => entry.action === "timeout-changed").length;
@@ -59,7 +62,7 @@ export function timeoutChange(
  */
 function boundOf(pause: PauseRecord, change: PauseTimeoutChange): PauseExpiryBound {
   const { expiryBound } = pause;
-  const isBound = change.expiresAt !== undefined && change.expiresAt === pause.boundAt;
+  const isBound = change.expiresAt !== undefined && sameInstant(change.expiresAt, pause.boundAt);
   return isBound && expiryBound !== undefined ? expiryBound : PauseExpiryBound.Pause;
 }
 
@@ -68,10 +71,10 @@ function timeoutChangedEntryOf(
   pause: PauseRecord,
   change: PauseTimeoutChange,
   at: Date,
-): PauseTrailRecord {
+): PauseTrailEntry {
   return {
     action: "timeout-changed",
-    at: at.toISOString(),
+    at,
     ...(change.actor === undefined ? {} : { actor: change.actor }),
     target: pause.target,
     ...(pause.channel === undefined ? {} : { channel: pause.channel }),

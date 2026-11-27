@@ -69,7 +69,7 @@ export const NOTICE_WRITE_CASES: readonly ContractCase<PausedExecutionRepository
       expect(kindsOf(claims, "pause-a", SLACK)).toEqual(["opened", "closed"]);
       expect(noticesOf(claims, "pause-a", CHANNEL_KEY)[0]).toMatchObject({
         reason: PauseClosedReason.Answered,
-        closedAt: MID.toISOString(),
+        closedAt: MID,
       });
     },
   },
@@ -128,8 +128,8 @@ export const NOTICE_WRITE_CASES: readonly ContractCase<PausedExecutionRepository
         "default",
         "pause-a",
         await withSeen(second, "pause-a", {
-          expiresAt: NINE.toISOString(),
-          previousExpiresAt: DEADLINE.toISOString(),
+          expiresAt: NINE,
+          previousExpiresAt: DEADLINE,
         }),
         MID,
         RECIPIENTS,

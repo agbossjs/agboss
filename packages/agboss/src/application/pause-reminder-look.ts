@@ -1,4 +1,4 @@
-import type { Clock } from "../infrastructure/clock.js";
+import { definedOf, type Clock } from "../infrastructure/clock.js";
 import type { Infrastructure } from "../infrastructure/contracts.js";
 import type { ExecutionRecordRepository } from "../infrastructure/execution-record.repository.js";
 import type { FrameworkLog } from "../infrastructure/logger.js";
@@ -48,7 +48,7 @@ export interface ReminderSources {
 
 /** The keyset that continues after `pause` in the reminder scan's order. */
 const afterOf = (pause: PauseRecord): PauseScanAfter => ({
-  at: pause.remindAt ?? "",
+  at: definedOf(pause.remindAt, "a pause the reminder scan found has a reminder"),
   tenantId: pause.tenantId,
   pauseId: pause.pauseId,
 });

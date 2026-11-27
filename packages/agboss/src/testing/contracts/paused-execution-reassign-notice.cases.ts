@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import type { PauseScanAfter } from "../../infrastructure/pause-notices.js";
 import { PauseClosedReason } from "../../infrastructure/pause-record.js";
 import { type PausedExecutionRepository } from "../../infrastructure/paused-execution.repository.js";
 import { seconds } from "../../units/index.js";
@@ -40,7 +41,7 @@ export const REASSIGN_NOTICE_CASES: readonly ContractCase<PausedExecutionReposit
       expect(kindsOf(claims, "pause-a", SLACK)).toEqual(["opened"]);
       expect(noticesOf(claims, "pause-a", CHANNEL_KEY)[0]).toMatchObject({
         reason: PauseClosedReason.Reassigned,
-        closedAt: MID.toISOString(),
+        closedAt: MID,
       });
       expect(claims.filter((claim) => claim.mailbox.pauseId === "pause-b")).toEqual([]);
 
@@ -119,7 +120,7 @@ export const REASSIGN_NOTICE_CASES: readonly ContractCase<PausedExecutionReposit
       }
       const cutoff = new Date(TEN.getTime());
       const reached: string[] = [];
-      let after: { at: string; tenantId: string; pauseId: string } | undefined;
+      let after: PauseScanAfter | undefined;
       for (;;) {
         const page = await second.findPendingUnsentReassignedBefore(cutoff, 2, after);
         reached.push(...page.map((pause) => pause.pauseId));

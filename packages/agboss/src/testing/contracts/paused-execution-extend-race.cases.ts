@@ -25,10 +25,10 @@ import {
  */
 type Instances = ContractInstances<PausedExecutionRepository>;
 const R = NO_RECIPIENTS;
-const LATER = "2026-01-05T12:00:00.000Z";
-const EVEN_LATER = "2026-01-05T15:00:00.000Z";
+const LATER = new Date("2026-01-05T12:00:00.000Z");
+const EVEN_LATER = new Date("2026-01-05T15:00:00.000Z");
 /** The deadline of `expiringPauseOf`: what a caller that read the pause holds as the current one. */
-const FROM = DEADLINE.toISOString();
+const FROM = DEADLINE;
 
 export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
   {
@@ -45,8 +45,8 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
         );
 
       expect(await extend(AFTER_DEADLINE)).toBeUndefined();
-      expect(await extend(new Date(Date.parse(LATER)))).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(FROM);
+      expect(await extend(new Date(LATER.getTime()))).toBeUndefined();
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(FROM);
       expect(await extend(BEFORE_DEADLINE)).toMatchObject({ expiresAt: EVEN_LATER });
     },
   },
@@ -54,7 +54,7 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
     name: "extend only over the deadline the caller read: a stale `previousExpiresAt` is refused, nothing written (#1099)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const extend = async (expiresAt: string, previousExpiresAt: string) =>
+      const extend = async (expiresAt: Date, previousExpiresAt: Date) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
@@ -67,7 +67,7 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
       expect(await extend(LATER, FROM)).toMatchObject({ expiresAt: LATER });
       // the one that read the old deadline is late, even with a longer extension
       expect(await extend(EVEN_LATER, FROM)).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(LATER);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(LATER);
       expect(await extend(EVEN_LATER, LATER)).toMatchObject({ expiresAt: EVEN_LATER });
     },
   },
@@ -102,18 +102,18 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
         // whichever reached the store first won: the longer one in call order on a store that
         // applies calls in order, either one on a store whose two instances race for real
         const longerWon = results[0] !== undefined;
-        expect(stored).toBe(longerWon ? EVEN_LATER : LATER);
+        expect(stored).toEqual(longerWon ? EVEN_LATER : LATER);
         // the loser re-reads and applies its own deadline over the winner's: shorter or longer, it goes through
         const loserTo = longerWon ? LATER : EVEN_LATER;
         const retried = await second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
-          await withSeen(second, pauseId, { expiresAt: loserTo, previousExpiresAt: stored ?? "" }),
+          await withSeen(second, pauseId, { expiresAt: loserTo, previousExpiresAt: stored ?? FROM }),
           BEFORE_DEADLINE,
           R,
         );
-        expect(retried?.expiresAt).toBe(loserTo);
-        expect((await first.findByTenantIdAndPauseId("default", pauseId))?.expiresAt).toBe(loserTo);
+        expect(retried?.expiresAt).toEqual(loserTo);
+        expect((await first.findByTenantIdAndPauseId("default", pauseId))?.expiresAt).toEqual(loserTo);
       }
     },
   },
@@ -144,9 +144,9 @@ export const EXTEND_RACE_CASES: readonly ContractCase<PausedExecutionRepository>
       expect([expired, extendedOrNot].filter((won) => won !== undefined)).toHaveLength(1);
       // the answer applies either way (before the extension: it refuses it; after: the pause is still open)
       expect(answered).toBeDefined();
-      expect(extendedB === undefined || extendedB.expiresAt === LATER).toBe(true);
+      expect(extendedB === undefined || extendedB.expiresAt?.getTime() === LATER.getTime()).toBe(true);
       const a = await first.findByTenantIdAndPauseId("default", "pause-a");
-      expect(a?.status === PauseStatus.Pending ? a.expiresAt : undefined).toBe(
+      expect(a?.status === PauseStatus.Pending ? a.expiresAt : undefined).toEqual(
         extendedOrNot === undefined ? undefined : LATER,
       );
       const b = await first.findByTenantIdAndPauseId("default", "pause-b");

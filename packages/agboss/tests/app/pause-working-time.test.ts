@@ -61,7 +61,7 @@ describe("#944 AC1: the deadline in working time", () => {
 
     const paused = await execute(app, flow.start, ORDER, { threadId: "t-1" });
 
-    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-11T08:30:00.000Z");
+    expect(paused.pending[0]?.expiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
   });
 
   test("AC1: asked Sunday 12:30, across lunch → 15:30", async ({ app, clock }) => {
@@ -69,7 +69,7 @@ describe("#944 AC1: the deadline in working time", () => {
 
     const paused = await execute(app, flow.start, ORDER, { threadId: "t-1" });
 
-    expect(paused.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-11T13:30:00.000Z");
+    expect(paused.pending[0]?.expiresAt).toEqual(new Date("2026-01-11T13:30:00.000Z"));
   });
 
   test("AC1: the deadline is the stored absolute instant: every instance reads it, the pause expires there", async ({
@@ -83,7 +83,7 @@ describe("#944 AC1: the deadline in working time", () => {
     const paused = await execute(first, flow.start, ORDER, { threadId: "t-1" });
     const pauseId = sentId();
 
-    expect((await pauseOf(second, pauseId)).expiresAt).toBe("2026-01-11T08:30:00.000Z");
+    expect((await pauseOf(second, pauseId)).expiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
     expect((await pauseOf(second, pauseId)).expiryBound).toBe(PauseExpiryBound.Pause);
   });
 
@@ -114,13 +114,13 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     const pauseId = sentId();
 
     // Thursday 17:30 + 1 working hour: 30 min that day, 30 min of Sunday → 09:30 IST = 07:30Z
-    expect((await pauseOf(app, pauseId)).remindAt).toBe("2026-01-11T07:30:00.000Z");
+    expect((await pauseOf(app, pauseId)).remindAt).toEqual(new Date("2026-01-11T07:30:00.000Z"));
     await moveTo(clock, "2026-01-11T07:29:00.000Z");
     expect(desk.told.expiring).toEqual([]);
     await moveTo(clock, "2026-01-11T07:31:00.000Z");
     await until(() => desk.told.expiring.length === 1);
 
-    expect(desk.told.expiring[0]?.expiresAt.toISOString()).toBe("2026-01-11T08:30:00.000Z");
+    expect(desk.told.expiring[0]?.expiresAt.toISOString()).toEqual(new Date("2026-01-11T08:30:00.000Z").toISOString());
   });
 
   test("AC4: setPauseTimeout by workingHours(8) is calendar.add(now, 8 h); its reminder 7 working hours from now", async ({
@@ -135,12 +135,12 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     const extension = await app.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
 
     // 30 min Thursday + 7.5 h Sunday (09:00–13:00, 14:00–17:30) → Sunday 17:30 IST = 15:30Z
-    expect(extension.expiresAt?.toISOString()).toBe("2026-01-11T15:30:00.000Z");
-    expect(extension.previousExpiresAt?.toISOString()).toBe("2026-01-11T08:30:00.000Z");
+    expect(extension.expiresAt?.toISOString()).toEqual(new Date("2026-01-11T15:30:00.000Z").toISOString());
+    expect(extension.previousExpiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
     const pause = await pauseOf(app, pauseId);
-    expect(pause.expiresAt).toBe("2026-01-11T15:30:00.000Z");
+    expect(pause.expiresAt).toEqual(new Date("2026-01-11T15:30:00.000Z"));
     // 8 h − 1 h = 7 working hours from now → Sunday 16:30 IST = 14:30Z
-    expect(pause.remindAt).toBe("2026-01-11T14:30:00.000Z");
+    expect(pause.remindAt).toEqual(new Date("2026-01-11T14:30:00.000Z"));
   });
 
   test("AC4: another instance extends: its calendar gives the same deadline, every instance reads it", async ({
@@ -156,9 +156,9 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
 
     const extension = await second.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
 
-    expect(extension.expiresAt?.toISOString()).toBe("2026-01-11T15:30:00.000Z");
-    expect((await pauseOf(first, pauseId)).expiresAt).toBe("2026-01-11T15:30:00.000Z");
-    expect((await pauseOf(first, pauseId)).remindAt).toBe("2026-01-11T14:30:00.000Z");
+    expect(extension.expiresAt?.toISOString()).toEqual(new Date("2026-01-11T15:30:00.000Z").toISOString());
+    expect((await pauseOf(first, pauseId)).expiresAt).toEqual(new Date("2026-01-11T15:30:00.000Z"));
+    expect((await pauseOf(first, pauseId)).remindAt).toEqual(new Date("2026-01-11T14:30:00.000Z"));
   });
 
   test("AC4: setPauseTimeout with a plain duration on a role whose reminder is working time → PauseError.WorkingCalendar, the pause unchanged", async ({
@@ -194,9 +194,9 @@ describe("#944 AC4: the reminder and an extension count working time", () => {
     // 1 working hour from Thursday 17:30 is Sunday 09:30 (07:30Z): before the current Sunday 10:30
     const changed = await app.setPauseTimeout({ pauseId, timeout: workingHours(1) }, manager);
 
-    expect(changed.expiresAt?.toISOString()).toBe("2026-01-11T07:30:00.000Z");
-    expect(changed.previousExpiresAt?.toISOString()).toBe("2026-01-11T08:30:00.000Z");
-    expect((await pauseOf(app, pauseId)).expiresAt).toBe("2026-01-11T07:30:00.000Z");
+    expect(changed.expiresAt?.toISOString()).toEqual(new Date("2026-01-11T07:30:00.000Z").toISOString());
+    expect(changed.previousExpiresAt).toEqual(new Date("2026-01-11T08:30:00.000Z"));
+    expect((await pauseOf(app, pauseId)).expiresAt).toEqual(new Date("2026-01-11T07:30:00.000Z"));
   });
 
   test("an extension by working minutes is checked as a duration: at least seconds(1)", async ({
@@ -237,9 +237,9 @@ describe("#944: the run's deadline stays wall-clock (#941 D8)", () => {
     const pause = await pauseOf(app, sentId());
 
     expect(pause).toMatchObject({
-      expiresAt: "2026-01-09T01:30:00.000Z",
+      expiresAt: new Date("2026-01-09T01:30:00.000Z"),
       expiryBound: PauseExpiryBound.RunDeadline,
-      boundAt: "2026-01-09T01:30:00.000Z",
+      boundAt: new Date("2026-01-09T01:30:00.000Z"),
     });
     // the reminder (Sunday 07:30Z) is after the clamped deadline: none
     expect(pause.remindAt).toBeUndefined();
@@ -257,10 +257,10 @@ describe("#944: the run's deadline stays wall-clock (#941 D8)", () => {
     const pause = await pauseOf(app, sentId());
 
     expect(pause).toMatchObject({
-      expiresAt: "2026-01-11T08:30:00.000Z",
+      expiresAt: new Date("2026-01-11T08:30:00.000Z"),
       expiryBound: PauseExpiryBound.RunDeadline,
     });
-    expect(pause.remindAt).toBe("2026-01-11T07:30:00.000Z");
+    expect(pause.remindAt).toEqual(new Date("2026-01-11T07:30:00.000Z"));
   });
 
   test("a run deadline later than the working deadline: the pause's own deadline, the run's as boundAt", async ({
@@ -274,9 +274,9 @@ describe("#944: the run's deadline stays wall-clock (#941 D8)", () => {
     const pause = await pauseOf(app, sentId());
 
     expect(pause).toMatchObject({
-      expiresAt: "2026-01-11T08:30:00.000Z",
+      expiresAt: new Date("2026-01-11T08:30:00.000Z"),
       expiryBound: PauseExpiryBound.Pause,
-      boundAt: "2026-01-12T19:30:00.000Z",
+      boundAt: new Date("2026-01-12T19:30:00.000Z"),
     });
   });
 
@@ -296,7 +296,7 @@ describe("#944: the run's deadline stays wall-clock (#941 D8)", () => {
     expect(past).toBeInstanceOf(PauseError.EscalationLimitExceeded);
 
     const exact = await app.setPauseTimeout({ pauseId, timeout: workingHours(8) }, manager);
-    expect(exact.expiresAt?.toISOString()).toBe("2026-01-11T15:30:00.000Z");
+    expect(exact.expiresAt?.toISOString()).toEqual(new Date("2026-01-11T15:30:00.000Z").toISOString());
   });
 });
 
@@ -323,7 +323,7 @@ describe("#944: a role's own calendar over the application's", () => {
 
       const paused = await execute(app, newYork.start, ORDER, { threadId: "t-1" });
 
-      expect(paused.pending[0]?.expiresAt?.toISOString()).toBe("2026-01-12T15:00:00.000Z");
+      expect(paused.pending[0]?.expiresAt).toEqual(new Date("2026-01-12T15:00:00.000Z"));
     },
   );
 });
@@ -349,7 +349,7 @@ describe("#944: setPauseTimeout with working time on a pause whose channel has n
     expect(await pauseOf(app, pauseId)).toEqual(before);
     // a plain extension of the same pause is as in #942
     const plain = await app.setPauseTimeout({ pauseId, timeout: hours(48) }, manager);
-    expect(plain.expiresAt?.getTime() ?? 0).toBeGreaterThan(Date.parse(before.expiresAt ?? ""));
+    expect(plain.expiresAt?.getTime() ?? 0).toBeGreaterThan((before.expiresAt?.getTime() ?? Number.NaN));
   });
 });
 
@@ -375,7 +375,7 @@ describe("#944: an agent's approval with a working-time deadline of its tool", (
 
       const [open] = (await app.resolve(PausedExecutionRepository).findOpenAfter(undefined, 10))
         .pauses;
-      expect(open?.expiresAt).toBe("2026-01-12T08:00:00.000Z");
+      expect(open?.expiresAt).toEqual(new Date("2026-01-12T08:00:00.000Z"));
     },
   );
 });

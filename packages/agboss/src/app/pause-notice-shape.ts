@@ -1,7 +1,12 @@
-import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
+import type {
+  PauseActor,
+  PauseToolCallSummary,
+  PauseTrailEntry,
+} from "../channels/pause-contexts.js";
 import type { PauseNotice } from "../infrastructure/pause-notices.js";
-import { instantOf, trailEntriesOf } from "../infrastructure/pause-record-instants.js";
-import type { PauseRecord, PauseTrailRecord } from "../infrastructure/pause-record.js";
+import { copyOf } from "../infrastructure/instants.js";
+import { copiedTrail } from "../infrastructure/pause-copies.js";
+import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ChannelListenerEventBase } from "../pause/notice-events.js";
 
 /** What an event says of a pause's question and custody: split from `pause-notices.ts`. */
@@ -35,14 +40,14 @@ export async function listenedOf(
     externalRef: pause.externalRef,
     trail: pause.trail,
   })) as Pick<ChannelListenerEventBase, "input" | "toolCall" | "assignees" | "externalRef"> & {
-    readonly trail: readonly PauseTrailRecord[];
+    readonly trail: readonly PauseTrailEntry[];
   };
   return {
     input: shown.input,
     ...(shown.toolCall === undefined ? {} : { toolCall: shown.toolCall }),
     ...(shown.assignees === undefined ? {} : { assignees: shown.assignees }),
     ...(shown.externalRef === undefined ? {} : { externalRef: shown.externalRef }),
-    trail: trailEntriesOf(shown.trail),
+    trail: copiedTrail(shown.trail),
   };
 }
 
@@ -56,7 +61,7 @@ export const maskedActor = async (
 export function deadlineOf(notice: PauseNotice): Date {
   if (notice.expiresAt === undefined)
     throw new TypeError(`a ${notice.kind} notice names its deadline`);
-  return instantOf(notice.expiresAt);
+  return copyOf(notice.expiresAt);
 }
 
 /** The deadlines a timeout change moved between; each is absent when the pause had, or has, none. */
@@ -65,9 +70,9 @@ export function changedDeadlinesOf(notice: PauseNotice): {
   readonly previousExpiresAt?: Date;
 } {
   return {
-    ...(notice.expiresAt === undefined ? {} : { expiresAt: instantOf(notice.expiresAt) }),
+    ...(notice.expiresAt === undefined ? {} : { expiresAt: copyOf(notice.expiresAt) }),
     ...(notice.previousExpiresAt === undefined
       ? {}
-      : { previousExpiresAt: instantOf(notice.previousExpiresAt) }),
+      : { previousExpiresAt: copyOf(notice.previousExpiresAt) }),
   };
 }

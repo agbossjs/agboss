@@ -147,7 +147,7 @@ describe("a decision at once from a send that outlived an expiry's reassignment"
       pauseId,
       await withSeenNow(store, pauseId, {
         assignees: ["manager"],
-        due: { expiresAt: new Date(clock.now().getTime() + hours(2)).toISOString() },
+        due: { expiresAt: new Date(clock.now().getTime() + hours(2)) },
       }),
       clock.now(),
       NO_RECIPIENTS,

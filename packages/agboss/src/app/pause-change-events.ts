@@ -1,4 +1,4 @@
-import { instantOf } from "../infrastructure/pause-record-instants.js";
+import { copyOf } from "../infrastructure/instants.js";
 import type { PauseChange } from "../flow/observers/pause-changes.js";
 import type { PauseRecord } from "../infrastructure/pause-record.js";
 import type { ExecutionObserverManager } from "../core/observer-manager.js";
@@ -42,13 +42,13 @@ async function toldPauseChange(
   if (observer !== undefined) await tell(observer);
 }
 
-/** A timeout change that won: both deadlines (ISO 8601 in the record; absent: none) as dates. */
+/** A timeout change that won: both deadlines (absent: none), copied: what a hook gets is never the record's own instance. */
 export function toldTimeoutChanged(
   deps: AppDeps,
   pause: PauseRecord,
   deadlines: {
-    readonly previousExpiresAt?: string | undefined;
-    readonly expiresAt?: string | undefined;
+    readonly previousExpiresAt?: Date | undefined;
+    readonly expiresAt?: Date | undefined;
   },
 ): Promise<void> {
   const { previousExpiresAt, expiresAt } = deadlines;
@@ -57,8 +57,8 @@ export function toldTimeoutChanged(
       ...pauseChangeOf(pause),
       ...(previousExpiresAt === undefined
         ? {}
-        : { previousExpiresAt: instantOf(previousExpiresAt) }),
-      ...(expiresAt === undefined ? {} : { expiresAt: instantOf(expiresAt) }),
+        : { previousExpiresAt: copyOf(previousExpiresAt) }),
+      ...(expiresAt === undefined ? {} : { expiresAt: copyOf(expiresAt) }),
     }),
   );
 }
@@ -76,7 +76,7 @@ export function toldReassigned(
       ...(pause.channel === undefined ? {} : { previousChannel: pause.channel }),
       ...(replacement.expiresAt === undefined
         ? {}
-        : { expiresAt: instantOf(replacement.expiresAt) }),
+        : { expiresAt: copyOf(replacement.expiresAt) }),
     }),
   );
 }

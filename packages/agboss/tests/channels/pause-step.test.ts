@@ -114,8 +114,8 @@ describe("#267 S35: the pause step", () => {
         status: PauseStatus.Taken,
         resolution: PauseResolution.Decided,
         answer: { decision: { approved: false }, actor: undefined },
-        askedAt: "2026-01-05T09:00:00.000Z",
-        resolvedAt: "2026-01-05T09:00:00.000Z",
+        askedAt: new Date("2026-01-05T09:00:00.000Z"),
+        resolvedAt: new Date("2026-01-05T09:00:00.000Z"),
       },
     ]);
     expect(again).toEqual({
@@ -177,8 +177,8 @@ describe("#267 S35: the pause step", () => {
       trail: [],
       status: PauseStatus.Pending,
       isSent: true,
-      askedAt: clock.now().toISOString(),
-      firstAskedAt: clock.now().toISOString(),
+      askedAt: clock.now(),
+      firstAskedAt: clock.now(),
       escalationLimits: {},
     });
     await pauses.cancelByTenantIdAndPauseId(

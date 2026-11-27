@@ -12,6 +12,7 @@ import { PAUSE_RECORD_CASES } from "./paused-execution-record.cases.js";
 import { PAUSE_TRANSITION_CASES } from "./paused-execution-resolution.cases.js";
 import { CLOSER_RACE_CASES } from "./paused-execution-closers.cases.js";
 import { DEADLINE_CASES } from "./paused-execution-deadline.cases.js";
+import { INSTANT_CASES } from "./paused-execution-instants.cases.js";
 import { DELIVERY_CASES } from "./paused-execution-delivery.cases.js";
 import { EXTEND_CASES } from "./paused-execution-extend.cases.js";
 import { EXTEND_RACE_CASES } from "./paused-execution-extend-race.cases.js";
@@ -205,6 +206,10 @@ export function pausedExecutionContract(target: ContractTarget<PausedExecutionRe
       {
         title: "a pause carries the limits it was opened under, narrowed by moves (#1307, Q-D)",
         cases: [...LIMITS_CASES, ...CAP_CASES],
+      },
+      {
+        title: "times are Dates of the very millisecond, compared by instant (#1307)",
+        cases: INSTANT_CASES,
       },
       { title: "notices are written with their change (notice)", cases: NOTICE_WRITE_CASES },
       { title: "notices keep their order per recipient (notice)", cases: NOTICE_ORDER_CASES },

@@ -173,8 +173,11 @@ export interface PauseAnswerEntry {
   readonly rootExecutionId: string;
   /** The waiting step's idempotency key: one entry per pause. */
   readonly stepKey: string;
-  /** When the pause was asked (ISO 8601): the log's order. */
-  readonly askedAt: string;
+  /**
+   * When the pause was asked: the log's order. A store writes it as `toISOString()` text (a raw
+   * column sorts by it) and never hands a `Date` to a driver that would format it in local time.
+   */
+  readonly askedAt: Date;
   readonly record: string;
 }
 

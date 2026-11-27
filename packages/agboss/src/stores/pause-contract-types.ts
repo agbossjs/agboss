@@ -13,6 +13,36 @@ export {
   type ReplacementKeyed,
 } from "../infrastructure/pause-replacement.js";
 export { isAsSeen, isSeenAs, seenOf } from "../infrastructure/pause-seen.js";
+/**
+ * The pure transitions of a pause every store applies atomically (#1307, P6b): what changes the
+ * record and which notices it writes, or `undefined` when the condition does not hold. A store calls
+ * these over the record it read (a row lock, a transaction, a conditional write) and writes the result;
+ * it never restates the rules. Times are `Date`s, compared by instant.
+ */
+export {
+  cancelChange,
+  closeUntakenChange,
+  decideChange,
+  expireChange,
+  isDueAt,
+  isOpenAt,
+  markSentChange,
+  remindChange,
+  resolveChange,
+  type PauseChange,
+} from "../infrastructure/pause-transitions.js";
+export { timeoutChange } from "../infrastructure/pause-timeout-change.js";
+export { reassignChange } from "../infrastructure/pause-reassign-transition.js";
+export { reassignedPause } from "../infrastructure/pause-replacement.js";
+export { inFirstSendNotices, openingNotices } from "../infrastructure/pause-notice-plans.js";
+export { isWithinCap } from "../infrastructure/pause-limits-stored.js";
+export type { PlannedNotice } from "../infrastructure/pause-mailboxes.js";
+/**
+ * Moments of a pause (#1307, G3): compare two `Date`s with these, never with `===` (a reference
+ * compare); read a time a store kept as text with `instantOfText`, which accepts only what
+ * `toISOString()` writes and throws `StoreError.UnreadableRecord` for anything else.
+ */
+export { instantOfText, isBefore, sameInstant } from "../infrastructure/instants.js";
 export {
   NO_RECIPIENTS,
   PauseNoticeKind,

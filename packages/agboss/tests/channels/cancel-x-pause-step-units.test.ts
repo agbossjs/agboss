@@ -107,8 +107,8 @@ async function stored(
     trail: [],
     status: PauseStatus.Pending,
     isSent: false,
-    askedAt: clock.now().toISOString(),
-    firstAskedAt: clock.now().toISOString(),
+    askedAt: clock.now(),
+    firstAskedAt: clock.now(),
     escalationLimits: {},
     ...overrides,
   });

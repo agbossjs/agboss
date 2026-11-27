@@ -50,7 +50,7 @@ interface Tweaks {
 
 const callBudget = 60;
 const keyOf = (pause: PauseRecord, tweaks: Tweaks, column: Column): string[] => {
-  const parts = [pause[column] ?? "", pause.tenantId, pause.pauseId];
+  const parts = [pause[column]?.toISOString() ?? "", pause.tenantId, pause.pauseId];
   return tweaks.idFirst === true ? [parts[0] ?? "", parts[2] ?? "", parts[1] ?? ""] : parts;
 };
 const compareText = (a: string, b: string, tweaks: Tweaks): number =>
@@ -70,7 +70,7 @@ const isLastOf = (
 ): boolean => {
   const last = sorted.at(-1);
   return (
-    last?.[column] === keyset.at &&
+    last?.[column]?.getTime() === keyset.at.getTime() &&
     last.tenantId === keyset.tenantId &&
     last.pauseId === keyset.pauseId
   );
@@ -145,12 +145,12 @@ class TweakedStore extends InMemoryPausedExecutionRepository {
     const past = sorted.filter((pause) => {
       if (after === undefined) return true;
       if (tweaks.emptyTenantStrict === true && after.tenantId === "") {
-        return (pause[column] ?? "") > after.at;
+        return (pause[column]?.toISOString() ?? "") > after.at.toISOString();
       }
       const bound =
         tweaks.idFirst === true
-          ? [after.at, after.pauseId, after.tenantId]
-          : [after.at, after.tenantId, after.pauseId];
+          ? [after.at.toISOString(), after.pauseId, after.tenantId]
+          : [after.at.toISOString(), after.tenantId, after.pauseId];
       return compareKeys(keyOf(pause, tweaks, column), bound, tweaks) > 0;
     });
     const page = past.slice(0, tweaks.oversize === true ? limit + 2 : limit);
@@ -379,7 +379,7 @@ const KEYSET = [EXPIRES, REMIND, TIED_EXPIRES, TIED_REMIND];
 
 /** The time of a pause that is not the page's last (the last one's is the next keyset) is wrong. */
 const shift = (pause: PauseRecord, column: Column, isLast: boolean): PauseRecord =>
-  isLast ? pause : { ...pause, [column]: "2026-01-05T10:00:00.000Z" };
+  isLast ? pause : { ...pause, [column]: new Date("2026-01-05T10:00:00.000Z") };
 const renamed = (pause: PauseRecord): PauseRecord => ({ ...pause, pauseId: `${pause.pauseId}x` });
 
 describe("#1366: the keyset cases pass a correct store", () => {

@@ -43,16 +43,16 @@ export interface PauseNotice {
   /** 1, 2, … within its mailbox. */
   readonly seq: number;
   readonly kind: PauseNoticeKind;
-  /** The transition's `at` (ISO 8601). */
-  readonly writtenAt: string;
+  /** The transition's `at`. */
+  readonly writtenAt: Date;
   /** `closed`, `answerNotTaken` (why: cancelled or tree-ended). */
   readonly reason?: PauseClosedReason;
   /** `closed`, `answerNotTaken`: when it closed (the untaken close's time). */
-  readonly closedAt?: string;
+  readonly closedAt?: Date;
   /** `opened`, `timeout-changed` (absent: no deadline now), `expiring`. */
-  readonly expiresAt?: string;
+  readonly expiresAt?: Date;
   /** `timeout-changed`: the deadline it had (absent: none). */
-  readonly previousExpiresAt?: string;
+  readonly previousExpiresAt?: Date;
   /** `reassigned`: who the pause was for before (absent: nobody in particular). */
   readonly previousAssignees?: readonly string[];
   /** `reassigned`: who it is for now (absent: nobody in particular). */
@@ -90,7 +90,7 @@ export interface PauseMailbox {
   readonly attempts: number;
   readonly nextAttemptAt: Date;
   /** The `writtenAt` of the first undelivered notice; absent when everything is delivered. */
-  readonly headWrittenAt?: string;
+  readonly headWrittenAt?: Date;
   /** Set aside: never claimed again. */
   readonly isDead: boolean;
   /** The last failure's fixed code, never a message. */
@@ -110,8 +110,8 @@ export interface PauseNoticeClaim {
  * pending (nobody can move them) are passed, never read again within one sweep (#1070, #1072).
  */
 export interface PauseScanAfter {
-  /** The last pause's time on the scanned column (`expiresAt`, or `remindAt`), ISO text. */
-  readonly at: string;
+  /** The last pause's time on the scanned column (`expiresAt`, or `remindAt`). */
+  readonly at: Date;
   readonly tenantId: string;
   readonly pauseId: string;
 }
@@ -154,22 +154,22 @@ export interface SetAsideMailbox {
 
 /** The deadline change `changeTimeout…` applies: to a later or an earlier one, set, or taken away. */
 export interface PauseTimeoutChange {
-  /** The new deadline (ISO 8601), after `at`; absent: the pause has none from now on. */
-  readonly expiresAt?: string;
+  /** The new deadline, after `at`; absent: the pause has none from now on. */
+  readonly expiresAt?: Date;
   /**
-   * The deadline the caller read and changes from (ISO 8601; absent: it had none): the change
+   * The deadline the caller read and changes from (absent: it had none): the change
    * applies only while the stored deadline is still this one — the compare of the compare-and-set
    * (#1099) — and the `timeout-changed` notice names it as `previousExpiresAt`.
    */
-  readonly previousExpiresAt?: string;
+  readonly previousExpiresAt?: Date;
   /**
    * The pause as the caller read, permitted and planned against: the change applies only while the
    * pause is still exactly this (trail, assignees, deadline, `isSent`) — a deadline that can move both
    * ways, to and from none, is no version of the pause by itself, and an in-place reassignment keeps it.
    */
   readonly seen: PauseSeen;
-  /** The new reminder time (ISO 8601); absent: none. */
-  readonly remindAt?: string;
+  /** The new reminder time; absent: none. */
+  readonly remindAt?: Date;
   /** Who changed it; absent for the framework's own. Kept in the chain of custody. */
   readonly actor?: PauseActor;
   /** Why, as the chain of custody keeps it: already masked by the pause's own workflow's PII policy. */
@@ -191,8 +191,8 @@ export interface PauseSeen {
   readonly trailLength: number;
   /** Who the pause was for; absent: nobody in particular. */
   readonly assignees?: readonly string[];
-  /** The deadline the pause had (ISO 8601); absent: none. */
-  readonly expiresAt?: string;
+  /** The deadline the pause had; absent: none. */
+  readonly expiresAt?: Date;
   /**
    * Whether its channel had been asked (`markSent`): a pause marked sent since the plan is no longer
    * the one it was made for — the step that asked it may be acting on what `send` returned.
@@ -202,11 +202,11 @@ export interface PauseSeen {
 
 /** A deadline a reassignment sets: what the pause waits until now, and its reminder. */
 export interface PauseDeadlineSet {
-  /** The new deadline (ISO 8601); absent: none. */
-  readonly expiresAt?: string;
+  /** The new deadline; absent: none. */
+  readonly expiresAt?: Date;
   readonly expiryBound?: PauseExpiryBound;
-  /** The new reminder time (ISO 8601); absent: none. */
-  readonly remindAt?: string;
+  /** The new reminder time; absent: none. */
+  readonly remindAt?: Date;
 }
 
 /**

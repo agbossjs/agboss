@@ -56,8 +56,8 @@ describe("#1366: the record of a root whose pause is answered", () => {
 
   it("a pause whose deadline is the instant of the call is refused before the mark, one a millisecond later is not", async () => {
     const now = new Date("2026-01-01T00:05:00.000Z");
-    const due = { ...pending, expiresAt: now.toISOString() };
-    const open = { ...pending, expiresAt: new Date(now.getTime() + 1).toISOString() };
+    const due = { ...pending, expiresAt: now };
+    const open = { ...pending, expiresAt: new Date(now.getTime() + 1) };
     const refused = parts(due);
     const allowed = parts(open);
 

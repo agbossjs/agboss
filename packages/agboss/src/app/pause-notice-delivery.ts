@@ -226,7 +226,7 @@ export class PauseNoticeDelivery {
       `${what} to ${mailbox.recipient} (pause ${key}): ${problem}`;
     const { tenantId } = mailbox;
     log.warn("pause.notice-failed", text("a notice failed"), { tenantId });
-    const writtenAt = Date.parse(mailbox.headWrittenAt ?? now.toISOString());
+    const writtenAt = (mailbox.headWrittenAt ?? now).getTime();
     if (now.getTime() - writtenAt >= this.parts.retention) {
       if (await pauses.setAsideNotices(claim, now, problem))
         log.error("pause.notice-dead", text("a notice was set aside"), { tenantId });

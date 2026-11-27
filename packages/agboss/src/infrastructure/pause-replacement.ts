@@ -1,10 +1,10 @@
+import type { PauseTrailEntry } from "../channels/pause-contexts.js";
 import { narrowedLimits } from "./pause-limits-stored.js";
 import type { PauseReplacement } from "./pause-notices.js";
 import {
   PauseResolution,
   PauseStatus,
   type PauseRecord,
-  type PauseTrailRecord,
 } from "./pause-record.js";
 
 /**
@@ -51,7 +51,7 @@ export const reassignedPause = (
   ...pause,
   status: PauseStatus.Cancelled,
   resolution: PauseResolution.Reassigned,
-  resolvedAt: at.toISOString(),
+  resolvedAt: at,
   reassignedTo: replacementId,
 });
 
@@ -60,7 +60,7 @@ function reassignedEntryOf(
   pause: PauseRecord,
   replacement: PauseReplacementInput,
   at: Date,
-): PauseTrailRecord {
+): PauseTrailEntry {
   const { assignees, actor, reason, due, timeout, to } = replacement;
   const deadline = due ?? timeout;
   const expiresAt = deadline === undefined ? pause.expiresAt : deadline.expiresAt;
@@ -68,7 +68,7 @@ function reassignedEntryOf(
   const channel = to === undefined ? pause.channel : to.channel;
   return {
     action: "reassigned",
-    at: at.toISOString(),
+    at,
     ...(actor === undefined ? {} : { actor }),
     target,
     ...(channel === undefined ? {} : { channel }),
@@ -137,7 +137,7 @@ export function replacementPause(
     stepKey,
     status: PauseStatus.Pending,
     isSent: false,
-    askedAt: at.toISOString(),
+    askedAt: at,
     reassignedFrom: pause.pauseId,
     trail: [...pause.trail, ...entriesOf(pause, replacement, at)],
   };
@@ -152,7 +152,7 @@ function entriesOf(
   pause: PauseRecord,
   replacement: PauseReplacementInput,
   at: Date,
-): readonly PauseTrailRecord[] {
+): readonly PauseTrailEntry[] {
   const entry = reassignedEntryOf(pause, replacement, at);
   return replacement.countsAsExtension === true
     ? [entry, { ...entry, action: "timeout-changed" }]

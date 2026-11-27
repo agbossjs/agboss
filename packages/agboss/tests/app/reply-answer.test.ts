@@ -38,8 +38,8 @@ const pause: PauseRecord = {
   status: PauseStatus.Pending,
   isSent: true,
   trail: [],
-  askedAt: "2026-01-05T09:00:00.000Z",
-  firstAskedAt: "2026-01-05T09:00:00.000Z",
+  askedAt: new Date("2026-01-05T09:00:00.000Z"),
+  firstAskedAt: new Date("2026-01-05T09:00:00.000Z"),
   escalationLimits: {},
 };
 

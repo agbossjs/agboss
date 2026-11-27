@@ -24,7 +24,7 @@ import {
 import { PauseNoticeKind } from "../../src/infrastructure/pause-notices.js";
 
 const T = (second: number): Date => new Date(second * 1000);
-const notice = (seq: number, writtenAt: string) => ({
+const notice = (seq: number, writtenAt: Date) => ({
   seq,
   kind: PauseNoticeKind.Closed,
   writtenAt,
@@ -34,12 +34,12 @@ const mailbox = (fields: Partial<StoredMailbox> = {}): StoredMailbox => ({
   tenantId: "default",
   pauseId: "p-1",
   recipient: "channel:refund",
-  notices: [notice(1, T(5).toISOString()), notice(2, T(6).toISOString())],
+  notices: [notice(1, T(5)), notice(2, T(6))],
   delivered: 0,
   attempts: 0,
   nextAttemptAt: T(10),
   isDead: false,
-  headWrittenAt: T(5).toISOString(),
+  headWrittenAt: T(5),
   ...fields,
 });
 
@@ -75,8 +75,8 @@ describe("#1356: when a mailbox is live, claimed and due", () => {
     const cutoff = T(6);
 
     expect(isStaleAt(mailbox(), cutoff, T(20))).toBe(true);
-    expect(isStaleAt(mailbox({ headWrittenAt: T(6).toISOString() }), cutoff, T(20))).toBe(false);
-    expect(isStaleAt(mailbox({ headWrittenAt: T(7).toISOString() }), cutoff, T(20))).toBe(false);
+    expect(isStaleAt(mailbox({ headWrittenAt: T(6) }), cutoff, T(20))).toBe(false);
+    expect(isStaleAt(mailbox({ headWrittenAt: T(7) }), cutoff, T(20))).toBe(false);
     expect(isStaleAt(mailbox({ headWrittenAt: undefined }), cutoff, T(20))).toBe(false);
     expect(isStaleAt(mailbox({ isDead: true }), cutoff, T(20))).toBe(false);
     expect(isStaleAt(mailbox({ delivered: 2 }), cutoff, T(20))).toBe(false);
@@ -118,7 +118,7 @@ describe("#1356: an append, an acknowledgement, a retry and a set-aside", () => 
   const planned = (second: number) => ({
     recipient: "channel:refund",
     at: T(second),
-    notice: { kind: PauseNoticeKind.Closed, writtenAt: T(second).toISOString() },
+    notice: { kind: PauseNoticeKind.Closed, writtenAt: T(second) },
   });
   const site = { tenantId: "default", pauseId: "p-1" };
 
@@ -131,7 +131,7 @@ describe("#1356: an append, an acknowledgement, a retry and a set-aside", () => 
       attempts: 0,
       nextAttemptAt: T(7),
       isDead: false,
-      headWrittenAt: T(7).toISOString(),
+      headWrittenAt: T(7),
     });
     expect(made.notices.map(({ seq }) => seq)).toEqual([1]);
   });
@@ -144,7 +144,7 @@ describe("#1356: an append, an acknowledgement, a retry and a set-aside", () => 
     expect(next).toMatchObject({
       attempts: 0,
       nextAttemptAt: T(20),
-      headWrittenAt: T(20).toISOString(),
+      headWrittenAt: T(20),
     });
     expect(next.problem).toBeUndefined();
     expect(next.notices.map(({ seq }) => seq)).toEqual([1, 2, 3]);
@@ -156,7 +156,7 @@ describe("#1356: an append, an acknowledgement, a retry and a set-aside", () => 
     const next = appendedMailbox(busy, site, planned(20));
 
     expect(next).toMatchObject({ attempts: 2, problem: "boom", nextAttemptAt: T(10) });
-    expect(next.headWrittenAt).toBe(T(5).toISOString());
+    expect(next.headWrittenAt).toEqual(T(5));
     expect(next.notices.map(({ seq }) => seq)).toEqual([1, 2, 3]);
   });
 
@@ -169,7 +169,7 @@ describe("#1356: an append, an acknowledgement, a retry and a set-aside", () => 
       delivered: 1,
       attempts: 0,
       nextAttemptAt: T(12),
-      headWrittenAt: T(6).toISOString(),
+      headWrittenAt: T(6),
       claim: { token: "t", until: T(30) },
     });
     expect(acknowledged.problem).toBeUndefined();

@@ -179,6 +179,32 @@ records, with its cursor) and `replacementPause(pause, replacement, at)` (the pa
 another's place, from a `PauseReplacementInput`). On SQLite, the ambient transaction of a `runOnce`
 is `connection.requireTransaction()` of the `SqliteConnection` your repository was given.
 
+**A pause store keeps no rule of its own either.** `PausedExecutionRepository` is a set of compare-and-sets, and the
+rules are pure functions of `@agboss/core/stores`: `decideChange`, `resolveChange`, `cancelChange`, `expireChange`,
+`closeUntakenChange`, `remindChange`, `markSentChange`, `reassignChange`, `timeoutChange` — each takes the record you read
+(under a row lock, in a transaction, or by a conditional write that checks what you read) and returns a `PauseChange`
+(`{ pause, notices, inserted? }`) or `undefined` when its condition does not hold — with `isOpenAt`, `isDueAt`,
+`isWithinCap`, `reassignedPause`, `openingNotices` and `inFirstSendNotices` beneath them. Write the record and the planned
+notices in one transaction; never restate a condition, a limit or a notice. A pause's times are **`Date`s in the
+contract** (`PauseRecord`, its chain of custody, `PauseNotice`, `PauseMailbox`, `PauseSeen`, the scans' keyset, the answer
+log's `PauseAnswerRecord`) and **ISO 8601 text only in your raw columns and JSON**:
+
+- Write `date.toISOString()` into every text column and JSON, and bind a `timestamptz` parameter only as a `Date` on a
+  column of that type. A `Date` passed to a driver for a *text* column is formatted in local time with an offset
+  (`2026-01-05T11:00:00.000+02:00`): the column stops sorting by instant and a later compare-and-set fails for ever. A
+  BSON `Date` and a text must not sit in one MongoDB field either: a sort over both orders every date before every text.
+- Read a text back with `instantOfText(text, field)`: it accepts exactly what `toISOString()` writes (four-digit year,
+  milliseconds, `Z`) and throws `StoreError.UnreadableRecord`, naming the field and never the value, for any other
+  spelling — a row another version, a migration or `psql` wrote with an offset or without milliseconds is unreadable,
+  never an Invalid Date and never a time read in the process's zone. `pauseRecordOfJson` and `pauseAnswerRecordOfValue`
+  already do it for the JSON they are given.
+- Compare two times with `sameInstant` / `isBefore` of `@agboss/core/stores`, never with `===` or `!==` (two `Date`s of
+  one instant are different objects, so a "still the deadline I read" check would always fail). Hand a caller its own
+  `Date`s: copy what you hold (a `setTime` on a record you returned must not move your state).
+- `storeConformance`'s pause cases use times with milliseconds and other `Date` instances of the same instant: a store
+  that truncates milliseconds, keeps a time in local time, returns the instance it holds or compares by reference fails
+  them.
+
 ## Recipes: SQL
 
 **The store's time decides a lease's expiry (#533)** — never the calling instance's clock, which
@@ -911,6 +937,11 @@ that does not load, or one that registers no case, rejects: never an empty run t
       text for one database); a unit runner finds the lease store by it.
 - [ ] `findAllByTenantIdAndStatus({ tenantId, status, limit, after? })` pages on an immutable order
       of your own (a sequence, a row id) with an opaque cursor — never an offset (#825).
+- [ ] A pause's times are `Date`s in memory and `toISOString()` text (or a `timestamptz` / BSON `Date` column, never mixed
+      with text) in the database; a text is read only through `instantOfText`, any other spelling is
+      `StoreError.UnreadableRecord`; two times are compared with `sameInstant` / `isBefore`, never `===`; the
+      transitions are `decideChange`, `resolveChange`, `reassignChange`, `timeoutChange` and the others of
+      `@agboss/core/stores`, not copies of them (#1307, P6b).
 - [ ] `PausedExecutionRepository`'s page cursor reads a **monotonic sequence that is never reused**:
       a row's number is greater than every number given before, and a deleted row's number is not
       given again (SQLite: `seq INTEGER PRIMARY KEY AUTOINCREMENT`, not a bare rowid; a file

@@ -44,7 +44,7 @@ describe("#1356: a pause row", () => {
       status: PauseStatus.Resolved,
       answer: { decision: { approved: true }, actor: undefined },
       resolution: PauseResolution.Replied,
-      resolvedAt: "2026-11-20T10:00:00.000Z",
+      resolvedAt: new Date("2026-11-20T10:00:00.000Z"),
     };
 
     expect(rows.write(resolved, PauseStatus.Taken)).toBe(false);
@@ -53,7 +53,7 @@ describe("#1356: a pause row", () => {
     expect(rows.findById("default", "p-1")).toMatchObject({
       status: PauseStatus.Resolved,
       resolution: PauseResolution.Replied,
-      resolvedAt: "2026-11-20T10:00:00.000Z",
+      resolvedAt: new Date("2026-11-20T10:00:00.000Z"),
     });
   });
 
@@ -94,23 +94,42 @@ describe("#1356: a pause row", () => {
     const read = toPauseRecord({
       ...row,
       is_sent: 1,
-      resolved_at: "r",
-      expires_at: "e",
-      remind_at: "m",
+      resolved_at: "2026-11-20T10:00:00.001Z",
+      expires_at: "2026-11-20T11:00:00.002Z",
+      remind_at: "2026-11-20T10:30:00.003Z",
       answer: JSON.stringify({ decision: { approved: false } }),
     });
 
     expect(read).toMatchObject({
       isSent: true,
-      resolvedAt: "r",
-      expiresAt: "e",
-      remindAt: "m",
+      resolvedAt: new Date("2026-11-20T10:00:00.001Z"),
+      expiresAt: new Date("2026-11-20T11:00:00.002Z"),
+      remindAt: new Date("2026-11-20T10:30:00.003Z"),
       answer: { decision: { approved: false } },
     });
     const bare = toPauseRecord({ ...row, is_sent: 0 });
     expect(bare.isSent).toBe(false);
     for (const field of ["resolvedAt", "expiresAt", "remindAt", "answer"])
       expect(bare).not.toHaveProperty(field);
+  });
+
+  it("a column time in another spelling is unreadable, naming the field and never the text (#1307, P6b)", () => {
+    const connection = opened();
+    new SqlitePauseRows(connection.database).insert(pauseOf("p-1"));
+    const row = rowOf(connection, "p-1");
+
+    for (const [column, field] of [
+      ["resolved_at", "resolvedAt"],
+      ["expires_at", "expiresAt"],
+      ["remind_at", "remindAt"],
+    ] as const)
+      for (const text of ["2026-11-20T10:00:00Z", "2026-11-20T12:00:00.000+02:00", "r-4711"]) {
+        const read = (): unknown => toPauseRecord({ ...row, [column]: text });
+
+        expect(read, `${field} ${text}`).toThrow(StoreError.UnreadableRecord);
+        expect(read, `${field} ${text}`).toThrow(new RegExp(field));
+        expect(read, `${field} ${text}`).not.toThrow(text);
+      }
   });
 
   it("a text that is no JSON is unreadable, naming the record and the pause but never the text", () => {
@@ -147,7 +166,7 @@ const mailboxRow = (changed: Record<string, unknown> = {}): Record<string, unkno
   pause_id: "p-1",
   recipient: "channel:refund",
   notices: JSON.stringify([
-    { seq: 1, kind: PauseNoticeKind.Closed, writtenAt: "2026-11-20T09:00:00.000Z" },
+    { seq: 1, kind: PauseNoticeKind.Closed, writtenAt: new Date("2026-11-20T09:00:00.000Z") },
   ]),
   delivered: 0,
   attempts: 2,
@@ -168,7 +187,7 @@ describe("#1356: a mailbox row", () => {
       tenantId: "default",
       pauseId: "p-1",
       recipient: "channel:refund",
-      notices: [{ seq: 1, kind: PauseNoticeKind.Closed, writtenAt: "2026-11-20T09:00:00.000Z" }],
+      notices: [{ seq: 1, kind: PauseNoticeKind.Closed, writtenAt: new Date("2026-11-20T09:00:00.000Z") }],
       delivered: 0,
       attempts: 2,
       nextAttemptAt: new Date("2026-11-20T10:00:00.000Z"),
@@ -188,7 +207,7 @@ describe("#1356: a mailbox row", () => {
     );
 
     expect(mailbox).toMatchObject({
-      headWrittenAt: "2026-11-20T09:00:00.000Z",
+      headWrittenAt: new Date("2026-11-20T09:00:00.000Z"),
       problem: "receiver-unknown",
       claim: { token: "token-1", until: new Date("2026-11-20T10:05:00.000Z") },
       isDead: true,
@@ -231,7 +250,7 @@ describe("#1356: the statements of the mailboxes", () => {
     const planned = (recipient: string) => ({
       recipient,
       at: new Date(0),
-      notice: { kind: PauseNoticeKind.Closed, writtenAt: new Date(0).toISOString() },
+      notice: { kind: PauseNoticeKind.Closed, writtenAt: new Date(0) },
     });
     const mine = pauseOf("p-1");
     rows.append(mine, [planned("channel:refund"), planned("listener:metrics")]);

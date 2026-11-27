@@ -4,12 +4,23 @@ import { parsedStoredJson } from "../core/stored-json.js";
 import { ComponentKind, type ComponentRecord } from "../flow/runtime/records.js";
 import type { StepRecord } from "../flow/context/execution-context.js";
 import type { PauseAnswerRecord } from "../flow/runtime/execution-record.js";
-import type { PauseActor } from "../channels/pause-contexts.js";
-import { PauseResolution, pauseKeyOf, type PauseTrailRecord } from "./pause-record.js";
-import { trailEntryOf } from "./pause-record-instants.js";
+import type { PauseActor, PauseTrailEntry } from "../channels/pause-contexts.js";
+import { isCanonicalInstantText } from "./instants.js";
+import { PauseResolution, pauseKeyOf } from "./pause-record.js";
 import { PauseRespondent } from "../pause/respondent.js";
 
 const optionalText = z.string().optional();
+
+/**
+ * A time a store kept as text, read as the `Date` it names: only exactly what `toISOString()` writes
+ * (milliseconds, `Z`). A text of any other spelling (no zone, an offset, no milliseconds, a year past
+ * 9999) is unreadable — never an Invalid Date, never a time read in the process's zone — so the order
+ * of the texts a column indexes is the order of the instants. The refusal names the field, never the value.
+ */
+export const StoredInstant = z
+  .string()
+  .refine(isCanonicalInstantText, "not an ISO 8601 instant as toISOString writes it (milliseconds, Z)")
+  .transform((text) => new Date(text));
 
 /** Who acted on a pause: an id, and the organisation it acts for. */
 export const StoredActor = z.object({ id: z.string(), orgId: z.string().optional() });
@@ -25,16 +36,16 @@ export const actorOf = (stored: {
 export const StoredTrailEntry = z
   .object({
     action: z.enum(["opened", "reassigned", "timeout-changed", "escalated"]),
-    at: z.string(),
+    at: StoredInstant,
     actor: StoredActor.optional(),
     target: z.string(),
     channel: z.string().optional(),
     assignees: z.array(z.string()).optional(),
-    expiresAt: z.string().optional(),
+    expiresAt: StoredInstant.optional(),
     externalRef: z.string().optional(),
     reason: z.string().optional(),
   })
-  .transform((stored): PauseTrailRecord => {
+  .transform((stored): PauseTrailEntry => {
     const { actor, channel, assignees, expiresAt, externalRef, reason, ...rest } = stored;
     return {
       ...rest,
@@ -46,9 +57,6 @@ export const StoredTrailEntry = z
       ...(reason === undefined ? {} : { reason }),
     };
   });
-
-/** One entry of a chain of custody as a public record holds it: its times as dates (JSON kept them as ISO 8601 texts). */
-export const StoredTrailEntryDated = StoredTrailEntry.transform(trailEntryOf);
 
 /**
  * The join keys a stored pause keeps of its waiting step (#268 S93), read back with defaults: a
@@ -160,8 +168,8 @@ export const PauseAnswerRecordSchema = z
     responder: z.never().optional(),
     asked: z.never().optional(),
     resolution: z.enum(PauseResolution),
-    askedAt: z.string(),
-    resolvedAt: optionalText,
+    askedAt: StoredInstant,
+    resolvedAt: StoredInstant.optional(),
     decision: z.unknown().optional(),
     input: z.unknown().optional(),
     toolCall: z.unknown().optional(),

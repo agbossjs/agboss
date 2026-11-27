@@ -53,6 +53,35 @@ describe("a paused run is read whole", () => {
     expect(run.pending[0]).toMatchObject({ kind: "external-task", input: { topic: "free" } });
   });
 
+  it("a pending pause's deadline and chain are Dates; a deadline in another spelling is unreadable (#1307, P6b)", () => {
+    const withDeadline = (expiresAt: string) =>
+      pausedRunOfValue({
+        ...RUN,
+        pending: [
+          {
+            pauseId: "p2",
+            kind: "external-task",
+            respondent: "owner",
+            step: "asker",
+            target: "c-target",
+            channel: "c",
+            input: {},
+            expiresAt,
+            trail: [{ action: "opened", at: "2026-01-05T09:00:00.000Z", target: "c" }],
+          },
+        ],
+      });
+
+    const run = withDeadline("2026-01-05T10:00:00.123Z");
+
+    expect(run.pending[0]?.expiresAt).toBeInstanceOf(Date);
+    expect(run.pending[0]?.expiresAt?.getTime()).toBe(Date.parse("2026-01-05T10:00:00.123Z"));
+    expect(run.pending[0]?.trail[0]?.at).toBeInstanceOf(Date);
+    for (const text of ["2026-01-05T10:00:00Z", "2026-01-05T12:00:00.000+02:00", "soon"])
+      expect(() => withDeadline(text)).toThrow(StoreError.UnreadableRecord);
+    expect(pausedRunOfValue(RUN).pending[0]).not.toHaveProperty("expiresAt");
+  });
+
   it.each([
     ["a cost that is a text", { cost: SECRET }, "cost"],
     ["a data whose scope is a text", { data: { scope: SECRET } }, "data.scope"],

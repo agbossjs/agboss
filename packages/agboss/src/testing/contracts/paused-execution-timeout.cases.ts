@@ -13,19 +13,19 @@ import { DEADLINE, expiringPauseOf, MID, pauseOf, withSeen } from "./paused-exec
  */
 type Instances = ContractInstances<PausedExecutionRepository>;
 const R = NO_RECIPIENTS;
-const LATER = "2026-01-05T12:00:00.000Z";
-const EVEN_LATER = "2026-01-05T15:00:00.000Z";
+const LATER = new Date("2026-01-05T12:00:00.000Z");
+const EVEN_LATER = new Date("2026-01-05T15:00:00.000Z");
 /** After `MID` and before the deadline of `expiringPauseOf`. */
-const EARLIER = "2026-01-05T09:50:00.000Z";
+const EARLIER = new Date("2026-01-05T09:50:00.000Z");
 /** The deadline of `expiringPauseOf`: what a caller that read the pause holds as the current one. */
-const FROM = DEADLINE.toISOString();
+const FROM = DEADLINE;
 
 export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionRepository>[] = [
   {
     name: "a timeout change may shorten: to an earlier deadline after the moment of the write, over the deadline the caller read; never to the moment or the past (#1307)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const change = async (expiresAt: string, previousExpiresAt: string) =>
+      const change = async (expiresAt: Date, previousExpiresAt: Date) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
@@ -35,8 +35,8 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
         );
 
       // to the moment, or before it: refused, even when the caller read the stored deadline right
-      expect(await change(MID.toISOString(), FROM)).toBeUndefined();
-      expect(await change("2026-01-05T09:00:00.000Z", FROM)).toBeUndefined();
+      expect(await change(MID, FROM)).toBeUndefined();
+      expect(await change(new Date("2026-01-05T09:00:00.000Z"), FROM)).toBeUndefined();
       // earlier than the stored deadline, after the moment: taken
       expect(await change(EARLIER, FROM)).toMatchObject({
         expiresAt: EARLIER,
@@ -47,7 +47,7 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
       expect(await change(LATER, EARLIER)).toMatchObject({ expiresAt: LATER });
       // a stale read of the deadline is refused whatever it asks
       expect(await change(EARLIER, FROM)).toBeUndefined();
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toBe(LATER);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.expiresAt).toEqual(LATER);
     },
   },
   {
@@ -91,7 +91,7 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
           escalationLimits: { maxExtensions: 2 },
         }),
       );
-      const change = async (expiresAt: string, previousExpiresAt: string) =>
+      const change = async (expiresAt: Date, previousExpiresAt: Date) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
@@ -108,7 +108,7 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
       const moved = await change(EARLIER, FROM);
       expect(moved?.trail.at(-1)).toMatchObject({
         action: "timeout-changed",
-        at: MID.toISOString(),
+        at: MID,
         actor: { id: "manager-17" },
         expiresAt: EARLIER,
         reason: "escalated",
@@ -117,7 +117,7 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
       expect(await change(LATER, EARLIER)).toMatchObject({ expiresAt: LATER });
       expect(await change(EVEN_LATER, LATER)).toBeUndefined();
       const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
-      expect(stored?.expiresAt).toBe(LATER);
+      expect(stored?.expiresAt).toEqual(LATER);
       expect(stored?.trail.filter((entry) => entry.action === "timeout-changed")).toHaveLength(2);
     },
   },
@@ -127,7 +127,7 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
       await first.findOrCreateByStepKey(pauseOf("pause-a"));
       await first.findOrCreateByStepKey(expiringPauseOf("pause-b", "run-1:s:1:call-2"));
       const read = async (pauseId: string) => (await withSeen(second, pauseId, {})).seen;
-      const change = (pauseId: string, seen: PauseTimeoutChange["seen"], deadline?: string) =>
+      const change = (pauseId: string, seen: PauseTimeoutChange["seen"], deadline?: Date) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           pauseId,
@@ -171,13 +171,13 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
         MID,
         R,
       );
-      expect(moved?.expiresAt).toBe(FROM);
+      expect(moved?.expiresAt).toEqual(FROM);
 
       expect(
         await second.changeTimeoutByTenantIdAndPauseId("default", "pause-a", read, MID, R),
       ).toBeUndefined();
       const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
-      expect(stored?.expiresAt).toBe(FROM);
+      expect(stored?.expiresAt).toEqual(FROM);
       expect(stored?.assignees).toEqual(["deputy-1"]);
       const fresh = await withSeen(second, "pause-a", {
         expiresAt: LATER,
@@ -194,8 +194,8 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
     name: "a timeout change stores the reminder it is given, and clears the old one when it is given none (#1307)",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const remindAt = "2026-01-05T09:55:00.000Z";
-      const change = async (expiresAt: string, previousExpiresAt: string, remind?: string) =>
+      const remindAt = new Date("2026-01-05T09:55:00.000Z");
+      const change = async (expiresAt: Date, previousExpiresAt: Date, remind?: Date) =>
         second.changeTimeoutByTenantIdAndPauseId(
           "default",
           "pause-a",
@@ -208,8 +208,8 @@ export const TIMEOUT_CHANGE_CASES: readonly ContractCase<PausedExecutionReposito
           R,
         );
 
-      expect((await change(EARLIER, FROM, remindAt))?.remindAt).toBe(remindAt);
-      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.remindAt).toBe(remindAt);
+      expect((await change(EARLIER, FROM, remindAt))?.remindAt).toEqual(remindAt);
+      expect((await first.findByTenantIdAndPauseId("default", "pause-a"))?.remindAt).toEqual(remindAt);
       expect((await change(LATER, EARLIER))?.remindAt).toBeUndefined();
       expect(
         (await first.findByTenantIdAndPauseId("default", "pause-a"))?.remindAt,

@@ -178,32 +178,32 @@ describe("SQLite Turn store", () => {
     await store.appendPauseAnswer({
       ...entry,
       stepKey: "b",
-      askedAt: "2026-01-05T09:02",
+      askedAt: new Date("2026-01-05T09:02:00.000Z"),
       record: "b",
     });
     await store.appendPauseAnswer({
       ...entry,
       stepKey: "a",
-      askedAt: "2026-01-05T09:01",
+      askedAt: new Date("2026-01-05T09:01:00.000Z"),
       record: "a",
     });
     await store.appendPauseAnswer({
       ...entry,
       stepKey: "a",
-      askedAt: "2026-01-05T09:01",
+      askedAt: new Date("2026-01-05T09:01:00.000Z"),
       record: "again",
     });
     await store.appendPauseAnswer({
       ...entry,
       stepKey: "c",
-      askedAt: "2026-01-05T09:01",
+      askedAt: new Date("2026-01-05T09:01:00.000Z"),
       record: "c",
     });
     await store.appendPauseAnswer({
       ...entry,
       tenantId: "other",
       stepKey: "d",
-      askedAt: "",
+      askedAt: new Date(0),
       record: "d",
     });
 

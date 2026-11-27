@@ -90,7 +90,7 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
       const moved = await reassignWith(
         second,
         "pause-a",
-        { assignees: ["deputy-3"], due: { expiresAt: "2026-01-05T12:00:00.000Z" } },
+        { assignees: ["deputy-3"], due: { expiresAt: new Date("2026-01-05T12:00:00.000Z") } },
         AFTER_DEADLINE,
       );
       expect(moved).toMatchObject({ isSent: false, assignees: ["deputy-3"] });
@@ -105,13 +105,13 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
       expect(kindsOf(claims, "pause-a", AUDIT)).toEqual(["opened", "reassigned"]);
       // `opened` carries the deadline the channel was asked with, `reassigned` the change from it
       expect(noticesOf(claims, "pause-a", AUDIT)[0]).toMatchObject({
-        expiresAt: DEADLINE.toISOString(),
+        expiresAt: DEADLINE,
       });
       expect(noticesOf(claims, "pause-a", CHANNEL_KEY)[0]).toMatchObject({
-        previousExpiresAt: DEADLINE.toISOString(),
+        previousExpiresAt: DEADLINE,
         previousTarget: "refund-tool-approval",
         previousChannel: "refund-approval-channel",
-        expiresAt: "2026-01-05T12:00:00.000Z",
+        expiresAt: new Date("2026-01-05T12:00:00.000Z"),
         assignees: ["deputy-3"],
       });
     },
@@ -120,7 +120,7 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
     name: "a reassignment planned against an unsent pause is refused once its channel was marked asked — in place or as a replacement — and applies when planned against the sent pause",
     run: async ({ first, second }: Instances): Promise<void> => {
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
-      const unsent = { trailLength: 1, expiresAt: DEADLINE.toISOString(), isSent: false };
+      const unsent = { trailLength: 1, expiresAt: DEADLINE, isSent: false };
       // the step's send returned meanwhile: its markSent landed between the plan and the write
       await first.markSentByTenantIdAndPauseId("default", "pause-a", RECIPIENTS, "JIRA-1");
       const change = (store: PausedExecutionRepository, seen: typeof unsent, pauseId?: string) =>
@@ -153,7 +153,7 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
       await first.findOrCreateByStepKey(expiringPauseOf("pause-a"));
       // what the step sent: the pause as it was before the send
       const sent = await seenNow(first, "pause-a");
-      const later = "2026-01-05T12:00:00.000Z";
+      const later = new Date("2026-01-05T12:00:00.000Z");
       await reassignWith(
         second,
         "pause-a",
@@ -174,7 +174,7 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
       const stored = await first.findByTenantIdAndPauseId("default", "pause-a");
       expect(stored).toMatchObject({ status: PauseStatus.Pending, assignees: ["manager"] });
       expect(stored?.answer).toBeUndefined();
-      expect(stored?.expiresAt).toBe(later);
+      expect(stored?.expiresAt).toEqual(later);
 
       // over the pause as it is now, the decision is taken
       expect(await decideNow(second, "pause-a", DECIDED_ANSWER, decidedAt)).toBe(true);
@@ -200,7 +200,7 @@ export const REASSIGN_SEND_CASES: readonly ContractCase<PausedExecutionRepositor
       await reassignWith(second, "pause-a", { assignees: ["manager"] });
       expect(await resolve(first, permitted)).toBeUndefined();
       // (b) the expiry's due-at change under a new deadline: the answer is after the original one
-      const later = "2026-01-05T12:00:00.000Z";
+      const later = new Date("2026-01-05T12:00:00.000Z");
       await reassignWith(
         second,
         "pause-a",

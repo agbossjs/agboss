@@ -106,7 +106,7 @@ describe("AC1: min 2, max 3, two answered, the third never: at the deadline the 
 
     expect(pause?.expiryBound).toBe("quorum");
     expect(pause?.expiresAt).toBeDefined();
-    expect(Date.parse(pause?.expiresAt ?? "") - Date.parse(pause?.askedAt ?? "")).toBe(hours(1));
+    expect((pause?.expiresAt?.getTime() ?? Number.NaN) - (pause?.askedAt?.getTime() ?? Number.NaN)).toBe(hours(1));
   });
 
   test("AC1: groups — the priority group waits for its third member, the other group is complete", async ({

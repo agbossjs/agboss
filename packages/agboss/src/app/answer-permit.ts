@@ -1,4 +1,4 @@
-import { instantOfOptional } from "../infrastructure/pause-record-instants.js";
+import { copyOfOptional, isBefore } from "../infrastructure/instants.js";
 import type { AnswerPermitCall, PauseActor, PermitAnswer } from "../channels/pause-contexts.js";
 import { trailOf } from "../flow/runtime/pause-chain.js";
 import type { PauseTarget } from "../flow/runtime/pause.js";
@@ -189,14 +189,14 @@ export function assertNotAnswerGuarded(
 }
 
 /** Whether the change is no longer deadline: an earlier one, one where there was none, or none where there was one (#1307, H2). */
-const isShortening = (current: string | undefined, next: string | undefined): boolean =>
-  next === undefined ? current !== undefined : current === undefined || next < current;
+const isShortening = (current: Date | undefined, next: Date | undefined): boolean =>
+  next === undefined ? current !== undefined : current === undefined || isBefore(next, current);
 
 /** `assertNotAnswerGuarded` for a change of the deadline to `expiresAt` (absent: none): only a longer one passes without `permitTimeoutChange`. */
 export function assertDeadlineNotGuarded(
   deps: AppDeps,
   pause: PauseRecord,
-  expiresAt: string | undefined,
+  expiresAt: Date | undefined,
 ): void {
   if (!isShortening(pause.expiresAt, expiresAt)) return;
   assertNotAnswerGuarded(
@@ -233,7 +233,7 @@ export function assertTimeoutChangePermitted(
       ...definedFields({
         actor: ask.actor,
         assignees: pause.assignees,
-        currentExpiresAt: instantOfOptional(pause.expiresAt),
+        currentExpiresAt: copyOfOptional(pause.expiresAt),
         reason: ask.reason,
         toolCall: pause.toolCall,
         externalRef: pause.externalRef,

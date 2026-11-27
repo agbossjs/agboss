@@ -1,9 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { PauseRespondent } from "../pause/respondent.js";
-import type { PauseActor, PauseToolCallSummary } from "../channels/pause-contexts.js";
+import type {
+  PauseActor,
+  PauseToolCallSummary,
+  PauseTrailEntry,
+} from "../channels/pause-contexts.js";
 import type { UsageRecord } from "../finops/usage.js";
 import type { ComponentRecord } from "../flow/runtime/records.js";
 import { lazyLoad } from "./clock.js";
+import { isBefore } from "./instants.js";
 import type { PauseAnswerLog } from "./pause-answer-log.js";
 import type { PauseEscalationCounts } from "./pause-limits-stored.js";
 
@@ -181,31 +186,12 @@ export function pauseInputOf(input: unknown): Readonly<Record<string, unknown>> 
   return input as Readonly<Record<string, unknown>>;
 }
 
-/**
- * One step of a pause's chain of custody as the record keeps it: `PauseTrailEntry` with its times as
- * ISO 8601 texts, like the record's own. Written by the store's transitions, never edited.
- */
-export interface PauseTrailRecord {
-  readonly action: "opened" | "reassigned" | "timeout-changed" | "escalated";
-  /** When it happened (ISO 8601, the application's clock). */
-  readonly at: string;
-  /** Who did it: absent for the framework's own (`opened`, an expiry). */
-  readonly actor?: PauseActor;
-  /** The target the pause waited under after it. */
-  readonly target: string;
-  readonly channel?: string;
-  readonly assignees?: readonly string[];
-  readonly expiresAt?: string;
-  readonly externalRef?: string;
-  readonly reason?: string;
-}
-
 /** How and when a pause first closed with an answer: what a later untaken close keeps (#935). */
 export interface PauseFirstClose {
   /** `Replied`, or `DecidedOnExpiry` when an expiry decided it. */
   readonly resolution: PauseResolution;
-  /** When it closed (ISO 8601): the answer's time, or the time an expiry decided it. */
-  readonly resolvedAt: string;
+  /** When it closed: the answer's time, or the time an expiry decided it. */
+  readonly resolvedAt: Date;
 }
 
 /** A pause: its id, where it waits, what it asks and where it is. */
@@ -243,24 +229,24 @@ export interface PauseRecord extends PauseSite {
   /** The id the channel's own system gave the pause (a ticket key), kept as the channel returned it. */
   readonly externalRef?: string;
   /** The chain of custody: `opened`, then every reassignment, newest last. Never empty. */
-  readonly trail: readonly PauseTrailRecord[];
+  readonly trail: readonly PauseTrailEntry[];
   readonly status: PauseStatus;
   /** Whether its channel's `send` returned (`awaitReply`): a re-entry does not ask again. */
   readonly isSent: boolean;
-  /** When it was made, before its channel was asked (ISO 8601, the application's `Clock`). */
-  readonly askedAt: string;
+  /** When it was made, before its channel was asked (the application's `Clock`). */
+  readonly askedAt: Date;
   /**
-   * When the pause was first asked (ISO 8601): `askedAt` of its first pause, kept by every
+   * When the pause was first asked: `askedAt` of its first pause, kept by every
    * replacement. The total wait (`maxExpiresAt`) counts from it, never from a reassignment (#1307).
    */
-  readonly firstAskedAt: string;
+  readonly firstAskedAt: Date;
   /**
-   * The latest instant the pause may wait until (ISO 8601): its target's `escalationLimits.maxTotalTimeout`
+   * The latest instant the pause may wait until: its target's `escalationLimits.maxTotalTimeout`
    * counted from `firstAskedAt`, materialized when it was opened and only ever lowered (the smaller
    * instant) by a move to another target (#1307, Q-D); absent: no such limit. Read from the record,
    * never recomputed from the application's present configuration.
    */
-  readonly maxExpiresAt?: string;
+  readonly maxExpiresAt?: Date;
   /**
    * The most deadline changes and reassignments its chain may hold, materialized as `maxExpiresAt` is
    * (`{}`: none). Always present: a record without it is not one this version wrote and is not read.
@@ -270,14 +256,14 @@ export interface PauseRecord extends PauseSite {
   readonly answer?: PauseAnswer;
   /** How it was resolved; `undefined` while `Pending`. */
   readonly resolution?: PauseResolution;
-  /** When it was resolved (ISO 8601); a resolved record is kept `retention.pauseRecords` after it. */
-  readonly resolvedAt?: string;
-  /** Its deadline: ISO 8601, absolute, on the application's `Clock` (D9); absent: none. */
-  readonly expiresAt?: string;
+  /** When it was resolved; a resolved record is kept `retention.pauseRecords` after it. */
+  readonly resolvedAt?: Date;
+  /** Its deadline: absolute, on the application's `Clock` (D9); absent: none. */
+  readonly expiresAt?: Date;
   /** Which of the three bounds set `expiresAt`. */
   readonly expiryBound?: PauseExpiryBound;
-  /** When its reminder is due (ISO 8601); absent once reminded, or none. */
-  readonly remindAt?: string;
+  /** When its reminder is due; absent once reminded, or none. */
+  readonly remindAt?: Date;
   /** Why an expiry decision fell back to failing the step (#941). */
   readonly expiryProblem?: ExpiryProblem;
   /**
@@ -287,7 +273,7 @@ export interface PauseRecord extends PauseSite {
    */
   readonly closedFirst?: PauseFirstClose;
   /** The smaller of the run's and a quorum's deadline at creation: an extension never passes it (#942). */
-  readonly boundAt?: string;
+  readonly boundAt?: Date;
   /** The pause that replaced this one (#946), once `Cancelled / Reassigned`. */
   readonly reassignedTo?: string;
   /** The pause this one replaces (#946): made unsent, its channel asked again. */
@@ -338,7 +324,7 @@ export const resolvedPause = (pause: PauseRecord, answer: PauseAnswer, at: Date)
   status: PauseStatus.Resolved,
   answer,
   resolution: PauseResolution.Replied,
-  resolvedAt: at.toISOString(),
+  resolvedAt: at,
 });
 
 /** The pause its channel decided at once: `Taken` with the channel's decision, `Decided`. */
@@ -347,7 +333,7 @@ export const decidedPause = (pause: PauseRecord, answer: PauseAnswer, at: Date):
   status: PauseStatus.Taken,
   answer,
   resolution: PauseResolution.Decided,
-  resolvedAt: at.toISOString(),
+  resolvedAt: at,
 });
 
 /** The pause closed without an answer: `Cancelled`, withdrawn or cancelled. */
@@ -359,16 +345,16 @@ export const cancelledPause = (
   ...pause,
   status: PauseStatus.Cancelled,
   resolution,
-  resolvedAt: at.toISOString(),
+  resolvedAt: at,
 });
 
 /** Whether a resolved record's retention is over: `Taken` or `Cancelled`, resolved before `cutoff`. */
 export const isExpiredPause = (pause: PauseRecord, cutoff: Date): boolean => {
-  const before = cutoff.toISOString();
   // a record with no time of its own is no older than the cutoff
   return (
     (pause.status === PauseStatus.Taken || pause.status === PauseStatus.Cancelled) &&
-    (pause.resolvedAt ?? before) < before
+    pause.resolvedAt !== undefined &&
+    isBefore(pause.resolvedAt, cutoff)
   );
 };
 

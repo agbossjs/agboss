@@ -8,7 +8,8 @@ import {
   type PauseRecipients,
   type PauseReplacement,
 } from "./pause-notices.js";
-import type { PauseRecord, PauseTrailRecord } from "./pause-record.js";
+import type { PauseTrailEntry } from "../channels/pause-contexts.js";
+import type { PauseRecord } from "./pause-record.js";
 import { isWithinCap, narrowedLimits } from "./pause-limits-stored.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
 import { isSeenAs } from "./pause-seen.js";
@@ -73,13 +74,13 @@ const channelOnly = (recipients: PauseRecipients): PauseRecipients => ({
 function inPlaceEntryOf(
   pause: PauseRecord,
   change: PauseInPlaceReassignment,
-  expiresAt: string | undefined,
+  expiresAt: Date | undefined,
   at: Date,
-): PauseTrailRecord {
+): PauseTrailEntry {
   const { assignees, actor, reason } = change;
   return {
     action: "reassigned",
-    at: at.toISOString(),
+    at,
     ...(actor === undefined ? {} : { actor }),
     target: pause.target,
     ...(pause.channel === undefined ? {} : { channel: pause.channel }),
@@ -128,7 +129,7 @@ function inPlaceNotices(
   if (!before.isSent) return [];
   const notice = {
     kind: PauseNoticeKind.Reassigned,
-    writtenAt: at.toISOString(),
+    writtenAt: at,
     ...(after.expiresAt === undefined ? {} : { expiresAt: after.expiresAt }),
     ...(before.expiresAt === undefined ? {} : { previousExpiresAt: before.expiresAt }),
     ...(after.assignees === undefined ? {} : { assignees: after.assignees }),

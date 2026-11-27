@@ -10,9 +10,9 @@ import {
   PauseClosedReason,
   PauseResolution,
   type PauseRecord,
-  type PauseTrailRecord,
   type PauseUntakenResolution,
 } from "./pause-record.js";
+import type { PauseTrailEntry } from "../channels/pause-contexts.js";
 import { definedFields } from "../core/defined-fields.js";
 
 /** The notices a change of a pause writes with it (#935): split from `pause-transitions.ts`. */
@@ -24,7 +24,7 @@ export function noticesOf(
   at: Date,
   facts: PauseNoticeFacts,
 ): readonly PlannedNotice[] {
-  const notice = { kind, writtenAt: at.toISOString(), ...facts };
+  const notice = { kind, writtenAt: at, ...facts };
   return recipientKeysOf(recipients, kind).map((recipient) => ({ recipient, at, notice }));
 }
 
@@ -50,14 +50,8 @@ export const untakenNotices = (
       resolution === PauseResolution.Cancelled
         ? PauseClosedReason.Cancelled
         : PauseClosedReason.TreeEnded,
-    closedAt: at.toISOString(),
+    closedAt: at,
   });
-
-/** The instant of a record's time text; a record stored before `askedAt` (empty) is the epoch. */
-export function instantOf(text: string | undefined): Date {
-  const instant = new Date(text ?? 0);
-  return Number.isNaN(instant.getTime()) ? new Date(0) : instant;
-}
 
 /**
  * A pause the channel was just sent that was changed in place meanwhile: its `opened` entry (the
@@ -67,9 +61,9 @@ export function instantOf(text: string | undefined): Date {
  */
 function inPlaceChangeOf(
   pause: PauseRecord,
-): { readonly asked: PauseTrailRecord; readonly changed: PauseTrailRecord } | undefined {
+): { readonly asked: PauseTrailEntry; readonly changed: PauseTrailEntry } | undefined {
   // every pause has its `opened` entry first
-  const [asked, ...rest] = pause.trail as [PauseTrailRecord, ...PauseTrailRecord[]];
+  const [asked, ...rest] = pause.trail as [PauseTrailEntry, ...PauseTrailEntry[]];
   const changed = rest.find((entry) => entry.action === "reassigned");
   return pause.reassignedFrom !== undefined || changed === undefined
     ? undefined
@@ -88,7 +82,7 @@ export function openingNotices(
   sent: PauseRecord,
   recipients: PauseRecipients,
 ): readonly PlannedNotice[] {
-  const at = instantOf(pause.askedAt);
+  const at = pause.askedAt;
   if (pause.reassignedFrom === undefined) {
     const asked = inPlaceChangeOf(pause)?.asked ?? pause;
     return noticesOf(
@@ -132,7 +126,7 @@ export function inFirstSendNotices(
   return noticesOf(
     recipients,
     PauseNoticeKind.Reassigned,
-    instantOf(changed.at),
+    changed.at,
     definedFields({
       expiresAt: sent.expiresAt,
       previousExpiresAt: asked.expiresAt,

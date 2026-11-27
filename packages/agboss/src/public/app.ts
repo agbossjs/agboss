@@ -65,7 +65,6 @@ export {
   type PauseCancellation,
   type PauseRecord,
 } from "../infrastructure/paused-execution.repository.js";
-export type { PauseTrailRecord } from "../infrastructure/pause-record.js";
 // why a pause closed (the one-way key `pauseKeyOf`, `PauseAnswer` and `PauseSite` are store-implementer names: @agboss/core/stores)
 export { ExpiryProblem, PauseClosedReason } from "../infrastructure/pause-record.js";
 export type { PendingApproval, PendingPause, PendingQuestion } from "../pause/index.js";

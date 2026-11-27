@@ -28,11 +28,11 @@ import {
 } from "../../src/infrastructure/pause-record.js";
 import { pauseOf } from "../../src/testing/contracts/paused-execution-data.js";
 
-const T9 = "2026-11-20T09:00:00.000Z";
-const T10 = "2026-11-20T10:00:00.000Z";
-const T11 = "2026-11-20T11:00:00.000Z";
-const T12 = "2026-11-20T12:00:00.000Z";
-const AT = new Date(T10);
+const T9 = new Date("2026-11-20T09:00:00.000Z");
+const T10 = new Date("2026-11-20T10:00:00.000Z");
+const T11 = new Date("2026-11-20T11:00:00.000Z");
+const T12 = new Date("2026-11-20T12:00:00.000Z");
+const AT = new Date(T10.getTime());
 const RECIPIENTS = { channel: "refund", listeners: ["metrics"] };
 const answer = { decision: { approved: true }, actor: { id: "manager-1" } };
 
@@ -216,7 +216,7 @@ describe("#1356: a cancel, an expiry and an untaken close", () => {
 
 describe("#1356, #1307: a change of a deadline (#1099)", () => {
   /** A change of `pause` to `to` (absent: none), from the deadline it has unless `from` says another (`null`: none). */
-  const change = (pause: PauseRecord, to: string | undefined, from?: string | null) => {
+  const change = (pause: PauseRecord, to: Date | undefined, from?: Date | null) => {
     const previous = from === undefined ? pause.expiresAt : (from ?? undefined);
     return timeoutChange(
       pause,
@@ -255,7 +255,7 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
 
     expect(shorter?.pause.expiresAt).toBe(T11);
     expect(shorter?.notices[0]?.notice).toMatchObject({ expiresAt: T11, previousExpiresAt: T12 });
-    expect(change(pending({ expiresAt: T11 }), "2026-11-20T10:00:00.001Z")).toBeDefined();
+    expect(change(pending({ expiresAt: T11 }), new Date("2026-11-20T10:00:00.001Z"))).toBeDefined();
   });
 
   it("sets one on a pause with none, and takes it away: the notice names only the deadline there is", () => {
@@ -265,13 +265,13 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
     expect(set?.pause.expiresAt).toBe(T12);
     expect(set?.notices[0]?.notice).toStrictEqual({
       kind: PauseNoticeKind.TimeoutChanged,
-      writtenAt: AT.toISOString(),
+      writtenAt: AT,
       expiresAt: T12,
     });
     expect(taken?.pause.expiresAt).toBeUndefined();
     expect(taken?.notices[0]?.notice).toStrictEqual({
       kind: PauseNoticeKind.TimeoutChanged,
-      writtenAt: AT.toISOString(),
+      writtenAt: AT,
       previousExpiresAt: T11,
     });
     expect(change(pending(), undefined)?.pause.expiresAt).toBeUndefined();
@@ -295,7 +295,7 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
     expect(moved?.pause.trail).toHaveLength(record.trail.length + 1);
     expect(moved?.pause.trail.at(-1)).toMatchObject({
       action: "timeout-changed",
-      at: AT.toISOString(),
+      at: AT,
       actor: { id: "manager-17" },
       assignees: ["m-1"],
       expiresAt: T12,
@@ -326,7 +326,11 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
     const limited = (record: PauseRecord, maxExtensions: number) =>
       timeoutChange(
         { ...record, escalationLimits: { maxExtensions } },
-        { expiresAt: T12, previousExpiresAt: record.expiresAt ?? "", seen: seenOf(record) },
+        {
+          expiresAt: T12,
+          ...(record.expiresAt === undefined ? {} : { previousExpiresAt: record.expiresAt }),
+          seen: seenOf(record),
+        },
         AT,
         RECIPIENTS,
       );
@@ -372,7 +376,7 @@ describe("#1356, #1307: a change of a deadline (#1099)", () => {
     expect(
       change({ ...quorum, expiryBound: PauseExpiryBound.RunDeadline }, T12)?.pause.expiryBound,
     ).toBe(PauseExpiryBound.RunDeadline);
-    expect(change(quorum, "2026-11-20T11:30:00.000Z")?.pause.expiryBound).toBe(
+    expect(change(quorum, new Date("2026-11-20T11:30:00.000Z"))?.pause.expiryBound).toBe(
       PauseExpiryBound.Pause,
     );
     expect(change(quorum, undefined)?.pause.expiryBound).toBe(PauseExpiryBound.Pause);
@@ -428,18 +432,11 @@ describe("#1356: the channel was asked (rule 2)", () => {
       writtenAt: T9,
       expiresAt: T11,
     });
-    expect(first.notices[0]?.at).toEqual(new Date(T9));
+    expect(first.notices[0]?.at).toEqual(T9);
     expect(
       markSentChange(pending({ isSent: false, askedAt: T9 }), RECIPIENTS).notices[0]?.notice,
     ).toStrictEqual({ kind: PauseNoticeKind.Opened, writtenAt: T9 });
     expect(markSentChange(pending({ isSent: true }), RECIPIENTS).notices).toEqual([]);
-  });
-
-  it("a record with no time it was asked at is asked at the epoch", () => {
-    const { askedAt: _kept, ...without } = pending({ isSent: false });
-
-    for (const record of [{ ...without, askedAt: "" }, without as PauseRecord])
-      expect(markSentChange(record, RECIPIENTS).notices[0]?.at).toEqual(new Date(0));
   });
 
   it("a pause that closed meanwhile is told as closed, and its untaken answer as not taken", () => {

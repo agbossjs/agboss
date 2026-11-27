@@ -15,6 +15,7 @@ import {
   readStored,
   StoredActor,
   StoredComponent,
+  StoredInstant,
   StoredTrailEntry,
 } from "./stored-step.js";
 import { PauseRespondent } from "../pause/respondent.js";
@@ -57,16 +58,6 @@ export const StoredAnswer = z
     ...(stored.usage === undefined ? {} : { usage: stored.usage }),
   }));
 
-/**
- * An instant a limit is compared by as text: exactly what `toISOString()` writes (milliseconds, `Z`).
- * A date a port round-tripped natively (no milliseconds, an offset) would sort as another instant, and
- * a cap that sorts wrong is a cap that is not kept: it is unreadable instead.
- */
-const StoredInstant = z.string().refine((value) => {
-  const at = new Date(value);
-  return !Number.isNaN(at.getTime()) && at.toISOString() === value;
-}, "not an ISO 8601 instant as toISOString writes it (milliseconds, Z)");
-
 /** The tool call an approval pause waits on. */
 export const StoredPauseToolCall = z.object({
   callId: z.string(),
@@ -84,7 +75,7 @@ export const StoredPause = z
     visitNumber: z.number(),
     itemIndex: z.number().optional(),
     copyNumber: z.number(),
-    askedAt: z.string(),
+    askedAt: StoredInstant,
     // #1307, Q-D: when it was first asked and the limits it was opened under, narrowed by moves; a record without them is not read
     firstAskedAt: StoredInstant,
     maxExpiresAt: StoredInstant.optional(),
@@ -117,16 +108,16 @@ export const StoredPause = z
     status: z.enum(PauseStatus),
     isSent: z.boolean(),
     resolution: z.enum(PauseResolution).optional(),
-    resolvedAt: z.string().optional(),
+    resolvedAt: StoredInstant.optional(),
     // #910: the deadline, when to remind, its bound, where it may not pass, why an expiry fell back to fail
-    expiresAt: z.string().optional(),
-    remindAt: z.string().optional(),
+    expiresAt: StoredInstant.optional(),
+    remindAt: StoredInstant.optional(),
     expiryBound: z.enum(PauseExpiryBound).optional(),
-    boundAt: z.string().optional(),
+    boundAt: StoredInstant.optional(),
     expiryProblem: z.enum(ExpiryProblem).optional(),
     // #935: how and when the answer first closed the pause, kept past an untaken close
     closedFirst: z
-      .object({ resolution: z.enum(PauseResolution), resolvedAt: z.string() })
+      .object({ resolution: z.enum(PauseResolution), resolvedAt: StoredInstant })
       .optional(),
     // #946: who a reassigned pause is for, the pause it replaced, the pause that replaced it
     assignees: z.array(z.string()).min(1).optional(),
