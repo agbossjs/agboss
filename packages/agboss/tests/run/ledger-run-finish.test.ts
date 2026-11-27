@@ -12,12 +12,17 @@ import { finishLine } from "../../src/flow/runtime/history.js";
 import { endOf, finishRun, outcomeOf } from "../../src/run/finish.js";
 import { isWaiting, pausedLoopsOf } from "../../src/run/paused.js";
 import { openPausesOf, waitingPausesOf } from "../../src/run/waiting-pauses.js";
+import { maskedFinishOutput } from "../../src/pii/final-output-mask.js";
 
 vi.mock("../../src/run/paused.js", async (original) => ({
   ...(await original<typeof import("../../src/run/paused.js")>()),
   isWaiting: vi.fn(),
   pausedLoopsOf: vi.fn(),
 }));
+vi.mock("../../src/pii/final-output-mask.js", async (original) => {
+  const real = await original<typeof import("../../src/pii/final-output-mask.js")>();
+  return { ...real, maskedFinishOutput: vi.fn(real.maskedFinishOutput) };
+});
 vi.mock("../../src/run/waiting-pauses.js", async (original) => ({
   ...(await original<typeof import("../../src/run/waiting-pauses.js")>()),
   openPausesOf: vi.fn(),
@@ -166,6 +171,80 @@ describe("#1366: a finished run's turn", () => {
     completeUnlessInterrupted.mockResolvedValueOnce(false);
 
     await expect(finishRun(ctx, stateOf(), "turn-running")).rejects.toBeInstanceOf(AGBossError);
+  });
+
+  it("a stop or cancel mark that stands before the finish is written is the end of the run: nothing is written", async () => {
+    const { ctx, raw, append, complete, completeUnlessInterrupted } = setup();
+    const mark = new Error("stopped by its mark");
+    Object.assign(raw.deps, { compensation: { interrupted: vi.fn(() => Promise.resolve(mark)) } });
+
+    await expect(finishRun(ctx, stateOf())).rejects.toBe(mark);
+    await expect(finishRun(ctx, stateOf(), "turn-running")).rejects.toBe(mark);
+
+    expect(append).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+    expect(completeUnlessInterrupted).not.toHaveBeenCalled();
+  });
+
+  it("a run with a compensation seam that knows no mark, or none standing, is written as any other", async () => {
+    const bare = setup();
+    Object.assign(bare.raw.deps, { compensation: {} });
+    const clear = setup();
+    Object.assign(clear.raw.deps, {
+      compensation: { interrupted: vi.fn(() => Promise.resolve(undefined)) },
+    });
+
+    await finishRun(bare.ctx, stateOf());
+    await finishRun(clear.ctx, stateOf());
+
+    expect(bare.append).toHaveBeenCalledOnce();
+    expect(clear.append).toHaveBeenCalledOnce();
+  });
+
+  it("a mark that comes between the look and the write ends the run as the mark; with none to name it, as a refusal that says why", async () => {
+    const marked = setup();
+    const mark = new Error("cancelled by its mark");
+    Object.assign(marked.raw.deps, {
+      compensation: {
+        interrupted: vi
+          .fn<() => Promise<Error | undefined>>()
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce(mark),
+      },
+    });
+    marked.completeUnlessInterrupted.mockResolvedValueOnce(false);
+    const unnamed = setup();
+    Object.assign(unnamed.raw.deps, { compensation: {} });
+    unnamed.completeUnlessInterrupted.mockResolvedValueOnce(false);
+
+    await expect(finishRun(marked.ctx, stateOf(), "turn-running")).rejects.toBe(mark);
+    const refusal = await finishRun(unnamed.ctx, stateOf(), "turn-running").catch(
+      (error: unknown) => error,
+    );
+
+    expect(refusal).toBeInstanceOf(AGBossError);
+    expect((refusal as Error).message).toBe(
+      "execution run-1 is being stopped or cancelled: its finish is not recorded over the request",
+    );
+  });
+
+  it("writes the finish line through the observability mask of the workflow's PII, none without", async () => {
+    const masked = setup();
+    const mask = {
+      value: vi.fn((value: unknown) => Promise.resolve({ masked: value })),
+    };
+    Object.assign(masked.raw.deps, { pii: { observability: mask } });
+    const plain = setup();
+
+    await finishRun(masked.ctx, stateOf());
+    await finishRun(plain.ctx, stateOf());
+
+    expect(masked.append).toHaveBeenCalledWith(
+      expect.objectContaining({ replyWith: finishLine("done", { masked: { text: "ok" } }) }),
+    );
+    expect(plain.append).toHaveBeenCalledWith(
+      expect.objectContaining({ replyWith: finishLine("done", { text: "ok" }) }),
+    );
   });
 
   it("keeps the version it started on, else the application's", async () => {
@@ -328,6 +407,20 @@ describe("#1366: the turn's outcome and the end a result reports", () => {
       steps: [],
       costUsd: usd(0.75),
     });
+  });
+
+  it("the finish's output is stored as its declared fields keep it when the fields are given: the line holds the stored one", async () => {
+    const graph = { nodes: new Map() };
+    const mask = { mask: true } as never;
+    vi.mocked(maskedFinishOutput).mockReturnValueOnce({ stored: true });
+
+    const withFields = await outcomeOf(stateOf(), [], false, undefined, { graph, mask });
+    const without = await outcomeOf(stateOf(), [], false);
+
+    expect(maskedFinishOutput).toHaveBeenCalledOnce();
+    expect(maskedFinishOutput).toHaveBeenCalledWith(graph, "done", { text: "ok" }, mask);
+    expect(withFields.replyWith).toBe(finishLine("done", { stored: true }));
+    expect(without.replyWith).toBe(finishLine("done", { text: "ok" }));
   });
 
   it("a paused run has no reply and says what it waits for", async () => {
