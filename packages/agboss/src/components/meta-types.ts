@@ -7,6 +7,7 @@ import type { ModelFiles } from "../files/model-files.js";
 import type { AgentToolClass } from "./decorators.js";
 import type { ModelCascade } from "../models/model-cascade.js";
 import type { Class, Provider } from "./injection.js";
+import type { ApplicationStorage } from "../storage/storage-assembly.js";
 
 /**
  * The guardrails an agent or a router adds to what it inherits (`@Application` → `@Workflow`), and
@@ -83,6 +84,10 @@ export interface AgentMeta
 export interface WorkflowMeta {
   /** The `@Workflow` class: how the application that lists it is found (`agboss check`'s container). */
   readonly type?: Class;
+  /** The `@Application` class that assembled this bundle (none: assembled on its own). */
+  readonly application?: Class;
+  /** The `storage` of that application, as the profiles leave it: what a container outside an application reads. */
+  readonly storage?: ApplicationStorage | undefined;
   readonly name: string;
   readonly version: string;
   /** The file the workflow is declared in. */

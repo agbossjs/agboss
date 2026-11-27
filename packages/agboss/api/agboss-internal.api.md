@@ -205,6 +205,7 @@ export interface AssembledApplication extends StorageFields, P.ProfileFields {
 
 // @public
 export interface AssembledWorkflow<TName extends string = string> {
+    readonly application?: Class | undefined;
     readonly arbiters?: readonly ModelArbiterUse[];
     readonly budgetOverlays?: BudgetOverlays | undefined;
     readonly businessKeyWriter?: BusinessKeyWriterUse;

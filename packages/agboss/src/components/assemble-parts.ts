@@ -5,14 +5,21 @@ import type { WorkflowMeta } from "./meta-types.js";
 import { containerFor, providerModulesOf } from "./runtime.js";
 import { dependencyTree } from "./container/graph-check.js";
 
-/** The parts of a workflow whose instances come from its container (per `services`). */
-export type ContainerParts = Pick<AssembledWorkflow, "resolve" | "businessKeyWriter">;
+/** The parts of a workflow whose instances come from its container (per `services`), and the application it is of. */
+export type ContainerParts = Pick<
+  AssembledWorkflow,
+  "resolve" | "businessKeyWriter" | "application"
+>;
 
 /** A component of a workflow by its class, created by its container (guardrails, policies, …). */
 export function containerPartsOf(bundle: WorkflowMeta): ContainerParts {
   const get = (services: WorkflowServices, cls: Class): unknown =>
     containerFor(bundle, services).get(cls);
-  return { resolve: (services) => (cls) => get(services, cls), ...businessKeyWriterPartOf(bundle) };
+  return {
+    resolve: (services) => (cls) => get(services, cls),
+    ...businessKeyWriterPartOf(bundle),
+    application: bundle.application,
+  };
 }
 
 /** Each tool's dependency tree by tool name (tools without dependencies are left out). */

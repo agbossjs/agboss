@@ -195,8 +195,12 @@ export function resolveListed(
   return classes.map((cls) => container.get(cls));
 }
 
-/** The one loaded application that lists the workflow (none: it stands alone, or two list it). */
+/**
+ * The application that assembled the workflow, else the one loaded application that lists it (none:
+ * it stands alone, or two list it).
+ */
 function listingApplicationOf(bundle: AssembledWorkflow) {
+  if (bundle.application !== undefined) return applicationDeclarationOf(bundle.application);
   const [only, ...others] = applicationsListing(bundle.graph.type);
   return only === undefined || others.length > 0 ? undefined : applicationDeclarationOf(only);
 }

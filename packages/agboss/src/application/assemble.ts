@@ -153,7 +153,7 @@ async function assembleWorkflows(
   workflows: readonly Class[],
   modules: readonly ProviderModule[],
   assembly: ApplicationAssembly,
-  profiles: P.AppliedProfiles,
+  profiles: P.AppliedProfiles & { readonly application: Class },
 ): Promise<{ readonly assembled: AssembledWorkflow[]; readonly errors: ConfigError.GraphRules[] }> {
   const assembled: AssembledWorkflow[] = [];
   const errors: ConfigError.GraphRules[] = [];
@@ -161,7 +161,11 @@ async function assembleWorkflows(
   const contexts = contextTokensOf(declaredContextsOf(owner));
   for (const workflow of workflows) {
     try {
-      const own = { ...owner, patch: profiles.patchOf(workflow) };
+      const own = {
+        ...owner,
+        application: profiles.application,
+        patch: profiles.patchOf(workflow),
+      };
       const bundle = await workflowOf(workflow, modules, own, contexts, assembly.processEnv);
       assembled.push(P.withAppliedProfiles(bundle, profiles));
     } catch (error) {
@@ -199,6 +203,12 @@ const hasPiiPolicies = (
   (options.piiPolicies ?? []).length > 0 ||
   workflows.some((workflow) => (workflow.pii?.observability ?? []).length > 0);
 
+/** The declared contexts and observers, each checked (the first rule broken throws). */
+function checkedOptions(options: ApplicationOptions): void {
+  checkContextFields(options);
+  checkObservers(options.observers ?? []);
+}
+
 export async function applicationOf(
   application: Class,
   assembly: ApplicationAssembly = {},
@@ -206,8 +216,7 @@ export async function applicationOf(
 ): Promise<AssembledApplication> {
   const applied = await P.appliedProfilesOf(requireApplication(application, where), assembly);
   const { options, source, budgetOverlays } = applied;
-  checkContextFields(options);
-  checkObservers(options.observers ?? []);
+  checkedOptions(options);
   const own = [
     ...unknownOptionViolations([application]),
     ...applicationRuleViolations(application, options, budgetOverlays),
@@ -216,7 +225,8 @@ export async function applicationOf(
   const all = withChildWorkflows(options.workflows);
   const modules = [applicationModule(options, budgetOverlays), ...workflowModules(all)];
   const workflows = all.filter(isWorkflowClass);
-  const { assembled, errors } = await assembleWorkflows(workflows, modules, assembly, applied);
+  const built = await assembleWorkflows(workflows, modules, assembly, { ...applied, application });
+  const { assembled, errors } = built;
   if (errors.length === 0) P.checkAppliedProfiles(applied, assembled);
   const keys = idempotencyKeyViolations(
     options,

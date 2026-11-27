@@ -15,10 +15,13 @@ export function standaloneStorageEntriesOf(
 ): ReturnType<typeof settingsEntriesOf> {
   const workflow = bundle.type;
   const [only, ...others] = workflow === undefined ? [] : applicationsListing(workflow);
+  // the application that assembled the bundle knows its storage; the lookup is for one assembled on its own
   const storage =
-    only === undefined || others.length > 0
-      ? undefined
-      : applicationDeclarationOf(only)?.written.storage;
+    bundle.application !== undefined
+      ? bundle.storage
+      : only === undefined || others.length > 0
+        ? undefined
+        : applicationDeclarationOf(only)?.written.storage;
   try {
     return settingsEntriesOf(resolvedStorageOfOptions(storage, process.env));
   } catch (error) {
