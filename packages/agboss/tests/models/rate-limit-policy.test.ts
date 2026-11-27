@@ -4,7 +4,7 @@
  */
 import { ConfigError } from "../../src/core/error-families/config-errors.js";
 import { describe, expect, it } from "vitest";
-import { RateLimitPolicy } from "../../src/models/policies/rate-limit-policy.js";
+import { QueueBalancingStrategy, RateLimitPolicy } from "../../src/models/policies/rate-limit-policy.js";
 
 describe("#1356: the limits of a rate limit policy", () => {
   it("is refused with no limit at all, saying what one needs", () => {
@@ -58,5 +58,90 @@ describe("#1356: the limits of a rate limit policy", () => {
     });
     expect(Object.isFrozen(policy)).toBe(true);
     expect(Object.isFrozen(policy.perMinute)).toBe(true);
+  });
+});
+
+describe("#1356: the balancing and the weight of a rate limit policy go together", () => {
+  const caught = (make: () => unknown): unknown => {
+    try {
+      make();
+    } catch (error) {
+      return error;
+    }
+    return undefined;
+  };
+
+  it("TenantWeighted without a tenantWeight is a ConfigError.RateLimitPolicy that names what it needs", () => {
+    const error = caught(() =>
+      RateLimitPolicy.of({
+        maxConcurrentCalls: 2,
+        balancing: QueueBalancingStrategy.TenantWeighted,
+      }),
+    );
+
+    expect(error).toBeInstanceOf(ConfigError.RateLimitPolicy);
+    expect(error).toHaveProperty(
+      "message",
+      "QueueBalancingStrategy.TenantWeighted needs tenantWeight: (tenant) => number",
+    );
+  });
+
+  it.each([
+    QueueBalancingStrategy.TenantRoundRobin,
+    QueueBalancingStrategy.TenantLeastInFlight,
+    QueueBalancingStrategy.Fifo,
+  ])("a tenantWeight with %s is refused: it is read only with TenantWeighted", (balancing) => {
+    const error = caught(() =>
+      RateLimitPolicy.of({ maxConcurrentCalls: 2, balancing, tenantWeight: () => 2 }),
+    );
+
+    expect(error).toBeInstanceOf(ConfigError.RateLimitPolicy);
+    expect(error).toHaveProperty(
+      "message",
+      "tenantWeight is read only with QueueBalancingStrategy.TenantWeighted",
+    );
+  });
+
+  it("a tenantWeight with no balancing is refused too: the default is round-robin", () => {
+    expect(() => RateLimitPolicy.of({ maxConcurrentCalls: 2, tenantWeight: () => 2 })).toThrow(
+      "tenantWeight is read only with QueueBalancingStrategy.TenantWeighted",
+    );
+  });
+
+  it("TenantWeighted with its tenantWeight keeps both; any other strategy has no weight", () => {
+    const weight = (): number => 3;
+    const weighted = RateLimitPolicy.of({
+      maxConcurrentCalls: 2,
+      balancing: QueueBalancingStrategy.TenantWeighted,
+      tenantWeight: weight,
+    });
+    const plain = RateLimitPolicy.of({ maxConcurrentCalls: 2 });
+    const fifo = RateLimitPolicy.of({ maxConcurrentCalls: 2, balancing: QueueBalancingStrategy.Fifo });
+
+    expect(weighted.balancing).toBe(QueueBalancingStrategy.TenantWeighted);
+    expect(weighted.tenantWeight).toBe(weight);
+    expect(plain.balancing).toBe(QueueBalancingStrategy.TenantRoundRobin);
+    expect(plain.tenantWeight).toBeUndefined();
+    expect(fifo.balancing).toBe("fifo");
+  });
+
+  it("keeps each limit as given and leaves the unset ones undefined", () => {
+    const calls = RateLimitPolicy.of({ perMinute: { calls: 7 } });
+    const tokens = RateLimitPolicy.of({ perMinute: { tokens: 9 } });
+
+    expect(calls.maxConcurrentCalls).toBeUndefined();
+    expect(calls.perMinute).toEqual({ calls: 7 });
+    expect(tokens.perMinute).toEqual({ tokens: 9 });
+    expect(RateLimitPolicy.of({ maxConcurrentCalls: 1 }).perMinute).toEqual({});
+  });
+
+  it("accepts the limit of 1 and refuses the limit just below it, whatever its kind", () => {
+    expect(RateLimitPolicy.of({ maxConcurrentCalls: 1 }).maxConcurrentCalls).toBe(1);
+    expect(() => RateLimitPolicy.of({ perMinute: { calls: 0 } })).toThrow(
+      "perMinute.calls must be an integer ≥ 1, got 0",
+    );
+    expect(() => RateLimitPolicy.of({ perMinute: { tokens: 0 } })).toThrow(
+      "perMinute.tokens must be an integer ≥ 1, got 0",
+    );
   });
 });
