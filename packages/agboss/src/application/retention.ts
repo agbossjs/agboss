@@ -157,8 +157,6 @@ export const isPlainObject = (value: unknown): value is object =>
 
 /** A retention option of before #834, where it was and where it is now. */
 interface MovedRetention {
-  /** The option holding it (`a2a`), or none for one of `@Application` itself. */
-  readonly within?: string;
   readonly key: string;
   readonly now: keyof RetentionOptions;
 }
@@ -177,14 +175,12 @@ const MOVED: readonly MovedRetention[] = [
  */
 export function movedRetentionViolations(application: string, options: object): RuleViolation[] {
   const given = options as Readonly<Record<string, unknown>>;
-  const found = MOVED.flatMap(({ within, key, now }) => {
-    const holder = within === undefined ? given : given[within];
-    if (typeof holder !== "object" || holder === null || !(key in holder)) return [];
-    const where = within === undefined ? key : `${within}.${key}`;
+  const found = MOVED.flatMap(({ key, now }) => {
+    if (!(key in given)) return [];
     return [
       violation(
         "application.retention-invalid",
-        `its ${where} is gone — @Application({ retention: { ${now} } }) sets it now`,
+        `its ${key} is gone — @Application({ retention: { ${now} } }) sets it now`,
         [application],
       ),
     ];

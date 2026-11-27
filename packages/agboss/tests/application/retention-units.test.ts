@@ -125,10 +125,16 @@ describe("#1366: what a retention may not be", () => {
 
   it("a field it does not know is a typo, a renamed one says where it went; every problem comes at once", () => {
     expect(
-      messagesOf("app", { auditlog: hours(1), leaseEvents: hours(1), pauseRecords: -1 }),
+      messagesOf("app", {
+        auditlog: hours(1),
+        leaseEvents: hours(1),
+        meshAnswers: hours(1),
+        pauseRecords: -1,
+      }),
     ).toEqual([
       `its retention.auditlog is not a retention (pauseRecords, executionRecords, auditLog, costLedgerEntries) — ${DEFAULT_HINT}`,
       `its retention.leaseEvents is renamed: the audit log's rows are kept for retention.auditLog — ${DEFAULT_HINT}`,
+      `its retention.meshAnswers is renamed: how long a trusted request's answer is kept is @Mesh({ deduplicationTtl }) — ${DEFAULT_HINT}`,
       `its retention.pauseRecords is -1, not a positive duration — ${hint("pauseRecords")}`,
     ]);
   });
