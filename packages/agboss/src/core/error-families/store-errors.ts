@@ -94,6 +94,8 @@ export declare namespace StoreError {
     readonly fields?: string | undefined;
     /** The text is no JSON at all: the message says so, not "the field(s) … missing". */
     readonly isNotJson?: boolean | undefined;
+    /** A write was refused: an Invalid Date was given for `fields`; nothing was written, no stored row is damaged. */
+    readonly isInvalidDate?: boolean | undefined;
   };
   /** The store does not match what the application declares. */
   export type Mismatch = ErrorVariant<StoreErrorKind.Mismatch, "store.mismatch">;

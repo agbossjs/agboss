@@ -25,7 +25,7 @@ import type {
   PauseNoticeKind,
   SetAsideMailbox,
 } from "./pause-notices.js";
-import { compareInstants, copyOf } from "./instants.js";
+import { assertValidInstant, compareInstants, copyOf } from "./instants.js";
 import { copiedPause } from "./pause-copies.js";
 import { assertPauseInstants } from "./pause-instants-valid.js";
 import type { PauseRecord } from "./pause-record.js";
@@ -145,6 +145,7 @@ export class InMemoryPauseBook {
     claimFor: number,
     recipients: readonly string[],
   ): PauseNoticeClaim[] {
+    assertValidInstant(at, "at", "pause mailbox");
     const due = [...this.#mailboxes.values()]
       .filter((box) => recipients.includes(box.recipient) && isDueAt(box, at))
       .sort((a, b) => a.nextAttemptAt.getTime() - b.nextAttemptAt.getTime())
@@ -167,6 +168,7 @@ export class InMemoryPauseBook {
   }
 
   ack(claim: PauseNoticeClaim, at: Date): PauseNoticeClaim | undefined {
+    assertValidInstant(at, "at", "pause mailbox");
     const held = this.#held(claim);
     if (held === undefined || !isClaimedAt(held[1], at)) return undefined;
     const acknowledged = acknowledgedMailbox(held[1], at);
@@ -181,6 +183,7 @@ export class InMemoryPauseBook {
   }
 
   renew(claim: PauseNoticeClaim, at: Date, claimFor: number): PauseNoticeClaim | undefined {
+    assertValidInstant(at, "at", "pause mailbox");
     const held = this.#held(claim);
     if (held === undefined || !isClaimedAt(held[1], at)) return undefined;
     const renewed = renewedMailbox(held[1], new Date(at.getTime() + claimFor));
@@ -189,6 +192,7 @@ export class InMemoryPauseBook {
   }
 
   retry(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): boolean {
+    assertValidInstant(nextAttemptAt, "nextAttemptAt", "pause mailbox");
     const held = this.#held(claim);
     if (held !== undefined)
       this.#mailboxes.set(held[0], retriedMailbox(held[1], nextAttemptAt, problem));
@@ -207,6 +211,8 @@ export class InMemoryPauseBook {
     problem: string,
     limit: number,
   ): readonly SetAsideMailbox[] {
+    assertValidInstant(writtenBefore, "writtenBefore", "pause mailbox");
+    assertValidInstant(at, "at", "pause mailbox");
     const stale = [...this.#mailboxes.values()]
       .filter((box): box is WrittenMailbox => isStaleAt(box, writtenBefore, at))
       .sort((a, b) => compareInstants(a.headWrittenAt, b.headWrittenAt))

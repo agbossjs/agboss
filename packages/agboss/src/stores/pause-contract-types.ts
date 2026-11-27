@@ -56,6 +56,8 @@ export {
 } from "../infrastructure/instants.js";
 /** Every time of a pause a store is about to keep: an Invalid Date is refused (`StoreError.UnreadableRecord`) before the write. */
 export { assertPauseInstants } from "../infrastructure/pause-instants-valid.js";
+/** The same for a pause answer record the answer log keeps (`PauseAnswerRecord`: `askedAt`, `resolvedAt`, `trail`). */
+export { assertPauseAnswerInstants } from "../infrastructure/pause-answer-instants.js";
 export {
   NO_RECIPIENTS,
   PauseNoticeKind,

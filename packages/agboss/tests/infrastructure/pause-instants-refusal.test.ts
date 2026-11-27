@@ -6,7 +6,8 @@
 import { describe, expect, it } from "vitest";
 import { StoreError } from "../../src/core/error-families/store-errors.js";
 import { assertValidInstant, isValidInstant } from "../../src/infrastructure/instants.js";
-import { assertAnswerInstants } from "../../src/infrastructure/pause-answer-instants.js";
+import { assertPauseAnswerInstants } from "../../src/infrastructure/pause-answer-instants.js";
+import * as stores from "../../src/stores/index.js";
 import { assertPauseInstants } from "../../src/infrastructure/pause-instants-valid.js";
 import { PauseNoticeKind } from "../../src/infrastructure/pause-notices.js";
 import { PauseResolution, PauseStatus } from "../../src/infrastructure/pause-record.js";
@@ -60,13 +61,16 @@ describe("assertValidInstant (#1307)", () => {
     });
 
     expect(error.message).toBe(
-      "a stored pause is not readable: the field(s) askedAt missing or not what the framework wrote",
+      "an Invalid Date was given for askedAt of a pause: nothing was written (the fields name no stored row; check the clock or the time that was passed)",
     );
+    expect(error.message).not.toContain("not readable");
+    expect(error.message).not.toContain("NaN");
+    expect(error.isInvalidDate).toBe(true);
     expect(
       thrownBy(() => {
         assertValidInstant(BAD(), "resolvedAt", "pause answer");
       }).message,
-    ).toContain("pause answer");
+    ).toContain("of a pause answer: nothing was written");
   });
 });
 
@@ -95,11 +99,15 @@ describe("assertPauseInstants (#1307)", () => {
           assertPauseInstants({ ...made, ...changed });
         }).message,
         field,
-      ).toContain(`field(s) ${field} missing`);
+      ).toContain(`an Invalid Date was given for ${field} of a`);
   });
 });
 
-describe("assertAnswerInstants (#1307)", () => {
+describe("assertPauseAnswerInstants (#1307)", () => {
+  it("is exported from the stores entry, the very function the answer log calls", () => {
+    expect(stores.assertPauseAnswerInstants).toBe(assertPauseAnswerInstants);
+  });
+
   it("refuses an Invalid Date in the times of a pause answer, naming it", () => {
     const good = answerOf("manager-17", true, STEP_KEY, new Date(1));
     const variants: Record<string, object> = {
@@ -110,15 +118,15 @@ describe("assertAnswerInstants (#1307)", () => {
     };
 
     expect(() => {
-      assertAnswerInstants({ ...good, resolvedAt: new Date(2) });
+      assertPauseAnswerInstants({ ...good, resolvedAt: new Date(2) });
     }).not.toThrow();
     for (const [field, changed] of Object.entries(variants))
       expect(
         thrownBy(() => {
-          assertAnswerInstants({ ...good, ...changed });
+          assertPauseAnswerInstants({ ...good, ...changed });
         }).message,
         field,
-      ).toContain(`field(s) ${field} missing`);
+      ).toContain(`an Invalid Date was given for ${field} of a`);
   });
 });
 
@@ -228,5 +236,36 @@ describe("markSentChange keeps the answerNotTaken of an untaken close with no re
 
     expect(untaken.length).toBeGreaterThan(0);
     for (const { at } of untaken) expect(at.getTime()).toBe(NINE.getTime());
+  });
+
+  it("gives each notice an epoch Date of its own: a setTime on one moves no other", () => {
+    const closed = {
+      ...expiringPauseOf("pause-a"),
+      isSent: false,
+      status: PauseStatus.Cancelled,
+      resolution: PauseResolution.Cancelled,
+      answer: APPROVED_BY_MANAGER,
+    };
+    const first = markSentChange(closed, RECIPIENTS).notices.filter(
+      ({ notice }) => notice.kind === PauseNoticeKind.AnswerNotTaken,
+    );
+    expect(first.length).toBeGreaterThan(1);
+    for (const planned of first) {
+      planned.at.setTime(5);
+      planned.notice.writtenAt.setTime(6);
+      planned.notice.closedAt?.setTime(7);
+    }
+
+    const second = markSentChange(closed, RECIPIENTS).notices.filter(
+      ({ notice }) => notice.kind === PauseNoticeKind.AnswerNotTaken,
+    );
+    for (const { at, notice } of second) {
+      expect(at.getTime()).toBe(0);
+      expect(notice.writtenAt.getTime()).toBe(0);
+      expect(notice.closedAt?.getTime()).toBe(0);
+    }
+    const [one, other] = second;
+    expect(one?.at).not.toBe(other?.at);
+    expect(one?.notice.writtenAt).not.toBe(other?.notice.writtenAt);
   });
 });

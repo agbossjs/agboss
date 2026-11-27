@@ -41,7 +41,7 @@ export const copiedPause = (pause: PauseRecord): PauseRecord => ({
 });
 
 /** The notice with every time of it a new `Date`. */
-export const copiedNotice = (notice: PauseNotice): PauseNotice => ({
+export const copiedNotice = <N extends Omit<PauseNotice, "seq">>(notice: N): N => ({
   ...notice,
   writtenAt: copyOf(notice.writtenAt),
   ...(notice.closedAt === undefined ? {} : { closedAt: copyOfOptional(notice.closedAt) }),

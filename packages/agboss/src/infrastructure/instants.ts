@@ -20,12 +20,13 @@ export const isValidInstant = (at: Date): boolean => !Number.isNaN(at.getTime())
  * Refuses an Invalid Date a store was handed to keep (or a rule to apply): it would be written as
  * `null` in JSON or throw in `toISOString()`, and read back as a poison row or compared as never
  * equal, never before, never after. A `StoreError.UnreadableRecord` (the one `StoreError` a store
- * raises for a time it cannot keep or read back) naming the `field`, never the value; nothing is
+ * raises for a time it cannot keep or read back) naming the `field`, never the value, and saying
+ * that an Invalid Date was given and nothing was written (`isInvalidDate`: not a damaged row to repair); nothing is
  * written. An absent time (`undefined`) is fine: the caller decides whether one is required.
  */
 export const assertValidInstant = (at: Date | undefined, field: string, record = "pause"): void => {
   if (at !== undefined && !isValidInstant(at))
-    throw new StoreError.UnreadableRecord({ record, fields: field });
+    throw new StoreError.UnreadableRecord({ record, fields: field, isInvalidDate: true });
 };
 
 /** Whether `a` is strictly before `b`. */

@@ -37,9 +37,12 @@ export const unreadableRecordMessageOf = (
     readonly ids: string;
     readonly fields: string;
     readonly isNotJson: boolean;
+    readonly isInvalidDate: boolean;
   }>,
 ): string => {
   if (facts.record === undefined) return "a stored record cannot be read";
+  if (facts.isInvalidDate === true)
+    return `an Invalid Date was given for ${facts.fields ?? "a time"} of a ${facts.record}: nothing was written (the fields name no stored row; check the clock or the time that was passed)`;
   const why =
     facts.isNotJson === true
       ? "the text is not valid JSON"

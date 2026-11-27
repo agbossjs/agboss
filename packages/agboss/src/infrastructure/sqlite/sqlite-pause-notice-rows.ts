@@ -23,6 +23,7 @@ import {
   type SetAsideMailbox,
 } from "../pause-notices.js";
 import type { PauseRecord } from "../pause-record.js";
+import { assertValidInstant } from "../instants.js";
 
 /**
  * The mailboxes of `SqlitePausedExecutionRepository` (#935): one row per (tenant, pause, recipient)
@@ -125,6 +126,7 @@ export class SqlitePauseNoticeRows {
     recipients: readonly string[],
     newToken: () => string,
   ): PauseNoticeClaim[] {
+    assertValidInstant(at, "at", "pause mailbox");
     if (recipients.length === 0) return [];
     const marks = recipients.map(() => "?").join(", ");
     const now = at.toISOString();
@@ -153,6 +155,7 @@ export class SqlitePauseNoticeRows {
   }
 
   ack(claim: PauseNoticeClaim, at: Date): PauseNoticeClaim | undefined {
+    assertValidInstant(at, "at", "pause mailbox");
     const held = this.held(claim);
     if (held === undefined || !isClaimedAt(held, at)) return undefined;
     const acknowledged = acknowledgedMailbox(held, at);
@@ -163,6 +166,7 @@ export class SqlitePauseNoticeRows {
   }
 
   renew(claim: PauseNoticeClaim, at: Date, claimFor: number): PauseNoticeClaim | undefined {
+    assertValidInstant(at, "at", "pause mailbox");
     const held = this.held(claim);
     if (held === undefined || !isClaimedAt(held, at)) return undefined;
     const renewed = renewedMailbox(held, new Date(at.getTime() + claimFor));
@@ -171,6 +175,7 @@ export class SqlitePauseNoticeRows {
   }
 
   retry(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): boolean {
+    assertValidInstant(nextAttemptAt, "nextAttemptAt", "pause mailbox");
     const held = this.held(claim);
     if (held !== undefined) this.put(retriedMailbox(held, nextAttemptAt, problem));
     return held !== undefined;
@@ -189,6 +194,8 @@ export class SqlitePauseNoticeRows {
     problem: string,
     limit: number,
   ): readonly SetAsideMailbox[] {
+    assertValidInstant(writtenBefore, "writtenBefore", "pause mailbox");
+    assertValidInstant(at, "at", "pause mailbox");
     const stale = this.database
       .prepare(
         `SELECT * FROM pause_notices WHERE is_dead = 0 AND head_written_at IS NOT NULL

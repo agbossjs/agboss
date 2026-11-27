@@ -1,4 +1,4 @@
-import { assertAnswerInstants } from "./pause-answer-instants.js";
+import { assertPauseAnswerInstants } from "./pause-answer-instants.js";
 import { statusPageOf, type ExecutionRecordStatusQuery } from "./execution-record-status-page.js";
 import { ExecutionRecordRepository } from "./execution-record-contract.js";
 import type { Page } from "../app/page.js";
@@ -147,11 +147,11 @@ export class TurnStoreRecordRepository extends ExecutionRecordRepository {
   }
   // async: an Invalid Date in the answer rejects, it never throws before the promise exists
   async savePauseAnswer(...args: AnswerArgs): Promise<void> {
-    assertAnswerInstants(args[2]);
+    assertPauseAnswerInstants(args[2]);
     await this.store.appendPauseAnswer(pauseAnswerEntryOf(...args));
   }
   async markPauseAnswerNotTaken(...args: AnswerArgs): Promise<void> {
-    assertAnswerInstants(args[2]);
+    assertPauseAnswerInstants(args[2]);
     await this.store.markNotTaken(pauseAnswerEntryOf(...args));
   }
   async findPauseAnswersByTenantIdAndRootExecutionId(

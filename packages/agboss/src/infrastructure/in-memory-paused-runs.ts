@@ -1,5 +1,6 @@
 import type { PausedExecution } from "../app/paused-runs.js";
 import { threadMapKeyOf } from "./in-memory-database.js";
+import { assertPausedRunInstants } from "./paused-run-instants.js";
 import { PausedExecutionRepository } from "./paused-execution.repository.js";
 
 /**
@@ -21,6 +22,11 @@ export abstract class InMemoryPausedRunRepository extends PausedExecutionReposit
   }
 
   save(paused: PausedExecution): Promise<void> {
+    try {
+      assertPausedRunInstants(paused);
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
     this.#paused.set(threadMapKeyOf(paused.run), paused);
     return Promise.resolve();
   }
