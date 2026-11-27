@@ -2,7 +2,7 @@ import { PauseNoticeKind, type PauseRecipients, type PauseTimeoutChange } from "
 import { noticesOf } from "./pause-notice-plans.js";
 import type { PauseTrailEntry } from "../channels/pause-contexts.js";
 import { PauseExpiryBound, type PauseRecord } from "./pause-record.js";
-import { isAtOrBefore, sameInstant } from "./instants.js";
+import { assertValidInstant, isAtOrBefore, sameInstant } from "./instants.js";
 import { isWithinCap } from "./pause-limits-stored.js";
 import { isSeenAs } from "./pause-seen.js";
 import { isOpenAt, type PauseTransition } from "./pause-transitions.js";
@@ -37,6 +37,9 @@ export function timeoutChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseTransition | undefined {
+  assertValidInstant(at, "at");
+  assertValidInstant(change.expiresAt, "expiresAt");
+  assertValidInstant(change.remindAt, "remindAt");
   if (!isChangeable(pause, change, at)) return undefined;
   return {
     pause: {

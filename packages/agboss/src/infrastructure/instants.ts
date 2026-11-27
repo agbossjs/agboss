@@ -13,6 +13,21 @@ import { StoreError } from "../core/error-families/store-errors.js";
 export const sameInstant = (a: Date | undefined, b: Date | undefined): boolean =>
   (a?.getTime() ?? null) === (b?.getTime() ?? null);
 
+/** Whether a `Date` names an instant: an Invalid Date (`new Date(NaN)`) does not. */
+export const isValidInstant = (at: Date): boolean => !Number.isNaN(at.getTime());
+
+/**
+ * Refuses an Invalid Date a store was handed to keep (or a rule to apply): it would be written as
+ * `null` in JSON or throw in `toISOString()`, and read back as a poison row or compared as never
+ * equal, never before, never after. A `StoreError.UnreadableRecord` (the one `StoreError` a store
+ * raises for a time it cannot keep or read back) naming the `field`, never the value; nothing is
+ * written. An absent time (`undefined`) is fine: the caller decides whether one is required.
+ */
+export const assertValidInstant = (at: Date | undefined, field: string, record = "pause"): void => {
+  if (at !== undefined && !isValidInstant(at))
+    throw new StoreError.UnreadableRecord({ record, fields: field });
+};
+
 /** Whether `a` is strictly before `b`. */
 export const isBefore = (a: Date, b: Date): boolean => a.getTime() < b.getTime();
 

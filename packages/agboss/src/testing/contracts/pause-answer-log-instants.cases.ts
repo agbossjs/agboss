@@ -1,4 +1,5 @@
 import { expect } from "vitest";
+import { StoreErrorKind } from "../../core/error-families/store-errors.js";
 import type { ExecutionRecordRepository } from "../../infrastructure/execution-record.repository.js";
 import type { ContractCase } from "./define.js";
 import { answerOf, STEP_KEY } from "./pause-answer-data.js";
@@ -51,6 +52,35 @@ const CASES: readonly ContractCase<ExecutionRecordRepository>[] = [
 
       expect(read.map((entry) => entry.askedAt.getTime())).toEqual(
         times.map((asked) => asked.getTime()).sort((a, b) => a - b),
+      );
+    },
+  },
+  {
+    name: "#1307: an answer with an Invalid Date in any of its times is refused with StoreError.UnreadableRecord, and nothing is written",
+    run: async ({ first, second }) => {
+      const good = answerOf("manager-17", true, STEP_KEY, new Date("2026-01-05T09:00:00.123Z"));
+      const invalid = (): Date => new Date(Number.NaN);
+      const variants = {
+        askedAt: { ...good, askedAt: invalid() },
+        resolvedAt: { ...good, resolvedAt: invalid() },
+        "trail[0].at": { ...good, trail: [{ ...good.trail[0], at: invalid() }] },
+      } as Record<string, typeof good>;
+
+      for (const [field, answer] of Object.entries(variants)) {
+        for (const save of [
+          () => first.savePauseAnswer("acme", "root-1", answer),
+          () => first.markPauseAnswerNotTaken("acme", "root-1", answer),
+        ]) {
+          const error = await save().then(
+            () => undefined,
+            (caught: unknown) => caught,
+          );
+          expect(error, field).toMatchObject({ kind: StoreErrorKind.UnreadableRecord });
+        }
+      }
+
+      expect(await second.findPauseAnswersByTenantIdAndRootExecutionId("acme", "root-1")).toEqual(
+        [],
       );
     },
   },

@@ -1,4 +1,4 @@
-import { copyOf, copyOfOptional, isBefore } from "./instants.js";
+import { copyOf, copyOfOptional, isAtOrBefore, isBefore } from "./instants.js";
 import { copiedNotice } from "./pause-copies.js";
 import { PauseNoticeKind, type PauseMailbox, type PauseNotice } from "./pause-notices.js";
 
@@ -56,11 +56,11 @@ export type WrittenMailbox = StoredMailbox & { readonly headWrittenAt: Date };
 
 /** Whether a claim is held at `at`. */
 export const isClaimedAt = (mailbox: StoredMailbox, at: Date): mailbox is ClaimedMailbox =>
-  mailbox.claim !== undefined && mailbox.claim.until > at;
+  mailbox.claim !== undefined && isBefore(at, mailbox.claim.until);
 
 /** Whether `claimNoticesDue(at)` may claim it. */
 export const isDueAt = (mailbox: StoredMailbox, at: Date): boolean =>
-  isLive(mailbox) && mailbox.nextAttemptAt <= at && !isClaimedAt(mailbox, at);
+  isLive(mailbox) && isAtOrBefore(mailbox.nextAttemptAt, at) && !isClaimedAt(mailbox, at);
 
 /** Whether `setAsideStaleNoticesBefore(writtenBefore, at)` takes it. */
 export const isStaleAt = (
@@ -121,7 +121,7 @@ export const claimedMailbox = (
   mailbox: StoredMailbox,
   token: string,
   until: Date,
-): StoredMailbox => ({ ...mailbox, claim: { token, until } });
+): StoredMailbox => ({ ...mailbox, claim: { token, until: copyOf(until) } });
 
 /** The mailbox without its claim. */
 export const releasedMailbox = (mailbox: StoredMailbox): StoredMailbox => ({
@@ -144,7 +144,7 @@ export function acknowledgedMailbox(mailbox: StoredMailbox, at: Date): StoredMai
     ...mailbox,
     delivered,
     attempts: 0,
-    nextAttemptAt: at,
+    nextAttemptAt: copyOf(at),
     headWrittenAt: next?.writtenAt,
     problem: undefined,
   };
@@ -155,9 +155,9 @@ export function acknowledgedMailbox(mailbox: StoredMailbox, at: Date): StoredMai
 export function renewedMailbox(mailbox: ClaimedMailbox, until: Date): ClaimedMailbox;
 export function renewedMailbox(mailbox: StoredMailbox, until: Date): StoredMailbox;
 export function renewedMailbox(mailbox: StoredMailbox, until: Date): StoredMailbox {
-  return mailbox.claim === undefined || mailbox.claim.until >= until
+  return mailbox.claim === undefined || !isBefore(mailbox.claim.until, until)
     ? mailbox
-    : { ...mailbox, claim: { token: mailbox.claim.token, until } };
+    : { ...mailbox, claim: { token: mailbox.claim.token, until: copyOf(until) } };
 }
 
 /** The mailbox after a failed attempt: one more, due at `nextAttemptAt`, the claim released. */
@@ -168,7 +168,7 @@ export const retriedMailbox = (
 ): StoredMailbox => ({
   ...releasedMailbox(mailbox),
   attempts: mailbox.attempts + 1,
-  nextAttemptAt,
+  nextAttemptAt: copyOf(nextAttemptAt),
   problem,
 });
 

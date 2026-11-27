@@ -10,6 +10,7 @@ import {
 } from "./pause-notices.js";
 import type { PauseTrailEntry } from "../channels/pause-contexts.js";
 import type { PauseRecord } from "./pause-record.js";
+import { assertValidInstant } from "./instants.js";
 import { isWithinCap, narrowedLimits } from "./pause-limits-stored.js";
 import { reassignedPause, replacementPause, replacementStepKeyOf } from "./pause-replacement.js";
 import { isSeenAs } from "./pause-seen.js";
@@ -178,6 +179,11 @@ export function reassignChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseTransition | undefined {
+  assertValidInstant(at, "at");
+  assertValidInstant(change.due?.expiresAt, "due.expiresAt");
+  assertValidInstant(change.due?.remindAt, "due.remindAt");
+  assertValidInstant(change.timeout?.expiresAt, "timeout.expiresAt");
+  assertValidInstant(change.timeout?.remindAt, "timeout.remindAt");
   if (!isApplicable(pause, change, at)) return undefined;
   return isInPlace(change)
     ? inPlaceChange(pause, change, at, recipients)

@@ -1,3 +1,4 @@
+import { assertPauseInstants } from "../pause-instants-valid.js";
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 import { PauseResolution, PauseStatus, pauseKeyOf, type PauseRecord } from "../pause-record.js";
@@ -73,8 +74,10 @@ export function toPauseRecord(row: unknown): PauseRecord {
 }
 
 /** What a row keeps of a record as JSON. */
-const storedOf = (pause: PauseRecord): string =>
-  JSON.stringify({
+const storedOf = (pause: PauseRecord): string => {
+  // an Invalid Date would be `null` in the JSON and unreadable after: refused before the write
+  assertPauseInstants(pause);
+  return JSON.stringify({
     threadId: pause.threadId,
     executionId: pause.executionId,
     workflow: pause.workflow,
@@ -107,6 +110,7 @@ const storedOf = (pause: PauseRecord): string =>
     reassignedTo: pause.reassignedTo,
     reassignedFrom: pause.reassignedFrom,
   });
+};
 
 /** The statements of the pauses, on one connection's database. */
 export class SqlitePauseRows {

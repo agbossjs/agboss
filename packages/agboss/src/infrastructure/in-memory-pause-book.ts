@@ -25,8 +25,9 @@ import type {
   PauseNoticeKind,
   SetAsideMailbox,
 } from "./pause-notices.js";
-import { compareInstants } from "./instants.js";
+import { compareInstants, copyOf } from "./instants.js";
 import { copiedPause } from "./pause-copies.js";
+import { assertPauseInstants } from "./pause-instants-valid.js";
 import type { PauseRecord } from "./pause-record.js";
 import { onceNotices, type PauseTransition } from "./pause-transitions.js";
 import type { PauseNoticeFacts, PauseRecipients } from "./pause-notices.js";
@@ -59,6 +60,7 @@ export class InMemoryPauseBook {
 
   /** Adds a pause as the newest one. */
   insert(pause: PauseRecord): void {
+    assertPauseInstants(pause);
     this.#sequence += 1;
     this.#pauses.set(JSON.stringify([pause.tenantId, pause.pauseId]), {
       pause: copiedPause(pause),
@@ -77,6 +79,9 @@ export class InMemoryPauseBook {
     if (stored === undefined) return undefined;
     const change = plan(copiedPause(stored.pause));
     if (change === undefined) return undefined;
+    // refused before anything is applied: the change and its notices land together or not at all
+    assertPauseInstants(change.pause);
+    if (change.inserted !== undefined) assertPauseInstants(change.inserted);
     this.#pauses.set(key, { ...stored, pause: copiedPause(change.pause) });
     this.#append(change.pause, change.notices);
     if (change.inserted !== undefined) this.insert(change.inserted);
@@ -107,9 +112,9 @@ export class InMemoryPauseBook {
     const already = this.#mailboxesOf(tenantId, pauseId).some((box) =>
       hasNoticeOf(box, notice.kind),
     );
-    const planned = already
-      ? []
-      : onceNotices(pause, notice.kind, notice.facts, notice.at, notice.recipients);
+    // planned even when it is not written: an Invalid Date is refused either way
+    const once = onceNotices(pause, notice.kind, notice.facts, notice.at, notice.recipients);
+    const planned = already ? [] : once;
     this.#append(pause, planned);
     return planned.length > 0;
   }
@@ -149,7 +154,7 @@ export class InMemoryPauseBook {
       const token = randomBytes(16).toString("hex");
       const claimed = claimedMailbox(box, token, until);
       this.#mailboxes.set(mailboxKeyOf(box.tenantId, box.pauseId, box.recipient), claimed);
-      return { mailbox: mailboxOf(claimed), token, until };
+      return { mailbox: mailboxOf(claimed), token, until: copyOf(until) };
     });
   }
 
@@ -168,7 +173,11 @@ export class InMemoryPauseBook {
     this.#mailboxes.set(held[0], acknowledged);
     return acknowledged.claim === undefined
       ? undefined
-      : { mailbox: mailboxOf(acknowledged), token: claim.token, until: acknowledged.claim.until };
+      : {
+          mailbox: mailboxOf(acknowledged),
+          token: claim.token,
+          until: copyOf(acknowledged.claim.until),
+        };
   }
 
   renew(claim: PauseNoticeClaim, at: Date, claimFor: number): PauseNoticeClaim | undefined {
@@ -176,7 +185,7 @@ export class InMemoryPauseBook {
     if (held === undefined || !isClaimedAt(held[1], at)) return undefined;
     const renewed = renewedMailbox(held[1], new Date(at.getTime() + claimFor));
     this.#mailboxes.set(held[0], renewed);
-    return { mailbox: mailboxOf(renewed), token: claim.token, until: renewed.claim.until };
+    return { mailbox: mailboxOf(renewed), token: claim.token, until: copyOf(renewed.claim.until) };
   }
 
   retry(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): boolean {

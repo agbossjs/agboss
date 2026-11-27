@@ -243,7 +243,8 @@ three stores ([below](#the-stores--what-to-run)) and new cases in the contract s
 The times of a pause are `Date`s in that contract (`PauseRecord`, its chain of custody, the notices, the answer log), and
 the pure transitions a store applies (`decideChange`, `resolveChange`, `reassignChange`, `timeoutChange` and the others)
 are exported from `@agboss/core/stores`: write `toISOString()` into your columns, read a time back with `instantOfText`
-(any other spelling is `StoreError.UnreadableRecord`), delete your copies of the rules ([Your own store](Your-own-store)).
+(any other spelling is `StoreError.UnreadableRecord`), refuse an Invalid Date before the write with `assertPauseInstants`,
+delete your copies of the rules ([Your own store](Your-own-store)).
 
 ## The stores — what to run
 

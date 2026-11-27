@@ -62,3 +62,24 @@ export const expectInstant = (value: Date | undefined, expected: Date, what: str
   expect(value, what).toBeInstanceOf(Date);
   expect(value?.getTime(), what).toBe(expected.getTime());
 };
+
+/** Every `Date` a pause holds (none for an absent pause): what a caller of a store's own record may move. */
+export const datesOf = (pause: PauseRecord | undefined): Date[] =>
+  pause === undefined
+    ? []
+    : [
+        pause.askedAt,
+        pause.firstAskedAt,
+        pause.maxExpiresAt,
+        pause.resolvedAt,
+        pause.expiresAt,
+        pause.remindAt,
+        pause.boundAt,
+        pause.closedFirst?.resolvedAt,
+        ...pause.trail.flatMap((entry) => [entry.at, entry.expiresAt]),
+      ].filter((at): at is Date => at !== undefined);
+
+/** Sets to the epoch every `Date` of the pause: what a listener or a caller may do with a record it was handed. */
+export const moveDatesOf = (pause: PauseRecord | undefined): void => {
+  for (const at of datesOf(pause)) at.setTime(0);
+};

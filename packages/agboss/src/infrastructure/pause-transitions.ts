@@ -26,7 +26,7 @@ import {
   type PauseRecord,
   type PauseUntakenResolution,
 } from "./pause-record.js";
-import { isAtOrBefore, isBefore } from "./instants.js";
+import { assertValidInstant, isAtOrBefore, isBefore } from "./instants.js";
 
 /**
  * Every transition of a pause as a pure function (#935, #910 rules 1–8): the record a change makes
@@ -77,6 +77,7 @@ export function resolveChange(
   recipients: PauseRecipients,
   seen?: PauseSeen,
 ): PauseTransition | undefined {
+  assertValidInstant(at, "at");
   return isOpenAt(pause, at) && (seen === undefined || isSeenAs(pause, seen))
     ? closing(pause, resolvedPause(pause, answer, at), at, recipients)
     : undefined;
@@ -94,6 +95,7 @@ export function decideChange(
   at: Date,
   seen: PauseSeen,
 ): PauseTransition | undefined {
+  assertValidInstant(at, "at");
   return isOpenAt(pause, at) && isSeenAs(pause, seen)
     ? { pause: decidedPause(pause, answer, at), notices: [] }
     : undefined;
@@ -106,6 +108,7 @@ export function cancelChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseTransition | undefined {
+  assertValidInstant(at, "at");
   if (pause.status !== PauseStatus.Pending) return undefined;
   const isExpired = resolution !== PauseResolution.Withdrawn && isDueAt(pause, at);
   const closed = isExpired
@@ -121,6 +124,7 @@ export function expireChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseTransition | undefined {
+  assertValidInstant(at, "at");
   if (!isDueAt(pause, at)) return undefined;
   const closed =
     expiry.answer === undefined
@@ -136,6 +140,7 @@ export function closeUntakenChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseTransition | undefined {
+  assertValidInstant(at, "at");
   if (pause.status !== PauseStatus.Resolved) return undefined;
   return {
     pause: untakenPause(pause, resolution, at),
@@ -149,6 +154,7 @@ export function remindChange(
   at: Date,
   recipients: PauseRecipients,
 ): PauseTransition | undefined {
+  assertValidInstant(at, "at");
   if (!isOpenAt(pause, at) || pause.expiresAt === undefined) return undefined;
   if (pause.remindAt === undefined || isBefore(at, pause.remindAt)) return undefined;
   return {
@@ -169,6 +175,9 @@ function withExternalRef(
     trail: [...pause.trail.slice(0, -1), ...(last === undefined ? [] : [{ ...last, externalRef }])],
   };
 }
+
+/** The time of a notice for a closed record that holds none (a record stored before it kept `resolvedAt`): the epoch, as it was before #1307. */
+const NO_TIME = new Date(0);
 
 /**
  * The channel was asked (rule 2): `isSent` whatever the status, and — only when it was not yet —
@@ -192,10 +201,9 @@ export function markSentChange(
   const closedAt = first.resolvedAt ?? pause.askedAt;
   const untaken =
     pause.answer !== undefined &&
-    pause.resolvedAt !== undefined &&
     (pause.resolution === PauseResolution.Cancelled ||
       pause.resolution === PauseResolution.TreeEnded)
-      ? untakenNotices(pause.resolution, pause.resolvedAt, recipients)
+      ? untakenNotices(pause.resolution, pause.resolvedAt ?? NO_TIME, recipients)
       : [];
   return {
     pause: sent,
@@ -203,7 +211,11 @@ export function markSentChange(
   };
 }
 
-/** A notice of `kind` for a pause in any status, once the pause is sent (`noticeOnce…`). */
+/**
+ * A notice of `kind` for a pause in any status, once the pause is sent (`noticeOnce…`): what
+ * `noticeOnceByTenantIdAndPauseId` writes, exported so a store never restates it. Its times are
+ * checked like a change's (an Invalid Date is refused).
+ */
 export function onceNotices(
   pause: PauseRecord,
   kind: PauseNoticeKind,
@@ -211,5 +223,9 @@ export function onceNotices(
   at: Date,
   recipients: PauseRecipients,
 ): readonly PlannedNotice[] {
+  assertValidInstant(at, "at");
+  assertValidInstant(facts.closedAt, "closedAt");
+  assertValidInstant(facts.expiresAt, "expiresAt");
+  assertValidInstant(facts.previousExpiresAt, "previousExpiresAt");
   return pause.isSent ? noticesOf(recipients, kind, at, facts) : [];
 }

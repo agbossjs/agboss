@@ -1,5 +1,6 @@
 import type { Milliseconds } from "../units/index.js";
 import { isAtOrBefore, isBefore } from "./instants.js";
+import { stepOf } from "./in-memory-step.js";
 import { copiedPause } from "./pause-copies.js";
 import type { InMemoryPauseBook } from "./in-memory-pause-book.js";
 import { InMemoryPausedRunRepository } from "./in-memory-paused-runs.js";
@@ -43,9 +44,7 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     at: Date,
     recipients: PauseRecipients,
   ): Promise<boolean> {
-    return Promise.resolve(
-      this.book.noticeOnce(tenantId, pauseId, { kind, facts, at, recipients }),
-    );
+    return stepOf(() => this.book.noticeOnce(tenantId, pauseId, { kind, facts, at, recipients }));
   }
 
   async findPendingByExpiresAtBefore(

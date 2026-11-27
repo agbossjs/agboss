@@ -22,7 +22,7 @@ import { calendarOfTarget, type CalendarParts } from "./pause-calendar.js";
 
 /** What a pause's chain allows: the record's limits, or those after a move. */
 export interface ChainLimits extends PauseEscalationCounts {
-  /** The latest instant the pause may wait until ; absent: no limit on the total wait. */
+  /** The latest instant the pause may wait until; absent: no limit on the total wait. */
   readonly maxExpiresAt: Date | undefined;
 }
 

@@ -288,3 +288,142 @@ describe("#1356: the statements of the mailboxes", () => {
     expect(prepare).not.toHaveBeenCalled();
   });
 });
+
+const NON_CANONICAL = "2026-11-20T10:00:00Z";
+
+/** The error `run` throws, whatever it is; `undefined` when it returns. */
+const thrownBy = (run: () => unknown): unknown => {
+  try {
+    run();
+  } catch (error) {
+    return error;
+  }
+  return undefined;
+};
+
+describe("#1307: an Invalid Date is refused before a pause row is written", () => {
+  const invalidIn = (field: string): PauseRecord => {
+    const pause = pauseOf("p-1");
+    const first = pause.trail[0];
+    const changed: Record<string, Partial<PauseRecord>> = {
+      askedAt: { askedAt: new Date(Number.NaN) },
+      firstAskedAt: { firstAskedAt: new Date(Number.NaN) },
+      maxExpiresAt: { maxExpiresAt: new Date(Number.NaN) },
+      boundAt: { boundAt: new Date(Number.NaN) },
+      expiresAt: { expiresAt: new Date(Number.NaN) },
+      remindAt: { remindAt: new Date(Number.NaN) },
+      trail: { trail: first === undefined ? [] : [{ ...first, at: new Date(Number.NaN) }] },
+    };
+    return { ...pause, ...changed[field] };
+  };
+  const FIELDS = [
+    "askedAt",
+    "firstAskedAt",
+    "maxExpiresAt",
+    "boundAt",
+    "expiresAt",
+    "remindAt",
+    "trail",
+  ];
+
+  it("an insert of a pause with one, in the JSON or in a column, throws StoreError.UnreadableRecord and writes nothing", () => {
+    const connection = opened();
+    const rows = new SqlitePauseRows(connection.database);
+
+    for (const field of FIELDS)
+      expect(
+        thrownBy(() => {
+          rows.insert(invalidIn(field));
+        }),
+        field,
+      ).toBeInstanceOf(StoreError.UnreadableRecord);
+
+    expect(rows.findById("default", "p-1")).toBeUndefined();
+  });
+
+  it("a write of one throws the same and leaves the row as it was", () => {
+    const connection = opened();
+    const rows = new SqlitePauseRows(connection.database);
+    const pending = pauseOf("p-1");
+    rows.insert(pending);
+
+    for (const field of FIELDS)
+      expect(
+        thrownBy(() =>
+          rows.write({ ...invalidIn(field), status: PauseStatus.Resolved }, PauseStatus.Pending),
+        ),
+        field,
+      ).toBeInstanceOf(StoreError.UnreadableRecord);
+
+    expect(rows.findById("default", "p-1")).toMatchObject({ status: PauseStatus.Pending });
+    expect(rowOf(connection, "p-1").pause).not.toContain("null");
+  });
+});
+
+describe("#1307, M3: a mailbox time is read only in the canonical spelling, naming the field and never the value", () => {
+  const message = (run: () => unknown): string => {
+    const error = thrownBy(run);
+    if (!(error instanceof StoreError.UnreadableRecord)) throw new Error("not unreadable");
+    return error.message;
+  };
+
+  it("each column of a mailbox row refuses a text that is not what toISOString() writes", () => {
+    for (const [column, label] of [
+      ["next_attempt_at", "next_attempt_at"],
+      ["head_written_at", "head_written_at"],
+    ] as const) {
+      const text = message(() => toMailbox(mailboxRow({ [column]: NON_CANONICAL })));
+      expect(text, column).toContain(label);
+      expect(text, column).not.toContain(NON_CANONICAL);
+    }
+    const claim = message(() =>
+      toMailbox(mailboxRow({ claim_token: "t", claimed_until: NON_CANONICAL })),
+    );
+    expect(claim).toContain("claimed_until");
+    expect(claim).not.toContain(NON_CANONICAL);
+  });
+
+  it("each time of a notice refuses it too", () => {
+    for (const key of ["writtenAt", "closedAt", "expiresAt", "previousExpiresAt"]) {
+      const notices = JSON.stringify([
+        {
+          seq: 1,
+          kind: PauseNoticeKind.Closed,
+          writtenAt: "2026-11-20T09:00:00.000Z",
+          [key]: NON_CANONICAL,
+        },
+      ]);
+
+      const text = message(() => toMailbox(mailboxRow({ notices })));
+
+      expect(text, key).toContain(key);
+      expect(text, key).not.toContain(NON_CANONICAL);
+    }
+  });
+
+  it("a notice appended to a mailbox row that does not read is refused whole (a mailbox is never rewritten over what it cannot read): the loud choice", () => {
+    const connection = opened();
+    const rows = new SqlitePauseNoticeRows(connection.database);
+    const pause = pauseOf("p-1");
+    const planned = {
+      recipient: "channel:refund",
+      at: new Date("2026-11-20T10:00:00.000Z"),
+      notice: { kind: PauseNoticeKind.Closed, writtenAt: new Date("2026-11-20T10:00:00.000Z") },
+    };
+    rows.append(pause, [planned]);
+    connection.database
+      .prepare("UPDATE pause_notices SET next_attempt_at = ? WHERE pause_id = ?")
+      .run(NON_CANONICAL, "p-1");
+
+    const refused = thrownBy(() => {
+      rows.append(pause, [planned]);
+    });
+
+    expect(refused).toBeInstanceOf(StoreError.UnreadableRecord);
+    expect(
+      connection.database
+        .prepare("SELECT next_attempt_at, notices FROM pause_notices WHERE pause_id = ?")
+        .get("p-1"),
+    ).toMatchObject({ next_attempt_at: NON_CANONICAL });
+  });
+});

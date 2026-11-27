@@ -22,7 +22,11 @@ reference compare). The in-memory store copies the `Date`s it is given and hands
 `@agboss/core/stores` now exports the pure transitions every store applies, so a store of your own deletes its copies of the
 rules: `PauseTransition`, `decideChange`, `resolveChange`, `cancelChange`, `expireChange`, `closeUntakenChange`, `remindChange`,
 `markSentChange`, `reassignChange`, `timeoutChange`, `isWithinCap`, `reassignedPause`, `openingNotices`, `inFirstSendNotices`,
-`isOpenAt`, `isDueAt` and the `PlannedNotice` they write. The pause contract of `storeConformance` has new cases that fail a
-store that truncates a time, reads text in the wrong zone, hands out the instance it holds or compares two `Date`s by
-reference. A pause record or mailbox row a store wrote with another spelling of a time is unreadable: write the texts as
+`isOpenAt`, `isDueAt`, `onceNotices` (the rule of `noticeOnceByTenantIdAndPauseId`) and the `PlannedNotice` they write, with
+`sameInstant`, `isBefore`, `isAtOrBefore`, `instantOfText`, `assertValidInstant` and `assertPauseInstants`. An Invalid Date
+(`new Date(NaN)`) is refused before anything is written, by the core's stores and by the rules, with
+`StoreError.UnreadableRecord` naming the field (the answer log too): it would be `null` in JSON and unreadable after. The pause contract of `storeConformance` has new cases that fail a
+store that truncates a time, reads text in the wrong zone, hands out the instance it holds, compares two `Date`s by
+reference, binds a scan's keyset as another spelling of a time, orders two pauses of one millisecond by anything but
+`(tenantId, pauseId)` or writes an Invalid Date. A pause record or mailbox row a store wrote with another spelling of a time is unreadable: write the texts as
 `toISOString()` does.

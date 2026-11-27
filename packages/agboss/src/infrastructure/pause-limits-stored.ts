@@ -17,7 +17,7 @@ export interface PauseEscalationCounts {
 
 /** What a destination target offers: its counts and its total-wait instant, counted from the first asking. */
 export interface PauseLimitsOffer {
-  /** The latest instant the destination lets a pause wait until ; absent: none. */
+  /** The latest instant the destination lets a pause wait until; absent: none. */
   readonly maxExpiresAt?: Date | undefined;
   /** The destination's counts; absent: none. */
   readonly escalationLimits?: PauseEscalationCounts | undefined;
@@ -25,7 +25,7 @@ export interface PauseLimitsOffer {
 
 /** The limits a record carries: its `maxExpiresAt` and `escalationLimits`. */
 export interface PauseLimits {
-  /** The latest instant the pause may wait until ; absent: no limit on the total wait. */
+  /** The latest instant the pause may wait until; absent: no limit on the total wait. */
   readonly maxExpiresAt?: Date | undefined;
   /** The counts its chain of custody may hold. */
   readonly escalationLimits: PauseEscalationCounts;

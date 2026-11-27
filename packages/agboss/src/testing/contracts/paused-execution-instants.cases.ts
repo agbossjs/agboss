@@ -15,6 +15,9 @@ import {
   type Instances,
 } from "./paused-execution-instants-data.js";
 import { INSTANT_CAS_CASES } from "./paused-execution-instants-cas.cases.js";
+import { INSTANT_COPY_CASES } from "./paused-execution-instants-copy.cases.js";
+import { INSTANT_KEYSET_CASES } from "./paused-execution-instants-keyset.cases.js";
+import { INSTANT_REFUSAL_CASES } from "./paused-execution-instants-refuse.cases.js";
 
 /**
  * #1307 (G3, Q-A): a pause's times are `Date`s in the contract; a store keeps them as it likes (ISO 8601
@@ -117,4 +120,10 @@ const READ_CASES: readonly Case[] = [
   },
 ];
 
-export const INSTANT_CASES: readonly Case[] = [...READ_CASES, ...INSTANT_CAS_CASES];
+export const INSTANT_CASES: readonly Case[] = [
+  ...READ_CASES,
+  ...INSTANT_COPY_CASES,
+  ...INSTANT_CAS_CASES,
+  ...INSTANT_KEYSET_CASES,
+  ...INSTANT_REFUSAL_CASES,
+];

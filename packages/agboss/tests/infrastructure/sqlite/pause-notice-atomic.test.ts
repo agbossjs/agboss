@@ -4,6 +4,7 @@
  * change must not stay behind, and no notice without its change either.
  */
 import { describe, expect, it } from "vitest";
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { seconds } from "../../../src/units/index.js";
 import { NO_RECIPIENTS } from "../../../src/infrastructure/pause-notices.js";
 import {
@@ -106,5 +107,31 @@ describe("a timeout-changed notice keeps who and why through the store (#1307)",
         changeReason: "customer escalated",
       }),
     );
+  });
+});
+
+describe("#1307, M3: a mailbox row that does not read stops the change of its pause, whole", () => {
+  it("a resolve over a pause whose mailbox holds a time not in the canonical spelling is refused as unreadable, and the pause stays pending", async () => {
+    const path = temporarySqlitePath();
+    const pauses = new SqlitePausedExecutionRepository(connectionTo(path), new VirtualClock(MID));
+    await pauses.findOrCreateByStepKey(expiringPauseOf("pause-a"));
+    await pauses.markSentByTenantIdAndPauseId("default", "pause-a", RECIPIENTS);
+    connectionTo(path)
+      .database.prepare("UPDATE pause_notices SET next_attempt_at = '2026-01-05T10:00:00Z'")
+      .run();
+
+    await expect(
+      pauses.cancelByTenantIdAndPauseId(
+        "default",
+        "pause-a",
+        PauseResolution.Cancelled,
+        MID,
+        RECIPIENTS,
+      ),
+    ).rejects.toBeInstanceOf(StoreError.UnreadableRecord);
+
+    expect(await pauses.findByTenantIdAndPauseId("default", "pause-a")).toMatchObject({
+      status: PauseStatus.Pending,
+    });
   });
 });

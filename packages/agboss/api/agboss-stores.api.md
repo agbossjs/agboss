@@ -315,6 +315,12 @@ export function assertLedgerCutoff(cutoff: unknown): asserts cutoff is Date;
 export function assertLedgerEntries(entries: readonly unknown[]): asserts entries is readonly LedgerEntry[];
 
 // @public
+export function assertPauseInstants(pause: PauseRecord): void;
+
+// @public
+export const assertValidInstant: (at: Date | undefined, field: string, record?: string) => void;
+
+// @public
 export interface AuditEventStep {
     // (undocumented)
     readonly idempotencyKey: string;
@@ -1443,6 +1449,9 @@ export interface InvalidA2APageTokenErrorOptions {
 export function isAsSeen(pause: PauseRecord, seen: PauseSeen | undefined): boolean;
 
 // @public
+export const isAtOrBefore: (a: Date, b: Date) => boolean;
+
+// @public
 export const isBefore: (a: Date, b: Date) => boolean;
 
 // @public
@@ -1684,6 +1693,9 @@ export const OBJECT_SETTINGS: InjectionToken<ResolvedSettings | undefined>;
 
 // @public
 export type ObjectDriver = StorageDriver<StorageRole.Objects>;
+
+// @public
+export function onceNotices(pause: PauseRecord, kind: PauseNoticeKind, facts: PauseNoticeFacts, at: Date, recipients: PauseRecipients): readonly PlannedNotice[];
 
 // @public
 export function openingNotices(pause: PauseRecord, sent: PauseRecord, recipients: PauseRecipients): readonly PlannedNotice[];
