@@ -9,6 +9,9 @@ import { mkdirSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { inRunOnce } from "../../../src/app/idempotency-scope.js";
+import { IdempotencyError } from "../../../src/core/error-families/effect-errors.js";
+import { StoreError } from "../../../src/core/error-families/store-errors.js";
 import { pauseThread } from "../../../src/infrastructure/clock.js";
 import { afterFailedCommit } from "../../../src/infrastructure/sqlite/sqlite-outcome.js";
 import {
@@ -17,6 +20,7 @@ import {
   isSqliteImplementation,
   oneRowChanged,
   openSqliteDatabase,
+  requireSqliteTransaction,
   SqliteConnection,
   sqliteImplementation,
 } from "../../../src/infrastructure/sqlite/sqlite-connection.js";
@@ -337,6 +341,402 @@ describe("#1366: the connection of an instance", () => {
     })) as never);
 
     expect(() => connection.columnsOf("notes")).toThrow();
+  });
+});
+
+/** A real in-memory database that also lists the statements `exec` ran, and can be made to fail one. */
+class RecordingDatabase extends DatabaseSync {
+  static made: RecordingDatabase[] = [];
+  static failing = new Map<string, Error>();
+  readonly statements: string[] = [];
+  closed = 0;
+  constructor(_path: string, options: unknown) {
+    super(":memory:", options as never);
+    RecordingDatabase.made.push(this);
+  }
+  override exec(sql: string): void {
+    this.statements.push(sql);
+    const failure = RecordingDatabase.failing.get(sql);
+    if (failure !== undefined) {
+      RecordingDatabase.failing.delete(sql);
+      throw failure;
+    }
+    super.exec(sql);
+  }
+  override close(): void {
+    this.closed += 1;
+    if (this.isOpen) super.close();
+  }
+}
+
+/** The connections made from here on run over `RecordingDatabase`. */
+function recordingDatabases(): void {
+  vi.restoreAllMocks();
+  RecordingDatabase.made = [];
+  RecordingDatabase.failing = new Map();
+  vi.spyOn(process, "getBuiltinModule").mockImplementation((name: string) =>
+    name === "node:sqlite" ? { DatabaseSync: RecordingDatabase } : real(name),
+  );
+}
+
+const OUTSIDE =
+  "requireTransaction() was called outside an Idempotency.runOnce: a repository takes the effect's transaction only inside `execute`";
+
+const failureOf = (work: () => unknown): unknown => {
+  try {
+    work();
+  } catch (error) {
+    return error;
+  }
+  return undefined;
+};
+
+describe("#1317c: the transaction of a runOnce, as the connection hands it out", () => {
+  const memory = () => new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("outside a runOnce the connection is in no transaction and has none to give: OutsideTransaction, saying where it may be asked", () => {
+    const connection = memory();
+
+    const error = failureOf(() => connection.requireTransaction());
+
+    expect(connection.isInTransaction).toBe(false);
+    expect(error).toBeInstanceOf(IdempotencyError.OutsideTransaction);
+    expect((error as Error).message).toBe(OUTSIDE);
+  });
+
+  it("inside a runOnce of a store that has no SQLite transaction the refusal names that runOnce", () => {
+    const connection = memory();
+
+    const error = inRunOnce("charge", () => failureOf(() => connection.requireTransaction()));
+
+    expect(error).toBeInstanceOf(IdempotencyError.OutsideTransaction);
+    expect((error as Error).message).toBe(
+      'requireTransaction() was called inside runOnce "charge", which runs on a store that has no SQLite transaction (an in-memory fenced-effect store): list SqliteFencedEffectRepository, or test the repository on SQLite',
+    );
+  });
+
+  it("inside its own hold the connection is in a transaction and gives the hold's handle, on its own and as the ambient one", async () => {
+    const connection = memory();
+
+    const seen = await connection.held((handle) => ({
+      handle,
+      isInside: connection.isInTransaction,
+      own: connection.requireTransaction(),
+      ambient: requireSqliteTransaction(),
+    }));
+
+    expect(seen.isInside).toBe(true);
+    expect(seen.own).toBe(seen.handle);
+    expect(seen.ambient).toBe(seen.handle);
+    expect(connection.isInTransaction).toBe(false);
+  });
+
+  it("the ambient transaction outside a hold is refused, saying it is the SQLite one that is missing", () => {
+    const error = failureOf(() => requireSqliteTransaction());
+
+    expect(error).toBeInstanceOf(IdempotencyError.OutsideTransaction);
+    expect((error as Error).message).toBe(
+      "requireSqliteTransaction() was called outside an Idempotency.runOnce on SQLite: a repository takes the effect's transaction only inside `execute`",
+    );
+  });
+
+  it("a transaction of its own inside a hold is refused: the effect has one, written through requireTransaction()", async () => {
+    const connection = memory();
+
+    const error = await connection.held(() => failureOf(() => connection.transaction(() => 1)));
+
+    expect(error).toBeInstanceOf(IdempotencyError.NestedTransaction);
+    expect((error as Error).message).toBe(
+      "connection.transaction() was called inside an Idempotency.runOnce: the effect already has its transaction — write through requireTransaction(), so an uncaught error rolls everything back",
+    );
+  });
+});
+
+describe("#1317c: a transaction of the connection and the operation it is inside of", () => {
+  beforeEach(recordingDatabases);
+
+  const faked = (): { connection: SqliteConnection; statements: string[] } => {
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const statements = RecordingDatabase.made.at(-1)?.statements ?? [];
+    statements.length = 0;
+    return { connection, statements };
+  };
+
+  it("outside an operation it takes the write lock first and commits: BEGIN IMMEDIATE, the work, COMMIT", () => {
+    const { connection, statements } = faked();
+
+    expect(connection.transaction(() => 5)).toBe(5);
+
+    expect(statements).toEqual(["BEGIN IMMEDIATE", "COMMIT"]);
+  });
+
+  it("inside an operation that has written it joins the operation's transaction as a savepoint, and a failure undoes only its own statements", async () => {
+    const real = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const { database } = real;
+    database.exec("CREATE TABLE notes (text TEXT NOT NULL)");
+
+    await real.serve(() => {
+      database.exec("INSERT INTO notes VALUES ('before')");
+      expect(() =>
+        real.transaction(() => {
+          database.exec("INSERT INTO notes VALUES ('inside')");
+          throw new Error("the inner work failed");
+        }),
+      ).toThrow("the inner work failed");
+      real.transaction(() => {
+        database.exec("INSERT INTO notes VALUES ('after')");
+      });
+    });
+
+    expect(database.prepare("SELECT text FROM notes ORDER BY rowid").all()).toEqual([
+      { text: "before" },
+      { text: "after" },
+    ]);
+  });
+
+  it("the savepoint is named and released around the work, never a transaction of its own", () => {
+    const { connection, statements } = faked();
+    connection.database.exec("CREATE TABLE notes (text TEXT NOT NULL)");
+    statements.length = 0;
+
+    void connection.gate(() => {
+      connection.database.exec("INSERT INTO notes VALUES ('a')");
+      connection.transaction(() => undefined);
+    });
+
+    expect(statements).toEqual([
+      "BEGIN IMMEDIATE",
+      "INSERT INTO notes VALUES ('a')",
+      "SAVEPOINT agboss_nested",
+      "RELEASE agboss_nested",
+      "COMMIT",
+    ]);
+  });
+
+  it("an operation called from inside another is part of its attempt: its result is its own, its busy answer the outer one's", async () => {
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    let outer = 0;
+    let inner = 0;
+    const busyOnce = Object.assign(new Error("database is locked"), { errcode: 5 });
+
+    const result = await connection.gate(() => {
+      outer += 1;
+      return connection.gate(() => {
+        inner += 1;
+        if (inner === 1) throw busyOnce;
+        return "inner result";
+      });
+    });
+
+    expect(result).toBe("inner result");
+    // the retry was the outer operation's, whole: it called the inner one again
+    expect(outer).toBe(2);
+    expect(inner).toBe(2);
+  });
+
+  it("a nested operation's result is returned as it is, without a tick when the file is free", () => {
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+
+    const result = connection.gate(() => connection.gate(() => 7));
+
+    expect(result).toBe(7);
+  });
+});
+
+describe("#1317c: the operations served ahead of a hold, and the renewals that survive its rollback", () => {
+  const memory = () => new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+  const turn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("a priority operation runs inside the open hold at once; an ordinary one waits until the hold ends", async () => {
+    const connection = memory();
+    let release: () => void = () => undefined;
+    const open = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const order: string[] = [];
+    const hold = connection.held(async () => {
+      await open;
+      order.push("hold ends");
+    });
+    await turn();
+
+    const ahead = connection.serve(() => order.push("priority"), { isPriority: true });
+    const behind = connection.serve(() => order.push("ordinary"));
+    await ahead;
+    await turn();
+    expect(order).toEqual(["priority"]);
+    release();
+    await hold;
+    await behind;
+
+    expect(order).toEqual(["priority", "hold ends", "ordinary"]);
+  });
+
+  it.each([
+    [true, ["renewed"]],
+    [false, []],
+    [undefined, []],
+  ])(
+    "a priority write of renewal %s that rode in a hold which rolled back is re-applied: %j stays",
+    async (isRenewal, kept) => {
+      const connection = memory();
+      connection.database.exec("CREATE TABLE rows (row TEXT)");
+      const options = isRenewal === undefined ? { isPriority: true } : { isPriority: true, isRenewal };
+
+      await expect(
+        connection.held(async () => {
+          await turn();
+          await connection.serve(() => connection.database.exec("INSERT INTO rows VALUES ('renewed')"), options);
+          throw new Error("a declined card");
+        }),
+      ).rejects.toThrow("a declined card");
+      await turn();
+
+      expect(
+        connection.database.prepare("SELECT row FROM rows").all().map((found) => found.row),
+      ).toEqual(kept);
+    },
+  );
+});
+
+describe("#1317: the work of a startup, and the schema an application's repository makes", () => {
+  beforeEach(recordingDatabases);
+
+  const faked = (): { connection: SqliteConnection; statements: string[] } => {
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const statements = RecordingDatabase.made.at(-1)?.statements ?? [];
+    statements.length = 0;
+    return { connection, statements };
+  };
+
+  it("waits for the file's lock for the window and not after: the busy timeout, the work, the busy timeout back to 0", () => {
+    const { connection, statements } = faked();
+
+    const result = connection.startupWork(() => {
+      statements.push("work");
+      return 9;
+    }, 250);
+    connection.startupWork(() => undefined);
+
+    expect(result).toBe(9);
+    expect(statements).toEqual([
+      "PRAGMA busy_timeout = 250",
+      "work",
+      "PRAGMA busy_timeout = 0",
+      `PRAGMA busy_timeout = ${String(BUSY_TIMEOUT)}`,
+      "PRAGMA busy_timeout = 0",
+    ]);
+  });
+
+  it("a failure of the work is thrown as it is and the wait is still given back", () => {
+    const { connection, statements } = faked();
+    const failure = new Error("the DDL failed");
+
+    const error = failureOf(() =>
+      connection.startupWork(() => {
+        throw failure;
+      }, 250),
+    );
+
+    expect(error).toBe(failure);
+    expect(statements).toEqual(["PRAGMA busy_timeout = 250", "PRAGMA busy_timeout = 0"]);
+  });
+
+  it("a lock held past the window is StoreError.LockTimeout, nothing applied, the wait given back", () => {
+    const { connection, statements } = faked();
+    const busy5 = Object.assign(new Error("database is locked"), { errcode: 5 });
+
+    const error = failureOf(() =>
+      connection.startupWork(() => {
+        throw busy5;
+      }, 250),
+    );
+
+    expect(error).toBeInstanceOf(StoreError.LockTimeout);
+    expect((error as Error).message).toBe(
+      "the SQLite file stayed locked by another process for 250 ms: nothing was applied, the call can be tried again",
+    );
+    expect((error as Error).cause).toBe(busy5);
+    expect(statements.at(-1)).toBe("PRAGMA busy_timeout = 0");
+  });
+
+  it("an application's DDL runs once per name, in a transaction of its own", () => {
+    const { connection, statements } = faked();
+
+    connection.ensureSchema("notes", "CREATE TABLE IF NOT EXISTS notes (text TEXT)");
+    connection.ensureSchema("notes", "CREATE TABLE IF NOT EXISTS notes (text TEXT)");
+    connection.ensureSchema("memos", "CREATE TABLE IF NOT EXISTS memos (text TEXT)");
+
+    expect(statements.filter((sql) => sql.includes("CREATE TABLE"))).toEqual([
+      "CREATE TABLE IF NOT EXISTS notes (text TEXT)",
+      "CREATE TABLE IF NOT EXISTS memos (text TEXT)",
+    ]);
+    expect(statements.slice(0, 5)).toEqual([
+      "PRAGMA busy_timeout = 5000",
+      "BEGIN IMMEDIATE",
+      "CREATE TABLE IF NOT EXISTS notes (text TEXT)",
+      "COMMIT",
+      "PRAGMA busy_timeout = 0",
+    ]);
+  });
+
+  it("a failure of the schema at the open closes the file and is thrown as it is", () => {
+    const failure = new Error("the schema could not be made");
+    RecordingDatabase.failing.set("PRAGMA busy_timeout = 0", failure);
+
+    const error = failureOf(() => new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never));
+
+    expect(error).toBe(failure);
+    expect(RecordingDatabase.made.at(-1)?.closed).toBe(1);
+  });
+});
+
+describe("#1317c: the SQLite implementations' operations meet their instance's connection", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("an operation of an instance that holds a connection in a field is gated by it; an instance with none runs as it is", () => {
+    class Gated {
+      constructor(readonly connection: unknown) {}
+      read(): string {
+        return "read";
+      }
+    }
+    sqliteImplementation(Gated);
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const gate = vi.spyOn(connection, "gate");
+
+    expect(new Gated(connection).read()).toBe("read");
+    expect(gate).toHaveBeenCalledOnce();
+    expect(new Gated({ not: "a connection" }).read()).toBe("read");
+    expect(new Gated(undefined).read()).toBe("read");
+    expect(gate).toHaveBeenCalledOnce();
+  });
+
+  it("the connection is found among the fields wherever it is, and a field that is another object's is not one", () => {
+    class Late {
+      readonly note = { kind: "note" };
+      constructor(readonly connection: unknown) {}
+      read(): string {
+        return "read";
+      }
+    }
+    sqliteImplementation(Late);
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const gate = vi.spyOn(connection, "gate");
+
+    new Late(connection).read();
+
+    expect(gate).toHaveBeenCalledOnce();
   });
 });
 

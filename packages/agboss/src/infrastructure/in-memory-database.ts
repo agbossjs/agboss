@@ -107,15 +107,15 @@ export function checkInMemoryCancel(database: InMemoryDatabase, key: EffectKey):
  * looks. A lease taken at a higher token (an unpause, a cancel's unwind) is not fenced.
  */
 function checkFence(row: ExecutionLeaseRow | undefined, key: EffectKey, root: string): void {
-  const fenced = row?.fencedThroughToken;
-  if (row === undefined || fenced === undefined) return;
+  if (row?.fencedThroughToken === undefined) return;
+  const fenced = row.fencedThroughToken;
   const isStale = key.leaseExecutionId === root ? key.token <= fenced : fenced >= row.lease.token;
   if (isStale) throw pauseFencedOf(key);
 }
 
 /** Whether an expiry (ms; `null` = never) has come at `now`: `null` never has. */
 const isDue = (expiresAt: number | null | undefined, now: number): boolean =>
-  expiresAt !== undefined && expiresAt !== null && expiresAt <= now;
+  typeof expiresAt === "number" && expiresAt <= now;
 
 /**
  * The later of two expiries (ms; `null` = never, which is later than any date): what a scope's

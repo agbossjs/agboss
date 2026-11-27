@@ -5,6 +5,11 @@
  */
 import { ExecutionError } from "../../src/core/error-families/run-errors.js";
 import { describe, expect, it } from "vitest";
+import { InterruptMode } from "../../src/app/interrupt-types.js";
+import {
+  ExecutionPauseFencedError,
+  ExecutionStopFencedError,
+} from "../../src/app/lease-stopped.js";
 import {
   checkInMemoryCancel,
   InMemoryDatabase,
@@ -86,6 +91,77 @@ describe("#1356: the cancel check of the in-memory stores", () => {
     expect(() => {
       checkInMemoryCancel(database("t1", "root", 5), key({}, true));
     }).not.toThrow();
+  });
+});
+
+describe("#1341b, #1341c: the stop and the pause fences of the in-memory stores", () => {
+  const rowOf = (changes: Record<string, unknown>): ExecutionLeaseRow =>
+    ({ lease: { token: 5 }, released: false, ...changes }) as never;
+  const databaseOf = (row: ExecutionLeaseRow | undefined) => {
+    const found = new InMemoryDatabase();
+    if (row !== undefined) found.executionLeases.set(treeKeyOf("t1", "root"), row);
+    return found;
+  };
+  const refusalOf = (row: ExecutionLeaseRow | undefined, given = key()): unknown => {
+    try {
+      checkInMemoryCancel(databaseOf(row), given);
+    } catch (error) {
+      return error;
+    }
+    return undefined;
+  };
+  const rootKey = (token: number) => key({ leaseExecutionId: "root", token });
+
+  it("a root's write at or below the fenced token is refused as the pause it is, naming the write; above it, through", () => {
+    const row = rowOf({ fencedThroughToken: 3 });
+
+    const error = refusalOf(row, rootKey(3));
+
+    expect(error).toBeInstanceOf(ExecutionPauseFencedError);
+    expect(error).toMatchObject({
+      scopeKey: "scope",
+      tenantId: "t1",
+      leaseExecutionId: "root",
+      rootExecutionId: "root",
+      token: 3,
+      effect: "charge",
+    });
+    expect(refusalOf(row, rootKey(1))).toBeInstanceOf(ExecutionPauseFencedError);
+    expect(refusalOf(row, rootKey(4))).toBeUndefined();
+  });
+
+  it("a child's write is refused while the root's current token is the fenced one or lower, whatever the child's own token", () => {
+    const fenced = (rootToken: number) => rowOf({ fencedThroughToken: 5, lease: { token: rootToken } });
+
+    expect(refusalOf(fenced(5), key({ token: 99 }))).toBeInstanceOf(ExecutionPauseFencedError);
+    expect(refusalOf(fenced(4), key({ token: 99 }))).toBeInstanceOf(ExecutionPauseFencedError);
+    expect(refusalOf(fenced(6), key({ token: 1 }))).toBeUndefined();
+    expect(refusalOf(fenced(6), key({ token: 99 }))).toBeUndefined();
+  });
+
+  it("a row with no fence, and a tree with no row, fence nothing", () => {
+    expect(refusalOf(rowOf({}), rootKey(1))).toBeUndefined();
+    expect(refusalOf(rowOf({}), key({ token: 1 }))).toBeUndefined();
+    expect(refusalOf(undefined, rootKey(1))).toBeUndefined();
+  });
+
+  it("an Immediate stop refuses the write as the stop it is, an undo's too; an AfterStep stop and a row with no stop do not", () => {
+    const stopped = rowOf({ stopMode: InterruptMode.Immediate });
+
+    const error = refusalOf(stopped);
+
+    expect(error).toBeInstanceOf(ExecutionStopFencedError);
+    expect(error).toMatchObject({ tenantId: "t1", leaseExecutionId: "child", effect: "charge" });
+    expect(refusalOf(stopped, key({}, true))).toBeInstanceOf(ExecutionStopFencedError);
+    expect(refusalOf(rowOf({ stopMode: InterruptMode.AfterStep }))).toBeUndefined();
+    expect(refusalOf(rowOf({}))).toBeUndefined();
+  });
+
+  it("a cancel that outranks the stop is the cancel's refusal, and its undo runs", () => {
+    const both = rowOf({ stopMode: InterruptMode.Immediate, cancelRequestedAt: 7 });
+
+    expect(refusalOf(both)).toBeInstanceOf(ExecutionError.CancelFenced);
+    expect(refusalOf(both, key({}, true))).toBeUndefined();
   });
 });
 
