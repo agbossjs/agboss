@@ -17,6 +17,7 @@ import {
 import { INSTANT_CAS_CASES } from "./paused-execution-instants-cas.cases.js";
 import { INSTANT_COPY_CASES } from "./paused-execution-instants-copy.cases.js";
 import { INSTANT_KEYSET_CASES } from "./paused-execution-instants-keyset.cases.js";
+import { INSTANT_REFUSAL_CALL_CASES } from "./paused-execution-instants-refuse-calls.cases.js";
 import { INSTANT_REFUSAL_CASES } from "./paused-execution-instants-refuse.cases.js";
 
 /**
@@ -126,4 +127,5 @@ export const INSTANT_CASES: readonly Case[] = [
   ...INSTANT_CAS_CASES,
   ...INSTANT_KEYSET_CASES,
   ...INSTANT_REFUSAL_CASES,
+  ...INSTANT_REFUSAL_CALL_CASES,
 ];

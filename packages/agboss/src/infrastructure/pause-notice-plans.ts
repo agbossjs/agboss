@@ -1,4 +1,6 @@
 import { closedAtOf, closedReasonOf } from "./pause-closing.js";
+import { copyOf } from "./instants.js";
+import { copiedNotice } from "./pause-copies.js";
 import type { PlannedNotice } from "./pause-mailboxes.js";
 import {
   PauseNoticeKind,
@@ -24,8 +26,12 @@ export function noticesOf(
   at: Date,
   facts: PauseNoticeFacts,
 ): readonly PlannedNotice[] {
-  const notice = { kind, writtenAt: at, ...facts };
-  return recipientKeysOf(recipients, kind).map((recipient) => ({ recipient, at, notice }));
+  // every notice has times of its own: a `setTime` on a planned notice never moves another's
+  return recipientKeysOf(recipients, kind).map((recipient) => ({
+    recipient,
+    at: copyOf(at),
+    notice: copiedNotice({ kind, writtenAt: at, ...facts }),
+  }));
 }
 
 /** The `closed` notice of a record that closed. */

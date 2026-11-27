@@ -157,11 +157,11 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     return Promise.resolve(this.book.claim(at, limit, claimFor, recipients));
   }
 
-  ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined> {
+  async ackNotice(claim: PauseNoticeClaim, at: Date): Promise<PauseNoticeClaim | undefined> {
     return Promise.resolve(this.book.ack(claim, at));
   }
 
-  renewNotice(
+  async renewNotice(
     claim: PauseNoticeClaim,
     at: Date,
     claimFor: Milliseconds,
@@ -169,8 +169,8 @@ export abstract class InMemoryPauseQueryRepository extends InMemoryPausedRunRepo
     return Promise.resolve(this.book.renew(claim, at, claimFor));
   }
 
-  retryNotice(claim: PauseNoticeClaim, nextAttemptAt: Date, problem: string): Promise<boolean> {
-    return Promise.resolve(this.book.retry(claim, nextAttemptAt, problem));
+  async retryNotice(claim: PauseNoticeClaim, retryAt: Date, problem: string): Promise<boolean> {
+    return Promise.resolve(this.book.retry(claim, retryAt, problem));
   }
 
   setAsideNotices(claim: PauseNoticeClaim, _at: Date, problem: string): Promise<boolean> {

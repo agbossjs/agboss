@@ -315,6 +315,9 @@ export function assertLedgerCutoff(cutoff: unknown): asserts cutoff is Date;
 export function assertLedgerEntries(entries: readonly unknown[]): asserts entries is readonly LedgerEntry[];
 
 // @public
+export function assertPauseAnswerInstants(answer: Pick<PauseAnswerRecord, "askedAt" | "resolvedAt" | "trail">): void;
+
+// @public
 export function assertPauseInstants(pause: PauseRecord): void;
 
 // @public
@@ -2840,6 +2843,7 @@ export namespace StoreError {
         readonly ids?: string | undefined;
         readonly fields?: string | undefined;
         readonly isNotJson?: boolean | undefined;
+        readonly isInvalidDate?: boolean | undefined;
     };
 }
 

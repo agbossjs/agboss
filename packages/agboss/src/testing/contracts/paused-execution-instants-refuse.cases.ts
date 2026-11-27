@@ -22,10 +22,10 @@ import {
  * (`null` in JSON) holds a row it can never read again; one that keeps it holds a pause that is never
  * open, never due and never equal to anything.
  */
-const INVALID = (): Date => new Date(Number.NaN);
+export const INVALID = (): Date => new Date(Number.NaN);
 
 /** The error the call raised (a throw before the promise included), or `undefined` when it resolved. */
-const refusalOf = async (call: () => Promise<unknown>): Promise<unknown> => {
+export const refusalOf = async (call: () => Promise<unknown>): Promise<unknown> => {
   try {
     await call();
   } catch (error) {
@@ -34,7 +34,7 @@ const refusalOf = async (call: () => Promise<unknown>): Promise<unknown> => {
   return undefined;
 };
 
-const expectRefused = (error: unknown, what: string): void => {
+export const expectRefused = (error: unknown, what: string): void => {
   expect(error, `${what}: refused`).toMatchObject({ kind: StoreErrorKind.UnreadableRecord });
 };
 
@@ -47,6 +47,7 @@ export const INSTANT_REFUSAL_CASES: readonly Case[] = [
         askedAt: { ...made(), askedAt: INVALID() },
         firstAskedAt: { ...made(), firstAskedAt: INVALID() },
         expiresAt: { ...made(), expiresAt: INVALID() },
+        "expiresAt (year 10000)": { ...made(), expiresAt: new Date(Date.UTC(10000, 0, 1)) },
         remindAt: { ...made(), remindAt: INVALID() },
         maxExpiresAt: { ...made(), maxExpiresAt: INVALID() },
         boundAt: { ...made(), boundAt: INVALID() },

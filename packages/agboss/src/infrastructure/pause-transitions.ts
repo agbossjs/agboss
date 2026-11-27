@@ -176,8 +176,8 @@ function withExternalRef(
   };
 }
 
-/** The time of a notice for a closed record that holds none (a record stored before it kept `resolvedAt`): the epoch, as it was before #1307. */
-const NO_TIME = new Date(0);
+/** The time of a notice for a closed record that holds none (a record stored before it kept `resolvedAt`): the epoch, as it was before #1307 (a fresh `Date` for each notice, never one shared). */
+const noTime = (): Date => new Date(0);
 
 /**
  * The channel was asked (rule 2): `isSent` whatever the status, and — only when it was not yet —
@@ -203,7 +203,7 @@ export function markSentChange(
     pause.answer !== undefined &&
     (pause.resolution === PauseResolution.Cancelled ||
       pause.resolution === PauseResolution.TreeEnded)
-      ? untakenNotices(pause.resolution, pause.resolvedAt ?? NO_TIME, recipients)
+      ? untakenNotices(pause.resolution, pause.resolvedAt ?? noTime(), recipients)
       : [];
   return {
     pause: sent,

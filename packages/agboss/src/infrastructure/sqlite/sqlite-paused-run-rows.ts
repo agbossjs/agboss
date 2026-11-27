@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
+import { assertPausedRunInstants } from "../paused-run-instants.js";
 import { decodePausedRun, encodePausedRun, type PausedExecution } from "../../app/paused-runs.js";
 
 const PausedRow = z.object({
@@ -34,6 +35,7 @@ export class SqlitePausedRunRows {
   }
 
   save(paused: PausedExecution, at: Date): void {
+    assertPausedRunInstants(paused);
     const { run } = paused;
     this.database
       .prepare("INSERT OR REPLACE INTO paused_executions VALUES (?, ?, ?, ?, ?, ?, ?)")

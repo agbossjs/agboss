@@ -6,7 +6,7 @@ import { assertValidInstant } from "./instants.js";
  * JSON and throws in `toISOString()`, so it is refused before any write (`StoreError.UnreadableRecord`
  * naming the field, never the value).
  */
-export function assertAnswerInstants(
+export function assertPauseAnswerInstants(
   answer: Pick<PauseAnswerRecord, "askedAt" | "resolvedAt" | "trail">,
 ): void {
   assertValidInstant(answer.askedAt, "askedAt", "pause answer");
