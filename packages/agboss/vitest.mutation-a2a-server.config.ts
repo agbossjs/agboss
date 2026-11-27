@@ -25,6 +25,12 @@ export default defineConfig({
       "tests/a2a/files/*.test.ts",
       // #860: the direct replies' server path and the store rules
       "tests/a2a/direct/*.test.ts",
+      // #1356: the MCP endpoint (#1319) and the mesh HTTP (#1320): sessions, limits, identity, the listener's authenticator
+      "tests/mcp/mcp-http-*.test.ts",
+      "tests/mcp/mcp-session-*.test.ts",
+      "tests/mcp/mcp-call-frame-ids.test.ts",
+      "tests/a2a/a2a-listener-authenticator.test.ts",
+      "tests/mesh/*.test.ts",
     ],
   },
 });

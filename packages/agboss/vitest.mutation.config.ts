@@ -23,6 +23,10 @@ export default defineConfig({
       "tests/properties/*.property.test.ts",
       "tests/turns/minted-thread-exhausted.test.ts",
       "tests/core/defined-of.test.ts",
+      // #1356: tests that run files the shards mutate and sat outside their include list
+      "tests/infrastructure/pause-fence-units.test.ts",
+      "tests/infrastructure/sqlite/sqlite-hold-same-tick.test.ts",
+      "tests/app/idempotency-scope.test.ts",
     ],
   },
 });

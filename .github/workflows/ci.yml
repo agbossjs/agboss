@@ -256,6 +256,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build -w @agboss/core
+      # a file the shard mutates that no test of the shard runs is NoCoverage at the end of a run of up to 50 min
+      - name: A test of the shard runs every file it mutates
+        run: node scripts/check-mutation-reach.mjs --shard ${{ matrix.shard }} --workers 2
       - name: Restore the shard's last mutation run
         uses: actions/cache@v4
         with:

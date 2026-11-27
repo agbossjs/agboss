@@ -60,6 +60,8 @@
     "check:installs": "node scripts/check-installs.mjs",
     "check:real-time": "node scripts/check-real-time.mjs",
     "check:knip": "knip",
+    "check:mutation-reach": "node scripts/check-mutation-reach.mjs --changed",
+    "test:mutation:changed": "node scripts/mutation-changed.mjs --run",
     "check:root": "node scripts/check-root.mjs",
     "check:types": "node scripts/check-types.mjs",
     "check:api": "node scripts/api-report.mjs",

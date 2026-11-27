@@ -17,6 +17,9 @@ export default defineConfig({
       "tests/files/*.test.ts",
       "tests/pii/*.test.ts",
       "tests/run/file-processors-hash.test.ts",
+      // #1356: the inline offload
+      "tests/config/file-policies-shelf.test.ts",
+      "tests/app/inline-cap-answer-1316c.test.ts",
     ],
   },
 });

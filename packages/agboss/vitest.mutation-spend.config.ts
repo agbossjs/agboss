@@ -30,6 +30,8 @@ export default defineConfig({
       // a trusted caller's budget, and the frame a custom compaction reads before the first step
       "tests/mcp/mcp-mesh-trust.test.ts",
       "tests/memory/custom-compaction.test.ts",
+      // #1356: the budget's spend in the shelves
+      "tests/config/shelves.test.ts",
     ],
   },
 });

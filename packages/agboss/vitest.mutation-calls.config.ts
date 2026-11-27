@@ -25,6 +25,9 @@ export default defineConfig({
       // the framework's errors and the wording of the key text rules (src/core/errors.ts is mutated whole)
       "tests/core/errors-units.test.ts",
       "tests/properties/*.property.test.ts",
+      // #1356: the call ids' other tests
+      "tests/infrastructure/lease-fencing.test.ts",
+      "tests/graph/budget-loop-model-calls.test.ts",
     ],
   },
 });

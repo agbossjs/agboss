@@ -294,6 +294,7 @@ cd "$WORKSPACE_ROOT/agboss" && git switch main && git pull --ff-only origin main
   (#791: `--audit-level=high` fails the step on one; the moderate `@hono/node-server` 1.x under
   `@langchain/langgraph-api`'s `@hono/node-ws` has no fixed 1.x release), a non-zero count of `src/` files, and main's `CI` run for
   `$RELEASE_SHA` is `completed success` (or in progress — the release job waits for it).
+- **The nightly mutation run (`mutation-nightly.yml`) is green on `$RELEASE_SHA`** (#1356): `gh run list -R agbossjs/agboss --workflow mutation-nightly.yml --commit "$RELEASE_SHA"` shows `completed success` (else dispatch it on `main` and wait). **Stop** on a red or missing run; an open issue "Nightly mutation run is red" means it is not.
 - The audit is of that project, never of this repository's lockfile (#790):
   `npm audit --omit=dev -w @agboss/core` also counts the core's optional peers (`vitest`,
   `@typescript-eslint/utils` — npm installs them for no user, who picks their versions), the

@@ -21,6 +21,8 @@ export default defineConfig({
       "tests/sweep-1366h/flow/pause-record-made-1366h.test.ts",
       "tests/flow/pause-record-deadlines.test.ts",
       "tests/channels/pause-step{,-deadline,-working-time}.test.ts",
+      // #1356: the answer permit
+      "tests/channels/pause-permit-unresolved.test.ts",
     ],
   },
 });

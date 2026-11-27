@@ -14,6 +14,8 @@ export default defineConfig({
       "tests/budgets/**/*.test.ts",
       "tests/graph/**/*.test.ts",
       "tests/graph/budget-loop-*.test.ts",
+      // #1356: a tool's output over the inline cap
+      "tests/files/inline-cap-poison-1316c.test.ts",
     ],
   },
 });

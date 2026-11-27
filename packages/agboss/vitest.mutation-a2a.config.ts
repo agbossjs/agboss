@@ -23,12 +23,13 @@ export default defineConfig({
       // #844: a repaired task's spend, its memory update included
       // #808: the server, over its JSON-RPC binding
       "tests/a2a/server/*.test.ts",
-      // #810: the mesh end to end, a task file of before it
+      // #810: the mesh end to end
       "tests/a2a/mesh/*.test.ts",
-      "tests/infrastructure/sqlite/sqlite-a2a-task-mesh.test.ts",
       // #860: a run no recovery continues, a direct reply's task-less path
       "tests/app/without-recovery.test.ts",
       "tests/a2a/direct/*.test.ts",
+      // #1356: the A2A task sweep's race
+      "tests/infrastructure/sqlite/sqlite-a2a-task-sweep-race.test.ts",
     ],
   },
 });

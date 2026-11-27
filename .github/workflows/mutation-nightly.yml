@@ -76,6 +76,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build -w @agboss/core
+      # a file the shard mutates that no test of the shard runs is NoCoverage at the end of the run: say so first
+      - name: A test of the shard runs every file it mutates
+        run: node scripts/check-mutation-reach.mjs --shard ${{ matrix.shard }} --workers 2
       - name: Mutation testing of the shard, cold (break below 100 % killed or justified)
         run: npm run test:mutation -w @agboss/core -- --force
       - name: Mutation testing of the CLI's stream path, cold
@@ -96,3 +99,44 @@ jobs:
           path: |
             packages/agboss/reports/mutation/
             packages/agboss-cli/reports/mutation/
+
+  # Three red nights passed unseen (2026-11-25..27): the first red run opens an issue, every later one comments on it,
+  # a green run closes it. The default token: `issues: write` here, nothing more.
+  report:
+    needs: mutation
+    if: ${{ always() && needs.mutation.result != 'cancelled' && github.event_name == 'schedule' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RESULT: ${{ needs.mutation.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TITLE: "Nightly mutation run is red"
+    steps:
+      - name: Open, update or close the issue
+        run: |
+          set -euo pipefail
+          open="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty")"
+          if [ "$RESULT" = success ]; then
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "The nightly mutation run is green again: $RUN_URL"
+              gh issue close "$open" --reason completed
+            fi
+            exit 0
+          fi
+          failed="$(gh run view "$GITHUB_RUN_ID" --json jobs --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")')"
+          body="The cold nightly mutation run failed: $RUN_URL
+
+          Shards that failed: ${failed:-none read (see the run)}
+
+          Each log lists the Survived and NoCoverage mutants. Reproduce one shard: \`MUTATION_SHARD=<shard> npm run test:mutation -w @agboss/core -- --force\`. The nightly must be green on the release head (RELEASE_CHECKLIST.md)."
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Still red: $body"
+          else
+            gh issue create --title "$TITLE" --body "$body"
+          fi
