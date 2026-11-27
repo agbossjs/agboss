@@ -136,7 +136,23 @@ describe("D3: a record of 0.1.0's mark is refused, never read as not in the ledg
     ]) {
       expect(read).toThrow(StoreError.UnreadableRecord);
       expect(read).toThrow(names);
+      expect(read).toThrow(
+        `a stored usage record is not readable: the field(s) ${names} missing or not what the framework wrote`,
+      );
     }
+  });
+
+  it("names the record and its fields, and no ids: it carries none", () => {
+    const error = ((): unknown => {
+      try {
+        return ledgerMarkOf({ ...paid(1), ledgerId: "p:1", madeAt: "x" });
+      } catch (caught) {
+        return caught;
+      }
+    })();
+
+    expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
+    expect(error).toMatchObject({ record: "usage record", ids: "", fields: "ledgerId, madeAt" });
   });
 });
 
