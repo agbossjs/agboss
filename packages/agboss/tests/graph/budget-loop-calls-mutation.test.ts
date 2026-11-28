@@ -54,7 +54,7 @@ describe("#1356: what a call gives", () => {
       runId: "run-1",
       prepared: { kind: "invalid", args: { a: 1 }, from: "model" },
       ...changes,
-    }) as unknown as ToolTask;
+    }) as never;
 
   it("a call prepared as invalid runs no tool: the error of its arguments", async () => {
     const tool = failing({ path: ["a"], message: "Expected string" });

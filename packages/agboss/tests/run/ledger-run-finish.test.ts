@@ -186,7 +186,7 @@ describe("#1366: a finished run's turn", () => {
     expect(completeUnlessInterrupted).not.toHaveBeenCalled();
   });
 
-  it("a run with a compensation seam that knows no mark, or none standing, is written as any other", async () => {
+  it("a run with a compensation seam that knows no mark, or none standing, is written like every other", async () => {
     const bare = setup();
     Object.assign(bare.raw.deps, { compensation: {} });
     const clear = setup();
