@@ -3,108 +3,53 @@ name: Mutation (nightly, cold)
 # #626: every shard of stryker.config.mjs from scratch (`--force`), every night and on
 # demand — the PRs' runs are incremental (ci.yml), and an incremental run trusts the results it
 # cached for code and tests it sees unchanged; this run trusts none.
+# On demand, from any branch, for the shards you name (up to 20 run at once on the Free plan):
+#   gh workflow run mutation-nightly.yml --ref <branch> -f shards=fence-tree,mesh-charge     (or -f shards=all)
+#   gh run list --workflow mutation-nightly.yml --branch <branch> -L 1     then: gh run view <id> --log
+# The workflow file must exist on main (a workflow GitHub does not know on the default branch cannot be dispatched);
+# the version that runs is the one on --ref, so a change of this file is tried from its own branch.
 on:
   schedule:
     - cron: "41 2 * * *"
   workflow_dispatch:
+    inputs:
+      shards:
+        description: "Shards to run: a comma list (fence-tree,mesh-charge) or all"
+        default: all
+        required: false
 
 permissions:
   contents: read
 
 jobs:
-  mutation:
+  plan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        shard:
-          [
-            fencing,
-            fencing-effects,
-            sqlite-stores,
-            keys-and-calls,
-            takeover,
-            recovery,
-            undo,
-            unwind,
-            money,
-            spend,
-            cancel,
-            fenced-reach,
-            pauses,
-            pauses-sqlite,
-            pause-notices,
-            rate-limits,
-            money-runtime,
-            cancel-stores,
-            mesh-charge,
-            once-state,
-            once-child,
-            once-mesh,
-            fence-checkpoint,
-            fence-tree,
-            fence-workers,
-            fence-config,
-            cancel-x-runs,
-            cancel-x-pauses,
-            ledger-run,
-            ledger-memory,
-            ledger-branch,
-            ledger-a2a-client,
-            ledger-retention,
-            budget-loop,
-            budget-flow,
-            budget-reply,
-            assembly-rules,
-            a2a-tasks,
-            a2a-server,
-            a2a-client,
-            a2a-direct,
-            stream,
-            store-bound,
-            a2a-files,
-            files-pii,
-          ]
-    env:
-      MUTATION_SHARD: ${{ matrix.shard }}
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run build -w @agboss/core
-      # a file the shard mutates that no test of the shard runs is NoCoverage at the end of the run: say so first
-      - name: A test of the shard runs every file it mutates
-        run: node scripts/check-mutation-reach.mjs --shard ${{ matrix.shard }} --workers 2
-      - name: Mutation testing of the shard, cold (break below 100 % killed or justified)
-        run: npm run test:mutation -w @agboss/core -- --force
-      - name: Mutation testing of the CLI's stream path, cold
-        if: matrix.shard == 'stream'
-        run: npm run test:mutation -w @agboss/cli -- --force
-      # #1367: a Timeout counts as killed, and a survivor whose run outlasts Stryker's limit reads as one:
-      # timeoutMS is above each shard's whole run (stryker.config.mjs), so a Timeout left must be a proven hang;
-      # one that is not listed is run again alone (agbossjs/mongodb#103: a loaded runner moves it between mutants)
-      - name: No Timeout that is not a proven hang (#1367)
-        run: node scripts/stryker-timeouts.mjs --rerun --rerun-dir packages/agboss packages/agboss/reports/mutation/${{ matrix.shard }}.json
-      - name: No Timeout that is not a proven hang, the CLI's stream path (#1367)
-        if: matrix.shard == 'stream'
-        run: node scripts/stryker-timeouts.mjs --rerun --rerun-dir packages/agboss-cli packages/agboss-cli/reports/mutation/cli-stream.json
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mutation-report-${{ matrix.shard }}
-          path: |
-            packages/agboss/reports/mutation/
-            packages/agboss-cli/reports/mutation/
+      - id: plan
+        env:
+          SHARDS: ${{ inputs.shards }}
+        run: node scripts/mutation-changed.mjs --shards "${SHARDS:-all}" --github-output
+
+  mutation:
+    needs: plan
+    uses: ./.github/workflows/mutation-shards.yml
+    with:
+      shards: ${{ needs.plan.outputs.shards }}
+      cold: true
+      max-parallel: 20
 
   # Three red nights passed unseen (2026-11-25..27): the first red run opens an issue, every later one comments on it,
   # a green run closes it. The default token: `issues: write` here, nothing more.
   report:
     needs: mutation
-    if: ${{ always() && needs.mutation.result != 'cancelled' && github.event_name == 'schedule' }}
+    if: ${{ always() && needs.mutation.result != 'cancelled' && needs.mutation.result != 'skipped' && github.event_name == 'schedule' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

@@ -5,6 +5,7 @@
 //   node scripts/mutation-changed.mjs                  list the touched shards (base: the merge base with origin/main)
 //   node scripts/mutation-changed.mjs --base <ref>     another base
 //   node scripts/mutation-changed.mjs --all            every shard (a manual dispatch)
+//   node scripts/mutation-changed.mjs --shards a,b|all the shards named (a dispatch: `-f shards=a,b`); an unknown name fails
 //   node scripts/mutation-changed.mjs --github-output  `shards=<json>` and `any=<bool>` for a workflow's matrix
 //   node scripts/mutation-changed.mjs --run [--workers n]   per shard: the reach check (check-mutation-reach.mjs),
 //                                                      then its incremental Stryker run (`npm run test:mutation`)
@@ -29,9 +30,22 @@ function baseRef() {
   }).trim();
 }
 
-const names = process.argv.includes("--all")
-  ? Object.keys(await readShards())
-  : await affectedShards(baseRef());
+/** The shards a `--shards a,b` (or `all`) names; a name that is no shard is an error, never an empty run. */
+async function named(list) {
+  const all = Object.keys(await readShards());
+  const wanted =
+    list.trim() === "" || list.trim() === "all" ? all : list.split(",").map((n) => n.trim());
+  const unknown = wanted.filter((name) => !all.includes(name));
+  if (unknown.length > 0)
+    throw new Error(`no mutation shard ${unknown.join(", ")}; the shards are ${all.join(", ")}`);
+  return wanted;
+}
+
+const names = process.argv.includes("--shards")
+  ? await named(option("--shards") ?? "")
+  : process.argv.includes("--all")
+    ? Object.keys(await readShards())
+    : await affectedShards(baseRef());
 
 if (process.argv.includes("--github-output")) {
   const out = `shards=${JSON.stringify(names)}\nany=${names.length > 0}\n`;

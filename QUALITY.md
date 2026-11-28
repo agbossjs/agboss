@@ -244,7 +244,11 @@ $40`). Limit errors are one class per limit, all `LimitError`s: `LimitError.Step
 - **The nightly mutation run (`mutation-nightly.yml`, every shard cold) is green on the release head, and red nights are
   fixed, not waited out** (#1356): run the shards your change touches with
   `npm run test:mutation:changed` before you push, and a shard's tests must run every file it mutates
-  (`scripts/check-mutation-reach.mjs`).
+  (`scripts/check-mutation-reach.mjs`). A pull request runs the shards it touches in GitHub (`mutation` in ci.yml): the
+  result is informational — a red shard does not fail `check` — until the repository variable `MUTATION_BLOCKING` is set
+  to `true` (Settings → Secrets and variables → Actions → Variables); then `check` fails on a red shard. Any branch can run
+  chosen shards: `gh workflow run mutation-nightly.yml --ref <branch> -f shards=a,b`; read the result with `gh run view <id> --log`
+  (every shard's survivors and lines no test runs, file:line, in its job summary and the `summary` job).
 - Each spec test case → one test. Name tests by behaviour:
   `it("returns a fallback answer when the model output is empty")`.
 - Arrange / Act / Assert, one behaviour per test, no logic in tests.

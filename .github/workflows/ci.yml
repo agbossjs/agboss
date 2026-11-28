@@ -5,7 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
-  workflow_dispatch: # the mutation job below runs only on a dispatch until the 0.1.1 release
+  workflow_dispatch: # the mutation job below runs every shard on a dispatch, the touched shards on a pull request
 
 permissions:
   contents: read
@@ -167,7 +167,7 @@ jobs:
   # The one required check. Red unless every job above passed: a skipped or cancelled job is not
   # a pass here (GitHub counts a skipped required job as one, hence `always()` and the test).
   check:
-    needs: [static, tests, coverage, packages, engines-floor]
+    needs: [static, tests, coverage, packages, engines-floor, mutation-plan, mutation]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -175,9 +175,13 @@ jobs:
       - name: Every job passed
         env:
           RESULTS: ${{ toJSON(needs) }}
+          MUTATION_BLOCKING: ${{ vars.MUTATION_BLOCKING }}
         run: |
           echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          echo "$RESULTS" | jq -e 'length == 5 and all(.[]; .result == "success")' > /dev/null || {
+          # the mutation jobs run only on the shards a pull request touches: skipped (none touched, or a push) passes.
+          # The shards are informational (a red one does not fail `check`) until the repository variable
+          # MUTATION_BLOCKING is `true`; the plan that picks them must always pass.
+          echo "$RESULTS" | jq -e --arg blocking "$MUTATION_BLOCKING" 'length == 7 and (to_entries | all(.[]; .value.result == "success" or (.key | startswith("mutation")) and .value.result == "skipped" or .key == "mutation" and $blocking != "true"))' > /dev/null || {
             echo "check: a job did not pass" >&2
             exit 1
           }
@@ -188,108 +192,46 @@ jobs:
   # #533 item 3, #626: mutation testing of the payment-relevant modules, one job per shard of
   # stryker.config.mjs (MUTATION_SHARD), each incremental (its last run's results cached): every
   # mutant killed or justified where it stands, else red. mutation-nightly.yml runs every shard cold.
-  # Until the 0.1.1 release it does not run on pull requests or pushes (CI minutes): only on a
-  # manual dispatch here, and every night in mutation-nightly.yml.
-  mutation:
-    if: github.event_name == 'workflow_dispatch'
+  # On a pull request it runs the shards the change touches (a mutated src file, a test of the shard, its vitest
+  # config or its definition: scripts/mutation-changed.mjs), never all of them (CI minutes); a manual dispatch runs
+  # every shard; a push to main runs none (mutation-nightly.yml runs every shard cold every night). Before a shard's
+  # Stryker run, scripts/check-mutation-reach.mjs fails fast when a file the shard mutates is run by no test of it.
+  mutation-plan:
+    if: github.event_name != 'push'
     runs-on: ubuntu-24.04
-    # a cold run of a shard (no cached results) takes up to about 50 min here; an incremental one a few
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        shard:
-          [
-            fencing,
-            fencing-effects,
-            sqlite-stores,
-            keys-and-calls,
-            takeover,
-            recovery,
-            undo,
-            unwind,
-            money,
-            spend,
-            cancel,
-            fenced-reach,
-            pauses,
-            pauses-sqlite,
-            pause-notices,
-            rate-limits,
-            money-runtime,
-            cancel-stores,
-            mesh-charge,
-            once-state,
-            once-child,
-            once-mesh,
-            fence-checkpoint,
-            fence-tree,
-            fence-workers,
-            fence-config,
-            cancel-x-runs,
-            cancel-x-pauses,
-            ledger-run,
-            ledger-memory,
-            ledger-branch,
-            ledger-a2a-client,
-            ledger-retention,
-            budget-loop,
-            budget-flow,
-            budget-reply,
-            assembly-rules,
-            a2a-tasks,
-            a2a-server,
-            a2a-client,
-            a2a-direct,
-            stream,
-            store-bound,
-            a2a-files,
-            files-pii,
-          ]
-    env:
-      MUTATION_SHARD: ${{ matrix.shard }}
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      any: ${{ steps.plan.outputs.any }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the merge base with the base branch, and the base's definition of the shards
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-          cache: npm
-      - run: npm ci
-      - run: npm run build -w @agboss/core
-      # a file the shard mutates that no test of the shard runs is NoCoverage at the end of a run of up to 50 min
-      - name: A test of the shard runs every file it mutates
-        run: node scripts/check-mutation-reach.mjs --shard ${{ matrix.shard }} --workers 2
-      - name: Restore the shard's last mutation run
-        uses: actions/cache@v4
-        with:
-          path: |
-            packages/agboss/reports/stryker-incremental-${{ matrix.shard }}.json
-            packages/agboss-cli/reports/stryker-incremental-cli-stream.json
-          # #1367: the limits and the vitest configs are in the key: an incremental run keeps the Timeouts a run
-          # under other limits made (a survivor read as one), so a change of them runs every shard cold
-          key: stryker-${{ matrix.shard }}-${{ hashFiles('packages/agboss/stryker.config.mjs', 'scripts/stryker-timeouts-ms.mjs', 'packages/agboss/vitest.mutation*.config.ts') }}-${{ github.sha }}
-          restore-keys: stryker-${{ matrix.shard }}-${{ hashFiles('packages/agboss/stryker.config.mjs', 'scripts/stryker-timeouts-ms.mjs', 'packages/agboss/vitest.mutation*.config.ts') }}-
-      - name: Mutation testing of the shard (break below 100 % killed or justified)
-        run: npm run test:mutation -w @agboss/core
-      # #1048: `agboss run`'s stream path (the CLI's own stryker config), beside the stream shard
-      - name: Mutation testing of the CLI's stream path
-        if: matrix.shard == 'stream'
-        run: npm run test:mutation -w @agboss/cli
-      # #1367: a Timeout counts as killed, and a survivor whose run outlasts Stryker's limit reads as one:
-      # timeoutMS is above each shard's whole run (stryker.config.mjs), so a Timeout left must be a proven hang;
-      # one that is not listed is run again alone (agbossjs/mongodb#103: a loaded runner moves it between mutants)
-      - name: No Timeout that is not a proven hang (#1367)
-        run: node scripts/stryker-timeouts.mjs --rerun --rerun-dir packages/agboss packages/agboss/reports/mutation/${{ matrix.shard }}.json
-      - name: No Timeout that is not a proven hang, the CLI's stream path (#1367)
-        if: matrix.shard == 'stream'
-        run: node scripts/stryker-timeouts.mjs --rerun --rerun-dir packages/agboss-cli packages/agboss-cli/reports/mutation/cli-stream.json
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: mutation-report-${{ matrix.shard }}
-          path: |
-            packages/agboss/reports/mutation/
-            packages/agboss-cli/reports/mutation/
+      - id: plan
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            node scripts/mutation-changed.mjs --all --github-output
+          else
+            git fetch --no-tags origin "$BASE_REF"
+            node scripts/mutation-changed.mjs --base "origin/$BASE_REF" --github-output
+          fi
+
+  # The shards' jobs (mutation-shards.yml): incremental, up to 10 at once so that this workflow's other jobs get runners
+  # (the Free plan runs 20 jobs at once across the repository). Informational until the repository variable
+  # MUTATION_BLOCKING is `true` (see `check`): a red shard shows red here and does not fail `check`.
+  mutation:
+    needs: mutation-plan
+    if: needs.mutation-plan.outputs.any == 'true'
+    uses: ./.github/workflows/mutation-shards.yml
+    with:
+      shards: ${{ needs.mutation-plan.outputs.shards }}
+      cold: false
+      max-parallel: 10
 
   # #811: the official A2A TCK (a2aproject/a2a-tck, pinned in tck-expected.json) against the
   # AGBoss conformance agent (packages/agboss/tests/a2a-tck/) on JSON-RPC — as published, then with
