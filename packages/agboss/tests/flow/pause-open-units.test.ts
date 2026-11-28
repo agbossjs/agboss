@@ -25,8 +25,12 @@ vi.mock("../../src/flow/runtime/pause-record-made.js", async (importOriginal) =>
   },
 }));
 
-class ChannelA {}
-class ChannelB {}
+class ChannelA {
+  readonly mark = "a";
+}
+class ChannelB {
+  readonly mark = "b";
+}
 const channelA = { cls: ChannelA, name: "a" } as unknown as PauseChannel;
 const channelB = { cls: ChannelB, name: "b" } as unknown as PauseChannel;
 const AT = new Date("2026-11-20T10:00:00.000Z");
@@ -34,7 +38,9 @@ const AT = new Date("2026-11-20T10:00:00.000Z");
 const targetOf = (changes: Partial<PauseTarget> = {}): PauseTarget =>
   ({
     name: "refund",
-    cls: class Refund {},
+    cls: class Refund {
+      readonly mark = "refund";
+    },
     kind: "tool-approval",
     channels: new Map([
       ["a", channelA],
@@ -119,8 +125,8 @@ describe("#1356: the channel a new pause is sent through", () => {
       expiresAt,
       trail: [trailEntry],
     });
-    expect(full?.["expiresAt"]).not.toBe(expiresAt);
-    expect((full?.["trail"] as unknown[])[0]).not.toBe(trailEntry);
+    expect(full?.expiresAt).not.toBe(expiresAt);
+    expect((full?.trail as unknown[])[0]).not.toBe(trailEntry);
     expect(bare).toStrictEqual({ input: { amount: 5 }, trail: [] });
   });
 
@@ -143,7 +149,14 @@ describe("#1356: the channel a new pause is sent through", () => {
   it("of a selector that names a class no channel serves is refused", async () => {
     const error = await thrownBy(() =>
       chosenChannel(
-        targetOf({ select: () => Promise.resolve(class Other {}) }),
+        targetOf({
+          select: () =>
+            Promise.resolve(
+              class Other {
+                readonly mark = "other";
+              },
+            ),
+        }),
         { input: {} },
         { trail: [] },
       ),
@@ -197,10 +210,7 @@ describe("#1356: the pause a step opens", () => {
     "a target with %s looks for the record first: a re-entry gets it, nothing asks the project's code again",
     async (_name, changes) => {
       const existing = pauseOf("p-existing");
-      const { site, findBy, findOrCreate } = siteOf(
-        targetOf(changes as Partial<PauseTarget>),
-        existing,
-      );
+      const { site, findBy, findOrCreate } = siteOf(targetOf(changes), existing);
 
       expect(await openedPause(site, question)).toBe(existing);
 

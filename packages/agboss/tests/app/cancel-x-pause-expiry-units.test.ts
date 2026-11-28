@@ -475,8 +475,8 @@ describe("#1356: what the handler of an expiry is told", () => {
       externalRef: "TICKET-1",
       trail: [],
     });
-    expect(context["maxExpiresAt"]).not.toBe(maxExpiresAt);
-    expect(context["expiresAt"]).not.toBe(pause().expiresAt);
+    expect(context.maxExpiresAt).not.toBe(maxExpiresAt);
+    expect(context.expiresAt).not.toBe(pause().expiresAt);
   });
 
   it("with none of them has none of them, and the deadline a pause lacks is the time it was asked", async () => {
