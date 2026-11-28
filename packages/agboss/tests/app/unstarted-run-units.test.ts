@@ -69,12 +69,7 @@ describe("#1090: a new run handed over after its first checkpoint write", () => 
       serde: undefined,
       put: () => Promise.resolve({}),
     } as never;
-    await new LeasedCheckpointSaver(inner, lease).put(
-      {} as never,
-      {} as never,
-      {} as never,
-      {},
-    );
+    await new LeasedCheckpointSaver(inner, lease).put({} as never, {} as never, {} as never, {});
     const lost = new ExecutionLeaseLostError({ rootExecutionId: "root-1" });
     const fenced = new ExecutionError.Fenced({
       scopeKey: "acme:root-1",
