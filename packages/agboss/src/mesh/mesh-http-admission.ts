@@ -20,7 +20,12 @@ export type MeshHttpAdmission =
       /** The owner of what the peer starts: `mesh:<peer>`, so two peers never share a task. */
       readonly ownerId: string;
     }
-  | { readonly kind: "external" }
+  | {
+      readonly kind: "external";
+      /** An external caller has no peer, and no tenant a peer signed: what a peer's rules are looked up by finds none. */
+      readonly peer?: undefined;
+      readonly tenantId?: undefined;
+    }
   | { readonly kind: "refused"; readonly status: 401 | 403 | 503; readonly code: MeshRefusalCode };
 
 /** The owner id of a verified peer's tasks. */

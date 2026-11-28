@@ -75,8 +75,7 @@ export async function admittedPeerOf(
     refuse(res, decision);
     return undefined;
   }
-  const refusal =
-    decision.kind === "peer" ? peerRefusalOf(binding.mesh, decision, request.operation) : undefined;
+  const refusal = peerRefusalOf(binding.mesh, decision, request.operation);
   if (refusal !== undefined) {
     refuse(res, refusal);
     return undefined;
