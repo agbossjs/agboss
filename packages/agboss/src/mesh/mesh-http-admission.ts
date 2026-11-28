@@ -20,7 +20,12 @@ export type MeshHttpAdmission =
       /** The owner of what the peer starts: `mesh:<peer>`, so two peers never share a task. */
       readonly ownerId: string;
     }
-  | { readonly kind: "external" }
+  | {
+      readonly kind: "external";
+      /** An external caller has no peer, and no tenant a peer signed: what a peer's rules are looked up by finds none. */
+      readonly peer?: undefined;
+      readonly tenantId?: undefined;
+    }
   | { readonly kind: "refused"; readonly status: 401 | 403 | 503; readonly code: MeshRefusalCode };
 
 /** The owner id of a verified peer's tasks. */
@@ -34,9 +39,7 @@ const refused = (status: 401 | 403 | 503, code: MeshRefusalCode): MeshHttpAdmiss
 
 /** Whether a peer may call `endpoint`: it lists none (any), or lists it. */
 const mayCall = (allowed: readonly Class[] | undefined, endpoint: Class | undefined): boolean =>
-  allowed === undefined ||
-  allowed.length === 0 ||
-  (endpoint !== undefined && allowed.includes(endpoint));
+  allowed === undefined || allowed.length === 0 || allowed.some((listed) => listed === endpoint);
 
 /** The tenant under which the signed requests already admitted are remembered. */
 const REPLAY_TENANT = "mesh-http";

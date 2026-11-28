@@ -183,10 +183,11 @@ const tenantMismatch: PeerRefusal = {
  */
 export function peerRefusalOf(
   settings: MeshSettings,
-  peer: { readonly peer: string; readonly tenantId: string | undefined },
+  peer: { readonly peer?: string | undefined; readonly tenantId?: string | undefined },
   operation: A2AOperation,
 ): PeerRefusal | undefined {
-  const rules = settings.peers.get(peer.peer);
+  // looked up by name, so an admission that is no peer's (an external caller's) finds no rules
+  const rules = [...settings.peers].find(([name]) => name === peer.peer)?.[1];
   const needsTenant = rules?.propagateTenant === true && settings.isBaseTenantContext;
   return needsTenant && peer.tenantId === undefined && TASK_OPERATIONS.has(operation)
     ? tenantMismatch

@@ -174,7 +174,8 @@ async function savedUnder(parts: A2AServerParts, caller: A2ARequestCaller, unacc
   const taskId = isTaskOwner(key.ownerId) ? randomUUID() : parts.ids.newExecutionId();
   // a rejected task runs nothing: its files are neither fetched nor kept
   const start = limit === undefined ? await sent.inputFor(taskId) : undefined;
-  await keptFiles(parts, start?.toSave ?? []);
+  const toSave = start?.toSave ?? [];
+  await keptFiles(parts, toSave);
   const task: NewA2ATask = {
     ...key,
     endpoint: parts.endpoint,
@@ -191,7 +192,7 @@ async function savedUnder(parts: A2AServerParts, caller: A2ARequestCaller, unacc
   };
   const save = await parts.tasks.saveIfAbsent(task);
   // a task that was not saved (its message or id taken) never runs: its kept files are no one's (#1316)
-  if (save.status !== A2ATaskSaveStatus.Saved && (start?.toSave.length ?? 0) > 0)
+  if (save.status !== A2ATaskSaveStatus.Saved && toSave.length > 0)
     await parts.files.store.deleteByOwner({ tenantId: caller.tenantId, ownerId: taskId });
   return { save, start };
 }

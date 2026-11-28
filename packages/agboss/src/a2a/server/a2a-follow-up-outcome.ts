@@ -31,7 +31,7 @@ export type KeptReply =
       readonly code: string;
       /** `a2a.pause-closed`: why the pause closed, and when (ISO 8601 on the wire). */
       readonly reason?: PauseClosedReason;
-      readonly closedAt?: string;
+      readonly closedAt?: string | undefined;
     };
 
 const REFUSAL_TEXT: Readonly<Record<string, string>> = {
@@ -70,12 +70,11 @@ export const isKeptReply = (value: unknown): value is KeptReply =>
 /** A resume that threw before its pause was resolved, as its refusal; `undefined`: it was accepted. */
 function refusedResume(error: unknown, isStillPending: boolean): KeptReply | undefined {
   if (error instanceof PauseError.Closed) {
-    const closedAt = isoOf(error.closedAt);
     return {
       refused: "unsupported",
       code: PAUSE_CLOSED,
       reason: error.reason,
-      ...(closedAt === undefined ? {} : { closedAt }),
+      closedAt: isoOf(error.closedAt),
     };
   }
   // a thread-level miss: the tree no longer rests (a cancel dropped it) — no pause to name

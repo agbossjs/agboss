@@ -82,7 +82,8 @@ export function signMeshHttp(
     bodyHash: httpBodyHashOf(request.body),
     issuedAt: settings.clock.now().toISOString(),
     expiresIn: isoDurationOf(settings.envelopeTtl),
-    ...(request.tenantId === undefined ? {} : { tenantId: request.tenantId }),
+    // an unset tenant is a claim the JWS leaves out (JSON drops `undefined`)
+    tenantId: request.tenantId,
   };
   return encodeJws(TYP, claims, key);
 }

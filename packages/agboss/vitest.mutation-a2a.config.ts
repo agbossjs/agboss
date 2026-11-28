@@ -17,8 +17,8 @@ export default defineConfig({
     include: [
       // #1166: a stored text that is no JSON is the coded unreadable refusal, at every site
       "tests/infrastructure/sqlite/stored-not-json-sites.test.ts",
-      "tests/infrastructure/a2a-task{.contract,-helpers,-pages-units,-status-rows}.test.ts",
-      "tests/app/{execution-control,cancel-before-record,tree-control}.test.ts",
+      "tests/infrastructure/a2a-task{.contract,-helpers,-pages-units,-status-rows,-mutation-rows}.test.ts",
+      "tests/app/{execution-control,cancel-before-record,tree-control,execution-trees-mutation}.test.ts",
       "tests/a2a/a2a-task-{projection,units,retention}.test.ts",
       // #844: a repaired task's spend, its memory update included
       // #808: the server, over its JSON-RPC binding
@@ -28,6 +28,8 @@ export default defineConfig({
       // #860: a run no recovery continues, a direct reply's task-less path
       "tests/app/without-recovery.test.ts",
       "tests/a2a/direct/*.test.ts",
+      // #1325a: a recorded third-party error with a leaking code is still `internal` in a task's status
+      "tests/errors/recorded-error-boundaries.test.ts",
       // #1356: the A2A task sweep's race
       "tests/infrastructure/sqlite/sqlite-a2a-task-sweep-race.test.ts",
     ],

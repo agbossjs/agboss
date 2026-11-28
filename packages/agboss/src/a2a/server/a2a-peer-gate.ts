@@ -71,11 +71,16 @@ export async function admittedPeerOf(
     origin: binding.origin,
   };
   const decision = await admitMeshHttp(binding.mesh, received, binding.endpoint);
-  const refusal =
-    decision.kind === "peer" ? peerRefusalOf(binding.mesh, decision, request.operation) : decision;
-  if (refusal?.kind !== "refused") return decision.kind === "refused" ? undefined : decision;
-  refuse(res, refusal);
-  return undefined;
+  if (decision.kind === "refused") {
+    refuse(res, decision);
+    return undefined;
+  }
+  const refusal = peerRefusalOf(binding.mesh, decision, request.operation);
+  if (refusal !== undefined) {
+    refuse(res, refusal);
+    return undefined;
+  }
+  return decision;
 }
 
 /** The caller a verified peer is: its tenant (when trusted), owned by `mesh:<peer>`. */
