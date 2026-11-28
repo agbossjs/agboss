@@ -20,7 +20,7 @@ export default defineConfig({
       // #1281: a launch's failure undoes the branch's entries and what an earlier child held
       "tests/flow/runtime/held-undo.test.ts",
       "tests/app/compensation/*-units.test.ts",
-      "tests/app/unwinding-takeover-units.test.ts",
+      "tests/app/{unwinding-takeover-units,tree-unwind-units}.test.ts",
       "tests/app/{compensation-*,kept-undo-*,undo-*,action-fence,child-failure-once,*end-once*,finished-work*,error-class-route,zombie-evidence,cancel*,execution-fence}.test.ts",
       "tests/budgets/{held-undo,held-branch,exemption-scope}.test.ts",
       "tests/infrastructure/{sqlite/sqlite-unwind,execution-lease-retire-bites}.test.ts",

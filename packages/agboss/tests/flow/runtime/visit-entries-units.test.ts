@@ -364,3 +364,65 @@ describe("#633: commits", () => {
     ]);
   });
 });
+
+describe("#1281b: what a child's entries moved up to this workflow are to its own nodes", () => {
+  it("an undo action closes the newest entry of its own workflow, never one a child moved up", () => {
+    const entries = [
+      entryOf("moved", { sequence: 3, compensator: "cancel-booking-action", childPath: ["trip"] }),
+      entryOf("own", { sequence: 1, compensator: "cancel-booking-action" }),
+    ];
+
+    const written = entriesOfVisit(
+      siteOf("cancel-booking-action", CancelBookingAction, { entries }),
+    );
+
+    expect(written.map((entry) => [entry.key, entry.status])).toEqual([
+      ["own", CompensationEntryStatus.Closed],
+    ]);
+  });
+
+  it("a committer commits the open entries of its own workflow, never one a child moved up", () => {
+    const entries = [
+      entryOf("moved", { sequence: 2, committer: "confirm-booking-action", childPath: ["trip"] }),
+      entryOf("own", { sequence: 1, committer: "confirm-booking-action" }),
+    ];
+
+    const written = entriesOfVisit(
+      siteOf("confirm-booking-action", ConfirmBookingAction, { entries }),
+    );
+
+    expect(written.map((entry) => [entry.key, entry.status])).toEqual([
+      ["own", CompensationEntryStatus.Committed],
+    ]);
+  });
+
+  it("a child's finish moves up to its parent what the child holds, its own and its children's, nothing of another execution's", () => {
+    const parent = { executionId: "root-1", tenant: { tenantId: "acme" } };
+    const site = siteOf("done-finish", undefined, {
+      entries: [
+        entryOf("own", { sequence: 1, executionId: "child-1" }),
+        entryOf("below", { sequence: 2, executionId: "grandchild-1", heldBy: "child-1" }),
+        entryOf("another", { sequence: 3, executionId: "other-1" }),
+        entryOf("above", { sequence: 4, executionId: "grandchild-2", heldBy: "other-1" }),
+      ],
+      frame: {
+        step: stepOf("done-finish"),
+        execution: {
+          executionId: "child-1",
+          tenant: { tenantId: "acme" },
+          parent: { execution: parent },
+        },
+      } as never,
+    });
+
+    const written = entriesOfVisit({
+      ...site,
+      node: { ...site.node, kind: ComponentKind.WorkflowFinish },
+    });
+
+    expect(written.map((entry) => [entry.key, entry.heldBy, entry.status])).toEqual([
+      ["own", "root-1", CompensationEntryStatus.Open],
+      ["below", "root-1", CompensationEntryStatus.Open],
+    ]);
+  });
+});

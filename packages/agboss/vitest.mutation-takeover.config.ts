@@ -31,7 +31,7 @@ export default defineConfig({
       "tests/app/stalled-pass-units.test.ts",
       "tests/infrastructure/{orphan-pauses,orphan-wakes,recovery-wake-order}.test.ts",
       // #1325a: the hand-over kinds and records, the families' classes and how a class is caught
-      "tests/errors/{family-routing,error-families,error-record-families,cancel-fenced}.test.ts",
+      "tests/errors/{family-routing,error-families,error-record-families,cancel-fenced,family-machinery-units,hand-over-records}.test.ts",
       // #1356: the stop marks and the lease that stops, where they are tested
       "tests/infrastructure/finish-over-mark.test.ts",
       "tests/infrastructure/pause-fence-units.test.ts",

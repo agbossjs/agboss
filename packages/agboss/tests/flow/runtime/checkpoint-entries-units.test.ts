@@ -59,6 +59,26 @@ describe("#633: the root's entries", () => {
     expect(keysOf(found)).toEqual([["", ROOT, ["mine"]]]);
   });
 
+  it("the entries its children's finishes moved up to it are its own too, others' are not", async () => {
+    const found = await read({
+      "thread-1": [
+        {
+          namespace: "",
+          values: {
+            runId: ROOT,
+            compensations: [
+              entryOf("own"),
+              entryOf("moved", { executionId: "child-1", heldBy: ROOT }),
+              entryOf("held-elsewhere", { executionId: "child-2", heldBy: "child-1" }),
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(keysOf(found)).toEqual([["", ROOT, ["own", "moved"]]]);
+  });
+
   it("a tuple whose config names no namespace is the root's", async () => {
     const found = await read({
       "thread-1": [{ bare: true, values: { runId: ROOT, compensations: [entryOf("mine")] } }],

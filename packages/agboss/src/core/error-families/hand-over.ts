@@ -16,9 +16,9 @@ export const HAND_OVER_KINDS: ReadonlySet<ExecutionErrorKind> = new Set([
 /** The codes of those kinds: what a record's class line names. */
 const HAND_OVER_CODES: ReadonlySet<string> = new Set([
   ExecutionError.Fenced.code,
-  // the standalone classes the runtime throws: a lost lease (also before the run started) and a stop
+  // the standalone classes the runtime throws: a lost lease (also one lost before the run started: a record
+  // keeps its class line, whose code is `execution.lease-lost`) and a stop
   "execution.lease-lost",
-  "execution.lease-lost.not-started",
   ApplicationStoppingError.code,
 ]);
 
