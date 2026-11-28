@@ -129,7 +129,8 @@ export function Budget<const TDeps extends readonly Token[] = []>(options: Budge
 }
 
 /** What `@Budget` recorded on a class; `undefined` when it is not a budget. */
-export function budgetOf(cls: Class): BudgetMeta | undefined {
-  const component = componentOf(cls);
+export function budgetOf(cls: Class | undefined): BudgetMeta | undefined {
+  // no class, no record: the registry answers `undefined` for a key it has not
+  const component = componentOf(cls as object);
   return component?.kind === "budget" ? component.meta : undefined;
 }

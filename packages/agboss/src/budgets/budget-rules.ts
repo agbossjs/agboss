@@ -32,6 +32,12 @@ export const attachedBudgetOf = (
   return declaration?.kind === ComponentKind.Workflow ? declaration.options.budget : undefined;
 };
 
+/** The budget a workflow attaches, as the profiles leave it; none when it attaches none. */
+export const overlaidAttachedOf = (
+  workflow: Class,
+  overlays: OverlaidBudgets["budgetOverlays"],
+): Class | undefined => overlaidBudget(attachedBudgetOf(workflow, overlays), overlays);
+
 /** The budget classes some workflow of the application attaches with `@Workflow({ budget })`, each once. */
 export const attachedBudgetsOf = (
   application: {
@@ -77,10 +83,7 @@ export function executionBudgetFor(
   budgetOverlays?: OverlaidBudgets["budgetOverlays"],
 ): { readonly meta: BudgetMeta; readonly isOwn: boolean } | undefined {
   const execution = metas.filter((meta) => meta.scope === BudgetScope.Execution);
-  const attachedClass = attachedBudgetOf(workflow, budgetOverlays);
-  const attached =
-    attachedClass === undefined ? undefined : overlaidBudget(attachedClass, budgetOverlays);
-  const attachedMeta = attached === undefined ? undefined : budgetOf(attached);
+  const attachedMeta = budgetOf(overlaidAttachedOf(workflow, budgetOverlays));
   const own =
     attachedMeta?.scope === BudgetScope.Execution
       ? attachedMeta
@@ -138,8 +141,7 @@ const isCovered = (
   execution: readonly BudgetMeta[],
   overlays: OverlaidBudgets["budgetOverlays"],
 ): boolean => {
-  const attached = attachedBudgetOf(workflow, overlays);
-  const attachedMeta = attached === undefined ? undefined : budgetOf(attached);
+  const attachedMeta = budgetOf(overlaidAttachedOf(workflow, overlays));
   return (
     attachedMeta?.scope === BudgetScope.Execution ||
     execution.some((meta) => meta.workflow === workflow)
@@ -167,10 +169,10 @@ function uncovered(
 
 /** Whether `meta` is a budget some workflow of `application` attaches (it is then that workflow's own, not a default). */
 const isAttached = (meta: BudgetMeta, application: BudgetedApplication): boolean =>
-  application.workflows.some((workflow) => {
-    const attached = attachedBudgetOf(workflow, application.budgetOverlays);
-    return attached !== undefined && budgetOf(attached)?.name === meta.name;
-  });
+  application.workflows.some(
+    (workflow) =>
+      budgetOf(overlaidAttachedOf(workflow, application.budgetOverlays))?.name === meta.name,
+  );
 
 /** The class prototype's method named `name`, when it has one. */
 const hasMethod = (cls: Class, name: string): boolean =>
