@@ -42,7 +42,13 @@ const sorted = (names: readonly string[]): string[] => [...names].sort();
 async function plan(
   ...args: string[]
 ): Promise<{ status: number | null; stdout: string; stderr: string }> {
-  return runProcess("node", [join(repo, "scripts/mutation-changed.mjs"), ...args], { cwd: repo });
+  // inside GitHub Actions the plan writes `shards=` to $GITHUB_OUTPUT's file: here it must print
+  const env = { ...process.env };
+  delete env.GITHUB_OUTPUT;
+  return runProcess("node", [join(repo, "scripts/mutation-changed.mjs"), ...args], {
+    cwd: repo,
+    env,
+  });
 }
 
 describe("#1186: the mutation workflows run the shards stryker.config.mjs defines", () => {
