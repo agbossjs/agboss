@@ -476,15 +476,15 @@ describe("#1356: a mailbox that does not read", () => {
         "INSERT INTO pause_notices (tenant_id, pause_id, recipient, notices, delivered, attempts, next_attempt_at, head_written_at, is_dead, problem, claim_token, claimed_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
-        row["tenant_id"] as string,
-        row["pause_id"] as never,
-        row["recipient"] as string,
-        row["notices"] as string,
-        row["delivered"] as number,
-        row["attempts"] as number,
-        row["next_attempt_at"] as string,
-        row["head_written_at"] as string,
-        row["is_dead"] as number,
+        row.tenant_id as string,
+        row.pause_id as never,
+        row.recipient as string,
+        row.notices as string,
+        row.delivered as number,
+        row.attempts as number,
+        row.next_attempt_at as string,
+        row.head_written_at as string,
+        row.is_dead as number,
         null,
         null,
         null,
@@ -558,7 +558,7 @@ describe("#1356: the pauses table's indexes", () => {
         "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'pauses' AND name LIKE 'pauses_%' ORDER BY name",
       )
       .all()
-      .map((row) => row["name"]);
+      .map((row) => row.name);
 
     expect(names).toEqual([
       "pauses_by_external_ref",

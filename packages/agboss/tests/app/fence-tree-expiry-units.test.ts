@@ -38,7 +38,9 @@ const stored = {
   run: { runId: "root-1", turnId: "turn-1", path: ["a", "b"], cost: { totalUsd: usd(0.25) } },
 };
 
-function partsOf(options: { turns?: unknown[]; found?: unknown; lease?: unknown; frozen?: boolean } = {}) {
+function partsOf(
+  options: { turns?: unknown[]; found?: unknown; lease?: unknown; frozen?: boolean } = {},
+) {
   const completeIfStatus = vi.fn(() => Promise.resolve(true));
   const byIds = vi.fn((_ids: string[]) => Promise.resolve(options.turns ?? []));
   const lease = "lease" in options ? options.lease : { release: vi.fn(() => Promise.resolve()) };
