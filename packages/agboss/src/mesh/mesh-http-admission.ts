@@ -34,9 +34,7 @@ const refused = (status: 401 | 403 | 503, code: MeshRefusalCode): MeshHttpAdmiss
 
 /** Whether a peer may call `endpoint`: it lists none (any), or lists it. */
 const mayCall = (allowed: readonly Class[] | undefined, endpoint: Class | undefined): boolean =>
-  allowed === undefined ||
-  allowed.length === 0 ||
-  (endpoint !== undefined && allowed.includes(endpoint));
+  allowed === undefined || allowed.length === 0 || allowed.some((listed) => listed === endpoint);
 
 /** The tenant under which the signed requests already admitted are remembered. */
 const REPLAY_TENANT = "mesh-http";

@@ -1,7 +1,7 @@
 import type { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { ServerResponse } from "node:http";
 import { ConfigError } from "../core/error-families/config-errors.js";
-import { timeoutOn, type Clock } from "../infrastructure/clock.js";
+import type { Clock } from "../infrastructure/clock.js";
 import { minutes, type Milliseconds } from "../units/index.js";
 import type { McpCaller } from "./mcp-service-helpers.js";
 
@@ -152,14 +152,12 @@ export class McpSessions {
   #arm(session: TrackedSession): void {
     session.release?.();
     if (session.closed === true || session.inFlight > 0) return;
-    const idle = timeoutOn(this.clock, this.#idleTimeout as Milliseconds, () => new Error("idle"));
-    idle.signal.addEventListener(
-      "abort",
-      () => {
-        void session.transport.close();
-      },
-      { once: true },
-    );
-    session.release = idle.release;
+    const released = new AbortController();
+    void this.clock.sleep(this.#idleTimeout as Milliseconds, released.signal).then(() => {
+      if (!released.signal.aborted) void session.transport.close();
+    });
+    session.release = () => {
+      released.abort();
+    };
   }
 }

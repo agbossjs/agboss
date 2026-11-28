@@ -8,13 +8,20 @@ export const headerOf = (req: IncomingMessage, name: string): string | undefined
 };
 
 /** The pathname of a request's URL. */
-export const pathOf = (req: IncomingMessage): string => (req.url ?? "/").split("?")[0] ?? "/";
+export function pathOf(req: IncomingMessage): string {
+  const url = req.url ?? "/";
+  const query = url.indexOf("?");
+  return query === -1 ? url : url.slice(0, query);
+}
 
-/** The JSON of a body; `undefined` when it is none. */
-export function jsonOf(text: string): unknown {
+/** The JSON of a body (its `value`, which may be `null`), or that it is none. */
+export type ParsedBody =
+  { readonly isJson: true; readonly value: unknown } | { readonly isJson: false };
+
+export function jsonOf(text: string): ParsedBody {
   try {
-    return JSON.parse(text) as unknown;
+    return { isJson: true, value: JSON.parse(text) as unknown };
   } catch {
-    return undefined;
+    return { isJson: false };
   }
 }

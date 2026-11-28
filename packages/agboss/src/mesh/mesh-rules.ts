@@ -14,7 +14,7 @@ import { meshOf, type MeshMeta } from "./mesh.decorator.js";
 export function meshRuleViolations(
   application: string,
   mesh: Class | undefined,
-  endpoints: readonly Class[] = [],
+  endpoints?: readonly Class[],
 ): RuleViolation[] {
   if (mesh === undefined) return [];
   const meta = meshOf(mesh);
@@ -29,11 +29,10 @@ export function meshRuleViolations(
   ];
 }
 
-const isWhole = (value: unknown): value is number =>
-  typeof value === "number" && Number.isInteger(value) && value >= 1;
+// `Number.isInteger` and `Number.isFinite` are false for anything that is no number (a text from a JavaScript caller)
+const isWhole = (value: number): boolean => Number.isInteger(value) && value >= 1;
 
-const isDuration = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value) && value > 0;
+const isDuration = (value: number): boolean => Number.isFinite(value) && value > 0;
 
 /** The mesh's numbers: hops from 1, a deduplication above the lease, positive durations. */
 function limitViolations(application: string, mesh: MeshMeta): RuleViolation[] {
@@ -52,7 +51,7 @@ function limitViolations(application: string, mesh: MeshMeta): RuleViolation[] {
   if (mesh.envelopeTtl !== undefined && !isDuration(mesh.envelopeTtl))
     limit(`envelopeTtl is ${String(mesh.envelopeTtl)} ms, not a positive duration`);
   const skew = mesh.maxClockSkew;
-  if (skew !== undefined && !(typeof skew === "number" && Number.isFinite(skew) && skew >= 0))
+  if (skew !== undefined && !(Number.isFinite(skew) && skew >= 0))
     limit(`maxClockSkew is ${String(skew)} ms, not a duration from 0`);
   return problems;
 }
@@ -70,9 +69,10 @@ function replayViolations(application: string, mesh: MeshMeta): RuleViolation[] 
 function peerViolations(
   application: string,
   mesh: MeshMeta,
-  endpoints: readonly Class[],
+  endpoints: readonly Class[] | undefined,
 ): RuleViolation[] {
   const problems: RuleViolation[] = [];
+  const listed = new Set(endpoints);
   const seen = new Set<string>();
   for (const peer of mesh.peers ?? []) {
     if (seen.has(peer.application)) {
@@ -85,7 +85,7 @@ function peerViolations(
       problems.push(violation("mesh.peer-without-keys", message, [application]));
     }
     for (const endpoint of peer.allowEndpoints ?? [])
-      if (!endpoints.includes(endpoint)) {
+      if (!listed.has(endpoint)) {
         const message = `${mesh.name}'s peer ${peer.application} may call ${endpoint.name}, which @Application({ endpoints }) does not list`;
         problems.push(violation("mesh.unknown-endpoint", message, [application]));
       }

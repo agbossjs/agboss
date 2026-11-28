@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   listenerAuthenticatorOf,
-  notifyHost,
   writeRejection,
   admitCaller,
   type CallerGateOutcome,
@@ -18,6 +17,7 @@ import { meshSettingsOf } from "../mesh/mesh-settings.js";
 import { kilobytes, type Bytes, type Milliseconds } from "../units/index.js";
 import { carrying, messageIdentity } from "./mcp-http-identity.js";
 import { headerOf, jsonOf, pathOf } from "./mcp-http-io.js";
+import { failedRequest } from "./mcp-http-failure.js";
 import { originFn } from "./mcp-public-url.js";
 import { inSession, isSameCaller } from "./mcp-session-identity.js";
 import { admitMcpHttp } from "./mcp-http-gate.js";
@@ -79,7 +79,6 @@ export interface McpHttpListenerOptions {
 }
 
 const SESSION_HEADER = "mcp-session-id";
-const UNAVAILABLE = { code: "mcp.listener-failed", error: "the MCP server is not available" };
 const NO_SESSION = { code: "mcp.session-not-found", error: "there is no such session" };
 const NOT_JSON = { code: "mcp.body-not-json", error: "the request body is not JSON" };
 
@@ -134,6 +133,7 @@ async function judgedCallerOf(
     );
   if (l.options.allowAnonymous === true) return { isAdmitted: true, caller: {} };
   writeRejection(res, 401, UNAUTHENTICATED);
+  // Stryker disable next-line ObjectLiteral: `{}` has no `isAdmitted` either: as falsy as `false`, which the one reader tests with `!`
   return { isAdmitted: false };
 }
 
@@ -174,6 +174,7 @@ function opened(l: Listening, caller: McpCaller, res: ServerResponse): TrackedSe
   }
   const id = randomUUID();
   const identity = inSession(caller, id);
+  // Stryker disable next-line CallExpression: the SDK's `onsessioninitialized` runs inside `handleRequest`, in the same turn that follows `opened`, so no request comes between: the count guards an SDK that defers it, and `McpSessions.opening` is tested on its own
   l.sessions.opening(id, callerKey, res);
   const session: TrackedSession = {
     transport: new StreamableHTTPServerTransport({
@@ -201,11 +202,14 @@ function transportOf(
 ): TrackedSession | undefined {
   const { req, res } = request;
   const id = headerOf(req, SESSION_HEADER);
-  if (id === undefined && req.method === "POST") return opened(l, caller, res);
-  const open = id === undefined ? undefined : l.sessions.get(id);
-  const asked = id === undefined ? caller : inSession(caller, id);
-  if (open === undefined || !isSameCaller(asked, open.identity)) {
-    // a stranger holding an id is told what any other id is told
+  if (id === undefined) {
+    if (req.method === "POST") return opened(l, caller, res);
+    writeRejection(res, 404, NO_SESSION);
+    return undefined;
+  }
+  const open = l.sessions.get(id);
+  // a stranger holding an id is told what any other id is told
+  if (open === undefined || !isSameCaller(inSession(caller, id), open.identity)) {
     writeRejection(res, 404, NO_SESSION);
     return undefined;
   }
@@ -223,15 +227,15 @@ async function serve(l: Listening, req: IncomingMessage, res: ServerResponse): P
   if (raw === undefined) return;
   const identity = await identityOf(l, { req, res, raw });
   if (identity === undefined) return;
-  const body = raw === "" ? undefined : jsonOf(raw);
-  if (raw !== "" && body === undefined) {
+  const parsed = raw === "" ? undefined : jsonOf(raw);
+  if (parsed?.isJson === false) {
     writeRejection(res, 400, NOT_JSON);
     return;
   }
   const served = transportOf(l, { req, res }, identity);
   if (served === undefined) return;
   carrying(req, served.identity); // this message runs as the session's caller
-  await served.transport.handleRequest(req, res, body);
+  await served.transport.handleRequest(req, res, parsed?.value);
 }
 
 /** `http.createServer(mcpHttpListener(app, { endpoint, authenticator?, publicUrl, base }))`. */
@@ -252,15 +256,7 @@ export function mcpHttpListener<TApp>(
   };
   return (req, res) => {
     serve(listening, req, res).catch((error: unknown) => {
-      // a failure past the listener's own answers: logged by its class, never its text on the wire
-      const name = error instanceof Error ? error.name : typeof error;
-      listening.log.error(
-        "mcp.listener-failed",
-        `the MCP listener failed to serve a request: ${name}`,
-      );
-      notifyHost(options.onError, error, req);
-      if (res.headersSent) res.destroy();
-      else writeRejection(res, 503, UNAVAILABLE);
+      failedRequest({ log: listening.log, onError: options.onError }, error, req, res);
     });
   };
 }
