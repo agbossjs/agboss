@@ -38,7 +38,9 @@ const stored = {
   run: { runId: "root-1", turnId: "turn-1", path: ["a", "b"], cost: { totalUsd: usd(0.25) } },
 };
 
-function partsOf(options: { turns?: unknown[]; found?: unknown; lease?: unknown } = {}) {
+function partsOf(
+  options: { turns?: unknown[]; found?: unknown; lease?: unknown; frozen?: boolean } = {},
+) {
   const completeIfStatus = vi.fn(() => Promise.resolve(true));
   const byIds = vi.fn((_ids: string[]) => Promise.resolve(options.turns ?? []));
   const lease = "lease" in options ? options.lease : { release: vi.fn(() => Promise.resolve()) };
@@ -48,7 +50,10 @@ function partsOf(options: { turns?: unknown[]; found?: unknown; lease?: unknown 
     deps: { turns: { completeIfStatus, byIds }, pause: undefined },
     paused: { find },
     // not paused from outside (#1341c)
-    leases: { tryHold, pauseOf: () => Promise.resolve({}) },
+    leases: {
+      tryHold,
+      pauseOf: () => Promise.resolve(options.frozen === true ? { pause: { reason: "ops" } } : {}),
+    },
     clock: { now: () => NOW },
     trees: {},
   };
@@ -285,6 +290,26 @@ describe("#1366: the expiry look's move", () => {
     expect(hooks.announce).not.toHaveBeenCalled();
     expect((lease as { release: () => void }).release).toHaveBeenCalledOnce();
     expect(byIds).toHaveBeenCalledWith(["turn-1"]);
+  });
+
+  it("a tree frozen from outside (#1341c): its due pause is not expired — the lease is released, nothing counted, read, planned or announced", async () => {
+    const { parts, lease, byIds } = partsOf({
+      turns: [record(ExecutionRecordStatus.Paused)],
+      frozen: true,
+    });
+    const hooks = hooksOf();
+    const onTaken = vi.fn();
+    due();
+
+    await expiredMove(parts, hooks as never, interrupted, {}, onTaken);
+
+    expect((lease as { release: () => void }).release).toHaveBeenCalledOnce();
+    expect(byIds).not.toHaveBeenCalled();
+    expect(onTaken).not.toHaveBeenCalled();
+    expect(mocks.duePausesOf).not.toHaveBeenCalled();
+    expect(mocks.expirePauses).not.toHaveBeenCalled();
+    expect(hooks.announce).not.toHaveBeenCalled();
+    expect(hooks.drained).not.toHaveBeenCalled();
   });
 
   it("a root whose record is missing is not resting: released", async () => {

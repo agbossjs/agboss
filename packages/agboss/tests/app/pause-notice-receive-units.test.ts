@@ -45,6 +45,11 @@ vi.mock("../../src/app/pause-join-notices.js", () => ({
   listenerJoinFailedOf: (_sources: unknown, includePauseIds: boolean) =>
     Promise.resolve(`listener-join-failed-event:${String(includePauseIds)}`),
 }));
+vi.mock("../../src/app/pause-reassigned-events.js", () => ({
+  channelReassignedOf: () => "channel-reassigned-event",
+  listenerReassignedOf: (_sources: unknown, includePauseIds: boolean) =>
+    Promise.resolve(`listener-reassigned-event:${String(includePauseIds)}`),
+}));
 vi.mock("../../src/app/pause-timeout-events.js", () => ({
   channelTimeoutChangedOf: () => "channel-extended-event",
   listenerTimeoutChangedOf: (_sources: unknown, includePauseIds: boolean) =>
@@ -97,6 +102,7 @@ const HOOKS = {
   onPauseAnswerNotTaken: PauseNoticeKind.AnswerNotTaken,
   onPauseTimeoutChanged: PauseNoticeKind.TimeoutChanged,
   onPauseExpiring: PauseNoticeKind.Expiring,
+  onPauseReassigned: PauseNoticeKind.Reassigned,
   onPauseJoinFailed: PauseNoticeKind.JoinFailed,
 } as const;
 
@@ -144,6 +150,7 @@ describe("#1356: a channel is told the notices it has a hook for", () => {
             onPauseClosed: "channel-closed-event",
             onPauseAnswerNotTaken: "channel-not-taken-event",
             onPauseTimeoutChanged: "channel-extended-event",
+            onPauseReassigned: "channel-reassigned-event",
             onPauseExpiring: "channel-expiring-event",
             onPauseJoinFailed: "channel-join-failed-event",
           }[hook],
@@ -175,6 +182,7 @@ describe("#1356: a channel is told the notices it has a hook for", () => {
       PauseNoticeKind.AnswerNotTaken,
       PauseNoticeKind.TimeoutChanged,
       PauseNoticeKind.Expiring,
+      PauseNoticeKind.Reassigned,
       PauseNoticeKind.JoinFailed,
       PauseNoticeKind.Opened,
     ])
@@ -225,6 +233,7 @@ describe("#1356: a channel is told the notices it has a hook for", () => {
           },
           onPauseTimeoutChanged: () => undefined,
           onPauseExpiring: () => undefined,
+          onPauseReassigned: () => undefined,
           onPauseJoinFailed: () => undefined,
           onPauseAnswerNotTaken: () => undefined,
         },
@@ -303,6 +312,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
     "onPauseAnswerNotTaken",
     "onPauseTimeoutChanged",
     "onPauseExpiring",
+    "onPauseReassigned",
     "onPauseJoinFailed",
   ];
 
@@ -312,6 +322,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
     ["onPauseAnswerNotTaken", PauseNoticeKind.AnswerNotTaken, "listener-not-taken-event"],
     ["onPauseTimeoutChanged", PauseNoticeKind.TimeoutChanged, "listener-extended-event"],
     ["onPauseExpiring", PauseNoticeKind.Expiring, "listener-expiring-event"],
+    ["onPauseReassigned", PauseNoticeKind.Reassigned, "listener-reassigned-event"],
     ["onPauseJoinFailed", PauseNoticeKind.JoinFailed, "listener-join-failed-event"],
   ])(
     "%s is told for a %s notice, with the event of it, and whether the listener may answer",
@@ -340,6 +351,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
       PauseNoticeKind.AnswerNotTaken,
       PauseNoticeKind.TimeoutChanged,
       PauseNoticeKind.Expiring,
+      PauseNoticeKind.Reassigned,
       PauseNoticeKind.JoinFailed,
     ])
       await expect(tell(parts, "listener:metrics", kind)).resolves.toBeUndefined();
@@ -372,6 +384,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
       ["onPauseAnswerNotTaken", PauseNoticeKind.AnswerNotTaken],
       ["onPauseTimeoutChanged", PauseNoticeKind.TimeoutChanged],
       ["onPauseExpiring", PauseNoticeKind.Expiring],
+      ["onPauseReassigned", PauseNoticeKind.Reassigned],
       ["onPauseJoinFailed", PauseNoticeKind.JoinFailed],
     ] as const)
       await expect(tell(parts, "listener:metrics", kind)).rejects.toThrow(`${hook} failed`);
@@ -383,6 +396,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
       "onPauseAnswerNotTaken",
       "onPauseTimeoutChanged",
       "onPauseExpiring",
+      "onPauseReassigned",
       "onPauseJoinFailed",
     ];
     const { parts } = partsOf({
@@ -400,6 +414,7 @@ describe("#1356: a listener is told the notices it has a method for", () => {
       PauseNoticeKind.AnswerNotTaken,
       PauseNoticeKind.TimeoutChanged,
       PauseNoticeKind.Expiring,
+      PauseNoticeKind.Reassigned,
       PauseNoticeKind.JoinFailed,
     ])
       await expect(tell(parts, "listener:metrics", kind)).resolves.toBeUndefined();
