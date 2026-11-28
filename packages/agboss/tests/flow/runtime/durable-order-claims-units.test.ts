@@ -84,13 +84,15 @@ describe("the place a visit claims in the tree's order", () => {
     expect(await claimedSequence(siteOf())).toBeUndefined();
   });
 
-  it("is the in-process place after the newest of the state, when the tree has no store", async () => {
+  it("is the in-process place after the newest of the state, when the tree has no store, saying nothing", async () => {
+    const warn = vi.fn();
     const registry = new CompensationRegistry();
-    const parts = { registry } as never;
+    const parts = { registry, log: { warn } } as never;
     const entries = [entryOf("a", { sequence: 5 }), entryOf("b", { sequence: 9 })];
 
     expect(await claimedSequence(siteOf({ parts, entries }))).toBe(10);
     expect(await claimedSequence(siteOf({ parts, entries: [] }))).toBe(11);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("starts from 1 in a state that holds nothing, and claims that place in the tree's own store", async () => {
