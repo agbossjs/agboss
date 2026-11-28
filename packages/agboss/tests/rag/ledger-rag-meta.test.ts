@@ -16,10 +16,15 @@ import {
   ragSettings,
   rerankerClassesOf,
 } from "../../src/components/rag.js";
-import { boundRerankerOf, rerankerModelsOf } from "../../src/components/rag-reranker.js";
+import {
+  boundRerankerOf,
+  rerankerModelsOf,
+  rerankerPromptsOf,
+} from "../../src/components/rag-reranker.js";
 import { knowledgeRetrieveOf } from "../../src/components/rag-retrieval.js";
 import { scopeKeyOfRetrieval } from "../../src/components/rag-scope.js";
 import { componentOf, requireComponent } from "../../src/components/metadata.js";
+import { modelResolverOf } from "../../src/models/model-resolver.js";
 import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
 import { currentFrame } from "../../src/flow/context/frame.js";
 import { checkRags } from "../../src/rag/rag-checks.js";
@@ -522,5 +527,309 @@ describe("#1366: the knowledge bases retrieved before an agent runs", () => {
     expect(first?.retrieve).toBeTypeOf("function");
     expect(sources.get("bare")).toEqual([]);
     expect([...sources.keys()]).toEqual(["a", "bare"]);
+  });
+});
+
+describe("#1356: the knowledge bases of a workflow, rule by rule", () => {
+  class PlainTool {
+    readonly kind = "plain";
+  }
+  class OtherClass {
+    readonly kind = "other";
+  }
+  class NoComponent {
+    readonly kind = "none";
+  }
+
+  it("a @Rag listed twice is refused with the rule's code, its text and the agent it points at", () => {
+    const failure = (() => {
+      try {
+        ragClassesOf(workflow, [agentOf("a", JobsRag, JobsRag, DocsRag)]);
+      } catch (error) {
+        return error as ConfigError.GraphRules;
+      }
+      throw new Error("not refused");
+    })();
+
+    expect(
+      failure.violations.map(({ code, message, nodes }) => ({ code, message, nodes })),
+    ).toEqual([
+      {
+        code: "agent.duplicate-rag",
+        message: '@Agent "a": JobsRag is listed twice in rag — list it once',
+        nodes: ["a"],
+      },
+    ]);
+  });
+
+  it("an agent with no rag lists none and breaks no rule", () => {
+    expect(ragClassesOf(workflow, [{ name: "bare" } as never])).toEqual([]);
+    expect(ragClassesOf(workflow, [{ name: "bare" } as never, agentOf("b", DocsRag)])).toEqual([
+      DocsRag,
+    ]);
+  });
+
+  it("the @Rag classes a tool injects: only its deps that are @Rag classes, none for a class that is no tool or a tool with none", () => {
+    toolMetas[PlainTool.name] = {
+      name: "plain",
+      deps: [OtherClass, "a-token", NoComponent, DocsRag, JobsRag],
+    };
+    toolMetas[OtherClass.name] = { name: "other", deps: [] };
+
+    expect(ragClassesOf(workflow, [], [PlainTool as never])).toEqual([DocsRag, JobsRag]);
+    expect(
+      ragClassesOf(
+        workflow,
+        [],
+        [
+          DocsRag as never,
+          OtherClass as never,
+          class Unknown {
+            readonly unknown = true;
+          },
+        ],
+      ),
+    ).toEqual([]);
+    expect(ragClassesOf(workflow, [], [])).toEqual([]);
+    expect(ragClassesOf(workflow, [])).toEqual([]);
+  });
+
+  it("without tools to look at, the knowledge bases to check are the agents' alone", async () => {
+    const rags = await checkedRagClassesOf(workflow, [agentOf("a", JobsRag)]);
+    const withTools = await checkedRagClassesOf(workflow, [agentOf("a", JobsRag)], [SearchTool]);
+
+    expect(rags).toEqual([JobsRag]);
+    expect(withTools).toEqual([JobsRag]);
+  });
+});
+
+describe("#1356: the rerankers of knowledge bases, rule by rule", () => {
+  it("a model reranker with no model anywhere names the use it is of in the violation", () => {
+    rerankerMeta[ModelReranker.name] = { name: "model-reranker", candidates: 20 };
+
+    expect(() => rerankerModelsOf([DocsRag])).toThrow(
+      /\[model\.missing-provider\] rerankers ragRerankers\.model-reranker: names no model/u,
+    );
+    expect(() => rerankerModelsOf([DocsRag], { workflow: Bare })).toThrow(
+      /\[model\.missing\] rerankers ragRerankers\.model-reranker: names no model/u,
+    );
+  });
+
+  it("a prompt read for a reranker is on its model, none when it has none, never an empty one", () => {
+    const prompts = new Map([["model-reranker", "Rank by recency."]]);
+
+    expect(rerankerModelsOf([DocsRag], {}, prompts)).toStrictEqual([
+      { name: "model-reranker", model: "cheap", prompt: "Rank by recency." },
+    ]);
+    expect(rerankerModelsOf([DocsRag], {}, new Map())).toStrictEqual([
+      { name: "model-reranker", model: "cheap" },
+    ]);
+    expect(rerankerModelsOf([DocsRag], {}, new Map([["model-reranker", ""]]))).toStrictEqual([
+      { name: "model-reranker", model: "cheap" },
+    ]);
+  });
+
+  it("on the workflow's own resolver the violations are the workflow's to throw: it is not checked here", () => {
+    const shared = modelResolverOf("workflow", {});
+    const sharedCheck = vi.spyOn(shared, "check");
+
+    expect(rerankerModelsOf([DocsRag], {}, new Map(), shared)).toEqual([
+      { name: "model-reranker", model: "cheap" },
+    ]);
+    expect(sharedCheck).not.toHaveBeenCalled();
+  });
+
+  it("their prompts are read once for each model reranker, under its name, with its own source and the label that names it", async () => {
+    rerankerMeta[ModelReranker.name] = {
+      name: "model-reranker",
+      candidates: 20,
+      prompt: "Rank it.",
+      source: "/repo/rerank.ts",
+    };
+    const load = vi.fn(({ label }: { label: string }) => Promise.resolve(`loaded ${label}`));
+
+    const prompts = await rerankerPromptsOf([JobsRag, DocsRag, DocsRag], { load } as never);
+
+    expect([...prompts]).toEqual([["model-reranker", 'loaded @RagReranker "model-reranker"']]);
+    expect(load).toHaveBeenCalledOnce();
+    expect(load).toHaveBeenCalledWith({
+      label: '@RagReranker "model-reranker"',
+      options: { prompt: "Rank it." },
+      source: "/repo/rerank.ts",
+    });
+  });
+
+  it("a code reranker has no prompt to read, and no knowledge base has none to read at all", async () => {
+    ragMetas[JobsRag.name] = { name: "jobs-rag", reranker: CodeReranker };
+    const load = vi.fn();
+
+    expect([...(await rerankerPromptsOf([JobsRag], { load } as never))]).toEqual([]);
+    expect([...(await rerankerPromptsOf([], { load } as never))]).toEqual([]);
+    expect(load).not.toHaveBeenCalled();
+  });
+});
+
+describe("#1356: the reranker bound to a knowledge base, rule by rule", () => {
+  const instance = vi.fn((cls: unknown) => ({ instanceOf: cls }));
+  const boundOf = (services: object, cascade?: object) =>
+    boundRerankerOf(ragMetas[DocsRag.name] as never, instance, services as never, cascade);
+
+  it("its instructions are the services', else none", () => {
+    const rerankInstructions = vi.fn((name: string) => `rank as ${name} says`);
+
+    expect(boundOf({ rerankInstructions })?.instructions).toBe("rank as model-reranker says");
+    expect(boundOf({})?.instructions).toBe("");
+    expect(rerankInstructions).toHaveBeenCalledWith("model-reranker");
+  });
+
+  it("the model is resolved through the cascade at the call: a cascade that gives no model fails the call, not the gateway", () => {
+    rerankerMeta[ModelReranker.name] = { name: "model-reranker", candidates: 20 };
+    const rerankModel = vi.fn();
+
+    const binding = (boundOf({ rerankModel })?.source as { binding: () => unknown }).binding;
+
+    expect(binding).toThrow(/rerankers|jobs|docs-rag/u);
+    expect(binding).toThrow(/names no model/u);
+    expect(rerankModel).not.toHaveBeenCalled();
+  });
+});
+
+class ExecutionContextOfProject {
+  readonly kind = "context";
+}
+
+describe("#1356: the scope of a retrieval, rule by rule", () => {
+  const services = {} as never;
+  const metaOf = (scope: unknown) => ({ name: "jobs-rag", scope }) as never;
+  const frameOf = (execution: object = {}) => ({
+    isClosed: () => false,
+    step: { nodeId: "n", visitNumber: 1, component: { name: "a" } },
+    execution: { executionId: "e1", tenant: { tenantId: "tenant-1" }, ...execution },
+  });
+  const inFrame = (frame: unknown) => vi.mocked(currentFrame).mockReturnValue(frame as never);
+  const messageOf = (make: () => unknown): string => {
+    try {
+      make();
+    } catch (error) {
+      return (error as Error).message;
+    }
+    return "not refused";
+  };
+
+  it("an owner scope with no owner says so, naming the knowledge base", () => {
+    inFrame(frameOf());
+
+    expect(messageOf(() => scopeKeyOfRetrieval(metaOf(RagScope.Owner), {}, services))).toBe(
+      "[config.component] @Rag jobs-rag has scope RagScope.Owner and this execution has no owner — pass owner in the call's options",
+    );
+  });
+
+  it("an owner id that is no key is refused naming the field and the knowledge base, never the id", () => {
+    inFrame(frameOf({ ownerId: "bob\u0007" }));
+
+    const message = messageOf(() => scopeKeyOfRetrieval(metaOf(RagScope.Owner), {}, services));
+
+    expect(message).toContain("@Rag jobs-rag");
+    expect(message).toContain("owner");
+    expect(message).not.toContain("bob");
+  });
+
+  it("a scope that is none of the four says what it may be", () => {
+    inFrame(frameOf());
+
+    expect(messageOf(() => scopeKeyOfRetrieval(metaOf("everyone"), {}, services))).toBe(
+      "[rag.scope-required] @Rag jobs-rag declares no known scope — scope: RagScope.Shared, Tenant, Owner or Custom",
+    );
+  });
+
+  it("a tenant id that is no key is refused before any scope resolves", () => {
+    inFrame(frameOf({ tenant: { tenantId: "" } }));
+
+    for (const scope of [RagScope.Tenant, RagScope.Owner, RagScope.Custom])
+      expect(() => scopeKeyOfRetrieval(metaOf(scope), {}, services)).toThrow(
+        ValidationError.DtoInvalid,
+      );
+  });
+
+  it("a custom scope with no resolver says so", () => {
+    inFrame(frameOf());
+
+    expect(messageOf(() => scopeKeyOfRetrieval(metaOf(RagScope.Custom), {}, services))).toBe(
+      "[rag.custom-scope-missing-resolver] @Rag jobs-rag has scope RagScope.Custom and no resolveScope(context)",
+    );
+  });
+
+  it("a custom scope is the id its source resolves from the live context, as the scope of the tenant", () => {
+    inFrame(frameOf());
+    const resolveScope = vi.fn((_context: unknown) => "project-9");
+    const source = { resolveScope };
+    const withContext = { contexts: { executionContext: ExecutionContextOfProject } } as never;
+
+    const key = (() => {
+      try {
+        return scopeKeyOfRetrieval(metaOf(RagScope.Custom), source, withContext);
+      } catch (error) {
+        return error;
+      }
+    })();
+
+    expect(key).toEqual({ tenantId: "tenant-1", scopeId: "project-9", scope: RagScope.Custom });
+    expect(resolveScope).toHaveBeenCalledOnce();
+    expect(resolveScope.mock.calls[0]).toHaveLength(1);
+  });
+
+  it.each([
+    ["nothing", undefined],
+    ["an empty text", ""],
+    ["a number", 5],
+    ["null", null],
+  ])("a custom scope that resolves %s fails closed, naming the knowledge base", (_why, id) => {
+    inFrame(frameOf());
+    const source = { resolveScope: () => id };
+
+    expect(
+      messageOf(() =>
+        scopeKeyOfRetrieval(metaOf(RagScope.Custom), source, {
+          contexts: { executionContext: ExecutionContextOfProject },
+        } as never),
+      ),
+    ).toBe(
+      "[config.component] @Rag jobs-rag: resolveScope returned no scope id — a custom scope names one on every call",
+    );
+  });
+
+  it("a custom scope id that is no key is refused naming the field and the knowledge base", () => {
+    inFrame(frameOf());
+    const source = { resolveScope: () => "bad\u0007id" };
+
+    const message = messageOf(() =>
+      scopeKeyOfRetrieval(metaOf(RagScope.Custom), source, {
+        contexts: { executionContext: ExecutionContextOfProject },
+      } as never),
+    );
+
+    expect(message).toContain("@Rag jobs-rag");
+    expect(message).toContain("scopeId");
+  });
+
+  it("the filter of a call goes to the source as it was given, and is no field when there is none", async () => {
+    inFrame(frameOf());
+    const signal = new AbortController().signal;
+    const run = knowledgeRetrieveOf(
+      { name: "docs-rag", topK: 3, scope: RagScope.Tenant } as never,
+      {},
+      undefined,
+      services,
+    );
+
+    await run("q", { topK: 2, signal });
+
+    expect(Object.keys(vi.mocked(retrieveOf).mock.calls[0]?.[2] ?? {})).toEqual([
+      "topK",
+      "signal",
+      "tenantId",
+      "scopeId",
+      "scope",
+    ]);
   });
 });

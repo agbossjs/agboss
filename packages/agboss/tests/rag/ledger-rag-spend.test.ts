@@ -8,7 +8,15 @@ import { usd } from "../../src/units/index.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { currentFrame } from "../../src/flow/context/frame.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
-import { bindRagRuntime, RagSource, type RagRuntime } from "../../src/rag/rag-source.js";
+import {
+  bindRagRuntime,
+  indexOf,
+  isRagSource,
+  RagSource,
+  type RagRuntime,
+} from "../../src/rag/rag-source.js";
+import { callerOfSpend } from "../../src/finops/explicit-caller.js";
+import { ExecutionContextUnavailableError } from "../../src/flow/context/errors.js";
 import { retrievalRecordsOf } from "../../src/rag/retrieval-spend.js";
 import { SpendOutsideStepError } from "../../src/components/spend-recorder.js";
 
@@ -144,4 +152,87 @@ describe("#1366: a knowledge base's search spend", () => {
   it("an instance the application did not create has no pipeline: it fails, it never reads", async () => {
     await expect(new Docs().search("q")).rejects.toThrow(/did not create/u);
   });
+});
+
+describe("#1356: where a knowledge base's search may run", () => {
+  it("outside any step: the refusal names the knowledge base and what it needs", async () => {
+    vi.mocked(currentFrame).mockReturnValue(undefined);
+    const { source } = sourceOf({ results: [] });
+
+    await expect(source.search("q")).rejects.toThrow(
+      ExecutionContextUnavailableError.outside({
+        consumer: "@Rag docs-rag",
+        field: "executionContext",
+      }),
+    );
+  });
+
+  it("in the frame of a step that ended: the refusal names the step, and the pipeline is never called", async () => {
+    const step = { nodeId: "n", visitNumber: 1, component: { name: "agent-a" } };
+    vi.mocked(currentFrame).mockReturnValue({
+      isClosed: () => true,
+      step,
+      execution: {
+        executionId: "e-7",
+        tenant: { tenantId: "t" },
+        signal: new AbortController().signal,
+      },
+      services: {},
+    } as never);
+    const { source, retrieve } = sourceOf({ results: [] });
+
+    await expect(source.search("q")).rejects.toThrow(
+      ExecutionContextUnavailableError.ended(step as never, "e-7"),
+    );
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it("a paid search with nothing to report to is refused naming the knowledge base, and nothing is reported", async () => {
+    vi.mocked(currentFrame).mockReturnValue(frameOf());
+    const { source } = sourceOf({ results: [], costUsd: usd(0.25) });
+
+    const failure = await source.search("q").catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(SpendOutsideStepError);
+    expect((failure as Error).message).toBe(
+      "[spend.outside-step] @Rag docs-rag made a paid search outside a step or a tool call — search while the step (or the tool call) runs",
+    );
+  });
+});
+
+describe("#1356: the core's way into a source", () => {
+  it("a source is what a knowledge base extends, and nothing else is", () => {
+    expect(isRagSource(new Docs())).toBe(true);
+    expect(isRagSource({})).toBe(false);
+    expect(isRagSource(null)).toBe(false);
+    expect(isRagSource(Docs)).toBe(false);
+  });
+
+  it("builds an index with the options it was given, and says none when the source has no index", async () => {
+    const report = { indexed: 3 };
+    const index = vi.fn((_options: unknown) => report);
+    const options = { scopeId: "s-1" };
+
+    expect(await indexOf({ index }, options as never)).toBe(report);
+    expect(index).toHaveBeenCalledWith(options);
+    expect(await indexOf({}, options as never)).toBeUndefined();
+  });
+});
+
+describe("#1356: the caller a spend reported in a tool call is billed to", () => {
+  const spent = (caller: string) => record(0.25, caller);
+
+  it.each(["rag:docs", "reranker:docs-reranker", "pii:email"])(
+    "a service that names itself (%s) keeps its own caller",
+    (caller) => {
+      expect(callerOfSpend(spent(caller), "tool:search")).toBe(caller);
+    },
+  );
+
+  it.each(["tool:search", "agent", "my-rag:docs", "not-pii:x", "xrag:docs", "rag", "docs:rag:"])(
+    "any other caller (%s) is billed to the tool's own",
+    (caller) => {
+      expect(callerOfSpend(spent(caller), "tool:search")).toBe("tool:search");
+    },
+  );
 });
