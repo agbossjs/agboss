@@ -5,7 +5,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { StoreError } from "../../src/core/error-families/store-errors.js";
-import { instantOfOptionalText, instantOfText } from "../../src/infrastructure/instants.js";
+import {
+  instantOfOptionalText,
+  instantOfText,
+  isCanonicalInstantText,
+  isValidInstant,
+} from "../../src/infrastructure/instants.js";
 import { InMemoryPauseBook } from "../../src/infrastructure/in-memory-pause-book.js";
 import { assertPauseAnswerInstants } from "../../src/infrastructure/pause-answer-instants.js";
 import { assertPausedRunInstants } from "../../src/infrastructure/paused-run-instants.js";
@@ -113,26 +118,38 @@ describe("#1307: a pause answer and a paused run refuse an Invalid Date, naming 
 
   it("a pause answer: when it was asked and resolved, each entry's time and deadline", () => {
     refusedWith(
-      () => { assertPauseAnswerInstants(answer({ askedAt: BAD })); },
+      () => {
+        assertPauseAnswerInstants(answer({ askedAt: BAD }));
+      },
       "askedAt",
       "pause answer",
     );
     refusedWith(
-      () => { assertPauseAnswerInstants(answer({ resolvedAt: BAD })); },
+      () => {
+        assertPauseAnswerInstants(answer({ resolvedAt: BAD }));
+      },
       "resolvedAt",
       "pause answer",
     );
     refusedWith(
-      () => { assertPauseAnswerInstants(answer({ trail: [{ at: GOOD }, { at: BAD }] })); },
+      () => {
+        assertPauseAnswerInstants(answer({ trail: [{ at: GOOD }, { at: BAD }] }));
+      },
       "trail[1].at",
       "pause answer",
     );
     refusedWith(
-      () => { assertPauseAnswerInstants(answer({ trail: [{ at: GOOD, expiresAt: BAD }] })); },
+      () => {
+        assertPauseAnswerInstants(answer({ trail: [{ at: GOOD, expiresAt: BAD }] }));
+      },
       "trail[0].expiresAt",
       "pause answer",
     );
-    expect(caught(() => { assertPauseAnswerInstants(answer({})); })).toBeUndefined();
+    expect(
+      caught(() => {
+        assertPauseAnswerInstants(answer({}));
+      }),
+    ).toBeUndefined();
   });
 
   it("a paused run: each pending pause's deadline", () => {
@@ -140,11 +157,17 @@ describe("#1307: a pause answer and a paused run refuse an Invalid Date, naming 
       ({ run: { pending: deadlines.map((expiresAt) => ({ expiresAt })) } }) as never;
 
     refusedWith(
-      () => { assertPausedRunInstants(run(GOOD, BAD)); },
+      () => {
+        assertPausedRunInstants(run(GOOD, BAD));
+      },
       "pending[1].expiresAt",
       "paused run",
     );
-    expect(caught(() => { assertPausedRunInstants(run(GOOD, undefined)); })).toBeUndefined();
+    expect(
+      caught(() => {
+        assertPausedRunInstants(run(GOOD, undefined));
+      }),
+    ).toBeUndefined();
   });
 });
 
@@ -163,6 +186,16 @@ describe("#1307: the texts of stored instants", () => {
       "message",
       "a stored pause mailbox is not readable: the field(s) expires_at missing or not what the framework wrote",
     );
+  });
+
+  it("only a four-digit year is a canonical text: a year past 9999 or before 0000 spells with a sign and six digits", () => {
+    const far = new Date("+010000-01-01T00:00:00.000Z");
+
+    expect(isValidInstant(far)).toBe(false);
+    expect(isValidInstant(GOOD)).toBe(true);
+    expect(isCanonicalInstantText(far.toISOString())).toBe(false);
+    expect(isCanonicalInstantText("2026-01-05T10:00:00.000Z")).toBe(true);
+    expect(isCanonicalInstantText("2026-01-05T10:00:00.000+00:00")).toBe(false);
   });
 
   it("an optional one is none for none, null or undefined, else read the same way", () => {
@@ -214,14 +247,17 @@ describe("#1307: the in-memory book refuses an Invalid Date, naming it and the r
     refusedWith(
       () =>
         b.change(PAUSE.tenantId, PAUSE.pauseId, (current) => ({
-          pause: current,
+          pause: { ...current, isSent: true },
           notices: [],
           inserted: { ...pauseOf("p-2", "key-2"), expiresAt: BAD },
         })),
       "expiresAt",
     );
     expect(b.find(PAUSE.tenantId, "p-2")).toBeUndefined();
+    expect(b.find(PAUSE.tenantId, PAUSE.pauseId)?.isSent).toBe(false);
     expect(b.find(PAUSE.tenantId, PAUSE.pauseId)?.askedAt).toEqual(PAUSE.askedAt);
-    refusedWith(() => { b.insert({ ...PAUSE, pauseId: "p-3", askedAt: BAD }); }, "askedAt");
+    refusedWith(() => {
+      b.insert({ ...PAUSE, pauseId: "p-3", askedAt: BAD });
+    }, "askedAt");
   });
 });

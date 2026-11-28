@@ -82,20 +82,23 @@ export type PauseReplacementInput = Pick<
   readonly stepKey: string;
 };
 
+/** What a replacement never keeps of the old pause: its reference, its assignees and its channel (the replacement says its own). */
+const ALWAYS_DROPPED: readonly string[] = ["externalRef", "assignees", "channel"];
+
+/** What a replacement that sets a deadline does not keep either: the old deadline, its source and its reminder. */
+const DEADLINE_KEYS: readonly string[] = ["expiresAt", "expiryBound", "remindAt"];
+
 /**
  * The old pause without what a replacement does not keep: its reference, its assignees and its channel
  * (the replacement says its own), and when a new deadline is set its deadline and reminder.
  */
 function keptOf(pause: PauseRecord, isNewDeadline: boolean): Omit<PauseRecord, "externalRef"> {
-  const dropped: readonly string[] = [
-    "externalRef",
-    "assignees",
-    "channel",
-    ...(isNewDeadline ? ["expiresAt", "expiryBound", "remindAt"] : []),
-  ];
-  return Object.fromEntries(
-    Object.entries(pause).filter(([key]) => !dropped.includes(key)),
-  ) as Omit<PauseRecord, "externalRef">;
+  const isDropped = (key: string): boolean =>
+    ALWAYS_DROPPED.includes(key) || (isNewDeadline && DEADLINE_KEYS.includes(key));
+  return Object.fromEntries(Object.entries(pause).filter(([key]) => !isDropped(key))) as Omit<
+    PauseRecord,
+    "externalRef"
+  >;
 }
 
 /** Where a replacement waits: the destination's target and respondent, or the old pause's own; its channel, if any. */

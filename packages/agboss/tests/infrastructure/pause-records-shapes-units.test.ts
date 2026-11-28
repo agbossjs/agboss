@@ -70,6 +70,9 @@ describe("#934: a pause read from the JSON a store kept", () => {
     for (const stored of [approval, question]) {
       const error = caught(() => pauseRecordOfJson(stored));
       expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
+      expect((error as { cause: { issues: unknown } }).cause.issues).toEqual([
+        { code: "custom", path: ["toolCall"], message: "missing or not what was written" },
+      ]);
       expect((error as Error).message).toMatch(
         /^a stored pause is not readable \(pause [0-9a-f]{32}, executionId run-1\): the field\(s\) toolCall missing or not what the framework wrote$/,
       );
@@ -224,7 +227,7 @@ describe("#946: the pause that takes the place of another", () => {
     const next = replacementPause(FULL, input(), AT);
 
     expect(next).not.toHaveProperty("assignees");
-    expect(next.trail.at(-1)).toEqual({
+    expect(next.trail.at(-1)).toStrictEqual({
       action: "reassigned",
       at: AT,
       target: FULL.target,
@@ -233,7 +236,7 @@ describe("#946: the pause that takes the place of another", () => {
     });
     const owner = replacementPause({ ...BARE, expiresAt: undefined }, input(), AT);
     expect(owner).not.toHaveProperty("channel");
-    expect(owner.trail.at(-1)).toEqual({ action: "reassigned", at: AT, target: BARE.target });
+    expect(owner.trail.at(-1)).toStrictEqual({ action: "reassigned", at: AT, target: BARE.target });
   });
 
   it("with a destination takes its target, respondent and channel, narrowed by its limits, and its entry names them", () => {
@@ -279,6 +282,8 @@ describe("#946: the pause that takes the place of another", () => {
 
     expect(expiry).toMatchObject({ expiresAt: LATER, expiryBound: PauseExpiryBound.Pause });
     expect(expiry).not.toHaveProperty("remindAt");
+    expect(call).toMatchObject({ expiresAt: LATER, expiryBound: PauseExpiryBound.Pause });
+    expect(call).not.toHaveProperty("remindAt");
     expect(expiry.trail.at(-1)).toMatchObject({ action: "reassigned", expiresAt: LATER });
     expect(call.trail.slice(-2).map((entry) => entry.action)).toEqual([
       "reassigned",
@@ -293,6 +298,8 @@ describe("#946: the pause that takes the place of another", () => {
     // a deadline set that is none: nothing is kept of the old
     const none = replacementPause(old, input({ due: {} }), AT);
     expect(none).not.toHaveProperty("expiresAt");
+    expect(none).not.toHaveProperty("expiryBound");
+    expect(none).not.toHaveProperty("remindAt");
     expect(none.trail.at(-1)).not.toHaveProperty("expiresAt");
   });
 });
@@ -331,11 +338,13 @@ describe("#942: a timeout change's record", () => {
     const earlier = changed(pending, { expiresAt: new Date(LATER.getTime() - 1000) });
     const none = changed(pending, {});
     const unsourced = changed({ ...pending, expiryBound: undefined }, { expiresAt: LATER });
+    const unbound = changed({ ...pending, boundAt: undefined }, {});
 
     expect(exact?.pause.expiryBound).toBe(PauseExpiryBound.Quorum);
     expect(earlier?.pause.expiryBound).toBe(PauseExpiryBound.Pause);
     expect(none?.pause.expiryBound).toBe(PauseExpiryBound.Pause);
     expect(unsourced?.pause.expiryBound).toBe(PauseExpiryBound.Pause);
+    expect(unbound?.pause.expiryBound).toBe(PauseExpiryBound.Pause);
   });
 
   it("adds an entry naming who, where and why — each of the actor, channel, assignees, reference, deadline and reason only when there", () => {
@@ -350,7 +359,7 @@ describe("#942: a timeout change's record", () => {
     );
     const taken = changed({ ...BARE, expiresAt: LATER }, {});
 
-    expect(full?.pause.trail.at(-1)).toEqual({
+    expect(full?.pause.trail.at(-1)).toStrictEqual({
       action: "timeout-changed",
       at: AT,
       actor: { id: "ops" },
@@ -361,7 +370,7 @@ describe("#942: a timeout change's record", () => {
       externalRef: "TICKET-1",
       reason: "more time",
     });
-    expect(bare?.pause.trail.at(-1)).toEqual({
+    expect(bare?.pause.trail.at(-1)).toStrictEqual({
       action: "timeout-changed",
       at: AT,
       target: BARE.target,
@@ -396,6 +405,5 @@ describe("#942: a timeout change's record", () => {
     expect(Object.keys(bare?.notices[0]?.notice ?? {}).sort()).toEqual(
       ["kind", "previousExpiresAt", "seq", "writtenAt"].filter((key) => key !== "seq"),
     );
-    seen;
   });
 });
