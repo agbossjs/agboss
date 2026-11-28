@@ -42,6 +42,14 @@ describe("#817: assertLedgerEntries refuses anything but a ledger entry, naming 
     ],
     [{ ...fine, costUsd: -0.25 }, "its costUsd is no finite amount ≥ 0: -0.25"],
     [{ ...fine, costUsd: undefined }, "its costUsd is no finite amount ≥ 0: undefined"],
+    [{ ...fine, inputTokens: -1 }, "its inputTokens is no finite count ≥ 0: -1"],
+    [{ ...fine, outputTokens: -5 }, "its outputTokens is no finite count ≥ 0: -5"],
+    [{ ...fine, inputTokens: Number.NaN }, "its inputTokens is no finite count ≥ 0: NaN"],
+    [
+      { ...fine, outputTokens: Number.POSITIVE_INFINITY },
+      "its outputTokens is no finite count ≥ 0: Infinity",
+    ],
+    [{ ...fine, inputTokens: undefined }, "its inputTokens is no finite count ≥ 0: undefined"],
   ];
 
   it.each(cases)("%o: %s", (entry, reason) => {
@@ -58,6 +66,12 @@ describe("#817: assertLedgerEntries refuses anything but a ledger entry, naming 
     expect(() => {
       assertLedgerEntries([fine, entry]);
     }).toThrow(refused?.message);
+  });
+
+  it("no tokens at all is a count of 0: a free entry passes", () => {
+    const free = { ...fine, inputTokens: 0, outputTokens: 0 };
+
+    expect(invalidLedgerEntryErrorOf([free])).toBeUndefined();
   });
 
   it("entries, a free cost and none at all pass", () => {

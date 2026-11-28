@@ -323,6 +323,28 @@ describe("#1366: the spend of the files the judges read, and of a judge that bro
     });
   });
 
+  it("a rejection sent back for a retry is told to the observer: the attempt that failed, the attempts allowed, the feedback the model reads", async () => {
+    const onAgentRetry = vi.fn();
+    const { node } = setup([judgeOf("j1", { passed: false, reason: "too long" })], {
+      maxRetries: 2,
+      observer: { onJudgeStart: vi.fn(), onJudgeEnd: vi.fn(), onAgentRetry },
+    });
+
+    const out = await node(stateOf({ retries: 1 }), undefined);
+
+    const feedback = (listOf<{ text: string }>(out.messages)[0] ?? { text: "" }).text;
+    expect(onAgentRetry).toHaveBeenCalledOnce();
+    expect(onAgentRetry).toHaveBeenCalledWith({
+      base: true,
+      agent: "alpha",
+      reason: "judge-rejected",
+      attempt: 2,
+      maxAttempts: 3,
+      feedback,
+    });
+    expect(feedback).toContain("- [j1] too long");
+  });
+
   it("a gate with no observer is heard by none, and passes", async () => {
     const { node } = setup([judgeOf("j1", { passed: true })]);
 

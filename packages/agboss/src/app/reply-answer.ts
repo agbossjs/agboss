@@ -80,12 +80,13 @@ export const replyAnsweringPartsOf = (deps: AppDeps): ReplyAnsweringParts => ({
   budgets: deps.budgets,
   tracing: deps.tracing,
   observerOf: (pause) => {
+    let own: ReturnType<typeof ownDepsOf> | undefined;
     try {
-      return ownDepsOf(deps, pause.workflow).observer;
+      own = ownDepsOf(deps, pause.workflow);
     } catch {
       // a workflow this application no longer has: nobody to tell
-      return undefined;
     }
+    return own?.observer;
   },
   treeStateOf: (rootExecutionId) => treeStateOf(deps, rootExecutionId),
   frameOf: async (pause, state) => pauseFrameOf(deps, pause, await pauseTreeOf(deps, pause, state)),

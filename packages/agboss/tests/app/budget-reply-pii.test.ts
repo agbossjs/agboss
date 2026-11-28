@@ -54,3 +54,21 @@ describe("#1366: the policies a reply is read through", () => {
     expect(withFieldKey).toHaveBeenCalledWith("tree-key");
   });
 });
+
+describe("#1366: whom a reading is told to", () => {
+  it("the observers of the pause's own workflow, never the answering app's", () => {
+    const observer = { observer: true };
+    vi.mocked(ownDepsOf).mockReturnValue({ observer } as never);
+
+    expect(parts.observerOf?.(pause)).toBe(observer);
+    expect(ownDepsOf).toHaveBeenCalledWith({ config: { name: "bundle" } }, "child-workflow");
+  });
+
+  it("a workflow this application no longer has: nobody to tell, and no error", () => {
+    vi.mocked(ownDepsOf).mockImplementation(() => {
+      throw new Error("no such workflow");
+    });
+
+    expect(parts.observerOf?.(pause)).toBeUndefined();
+  });
+});

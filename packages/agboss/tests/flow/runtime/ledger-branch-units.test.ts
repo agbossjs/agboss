@@ -553,3 +553,37 @@ describe("#1366: what a branch is bounded by and opens as it ends", () => {
     });
   });
 });
+
+describe("#1281: a branch whose arbiter failed it after its node answered keeps what the node opened and spent", () => {
+  it("its entries are on the branch's run for the join to undo, its node's spend on its update and the launch's list", async () => {
+    const entries = [{ key: "e1" }, { key: "e2" }];
+    const crash = new Error("the arbiter crashed");
+    vi.mocked(compensationsOfBranch).mockResolvedValue({ compensations: entries as never });
+    vi.mocked(markAnswer).mockRejectedValue(crash);
+    vi.mocked(failedStatusOf).mockReturnValue(BranchStatus.Failed);
+    const live = liveOf();
+    const spent = record(0.25, "node");
+    const { node } = setup({
+      live,
+      runner: () => Promise.resolve({ value: { x: 1 }, read: [], usage: [spent] }),
+    });
+
+    const out = await node(stateOf() as never, undefined);
+
+    expect(vi.mocked(branchVisitOf).mock.calls[0]?.[0]).toMatchObject({ compensations: entries });
+    expect(out.usage).toEqual([spent]);
+    expect(live.spent).toEqual([spent]);
+    expect(live.errors.get(2)).toBe(crash);
+  });
+
+  it("an answer that opened no list of entries leaves the run's own as they were", async () => {
+    vi.mocked(compensationsOfBranch).mockResolvedValue({});
+    vi.mocked(markAnswer).mockRejectedValue(new Error("crash"));
+    vi.mocked(failedStatusOf).mockReturnValue(BranchStatus.Failed);
+    const { node } = setup();
+
+    await node(stateOf() as never, undefined);
+
+    expect(vi.mocked(branchVisitOf).mock.calls[0]?.[0]).toMatchObject({ compensations: [] });
+  });
+});

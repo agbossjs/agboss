@@ -55,6 +55,19 @@ describe("#1366: a side path entered", () => {
     expect(out).toEqual({ sidePath: { next: "handle", isAfterLimit: true, owed: ["k1", "k3"] } });
   });
 
+  it("keeps the handled record of the failure when it is given one, and has no such key when it is not", () => {
+    const handled = { error: "e" } as never;
+
+    expect(sidePathEntered(stateOf(), plain, "handle", undefined, handled)).toEqual({
+      sidePath: { next: "handle", isAfterLimit: false, owed: [], handled },
+    });
+    expect(Object.keys(sidePathEntered(stateOf(), plain, "handle").sidePath)).toEqual([
+      "next",
+      "isAfterLimit",
+      "owed",
+    ]);
+  });
+
   it("a failure that is no limit, taken by a visit off any side path, did not take one", () => {
     const out = sidePathEntered(stateOf(), plain, "handle", node("failing"));
 
@@ -134,6 +147,13 @@ describe("#1366: an owed undo", () => {
         node("undo-c"),
       ),
     ).toBe(false);
+  });
+
+  it("never counts an entry a child's finish moved up: it is no node's of this workflow (#1281b)", () => {
+    const moved = { ...entry("k9", "undo-b", 9), childPath: ["child"] };
+    const state = stateOf({ ...owing, compensations: [...owing.compensations, moved] });
+
+    expect(isOwedUndo(state, node("undo-b"))).toBe(true);
   });
 
   it("is not one off the side path, whatever entries are open", () => {

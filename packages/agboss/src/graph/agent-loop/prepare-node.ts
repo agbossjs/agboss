@@ -138,14 +138,12 @@ async function startedOf(site: PrepareSite, target: PrepareTarget, own: Own): Pr
   const { tool, known } = target;
   const args = own.args;
   // a question role's arguments are its ask: strict, and no tool runs (#712)
-  const ask = tool.question === undefined ? undefined : askOf(tool, args);
-  if (ask?.kind === "invalid") {
-    const asked = { tool: tool.name, problem: ask.problem };
-    return { end: own.end({ kind: "invalid" }, { asked }) };
+  const parsed = askOf(tool, args);
+  if (parsed.kind === "invalid") {
+    const asked = { tool: tool.name, problem: parsed.problem };
+    return { end: own.end({ kind: "invalid" }, tool.question === undefined ? {} : { asked }) };
   }
-  if (ask === undefined && !tool.input.safeParse(args).success)
-    return { end: own.end({ kind: "invalid" }) };
-  const checked = ask?.kind === "valid" ? { ...ask.value } : args;
+  const checked = tool.question === undefined ? args : { ...parsed.value };
   const set = loopPoliciesOf(state, deps);
   const screened = await screenedArguments(set, checked, known);
   const refused = await refusedBy(set, screened);
@@ -213,7 +211,7 @@ async function hooksOf(
 ): Promise<{
   readonly end: HookEnd;
   readonly usage: UsageRecord[];
-  readonly remote?: ToolCallRemote;
+  readonly remote: ToolCallRemote | undefined;
 }> {
   const { state, deps, config, runCtx } = site;
   const usage: UsageRecord[] = [];
@@ -234,6 +232,5 @@ async function hooksOf(
     () => beforeCall(interceptorsOf(deps, tool), tool, args, keep, scope),
     signal.signal,
   ).finally(signal.release);
-  const remote = mesh.remote();
-  return { end, usage, ...(remote === undefined ? {} : { remote }) };
+  return { end, usage, remote: mesh.remote() };
 }

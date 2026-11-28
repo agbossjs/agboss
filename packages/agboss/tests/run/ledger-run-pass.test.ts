@@ -209,6 +209,67 @@ describe("#1366: a new run records what it spends", () => {
     );
   });
 
+  describe("a thread with turns reused by a workflow without memory (#1303b)", () => {
+    const WARNING =
+      "bundle has no memory: this execution reuses a thread with turns, but no agent reads its earlier turns — set memory on the workflow or an agent";
+
+    const reuse = (memories: unknown, turns: readonly unknown[], withLog = true) => {
+      const { raw, graph, deps } = setup();
+      graph.stream.mockImplementation(() => Promise.resolve(statesOf({ usage: [] })));
+      vi.mocked(openThread).mockResolvedValue({ threadId: "t-9" });
+      const lastTurns = vi.fn(() => Promise.resolve(turns));
+      const warn = vi.fn();
+      Object.assign(raw, {
+        memories,
+        turns: { ...raw.turns, lastTurns },
+        ...(withLog ? { log: { warn } } : {}),
+      });
+      return { deps, lastTurns, warn };
+    };
+    const requested = { ...startedWith, threadId: "t-9" };
+
+    it("is warned about once, naming the execution and the tenant but not the thread", async () => {
+      const { deps, lastTurns, warn } = reuse({ memories: [] }, [{ id: "earlier" }]);
+
+      await executeAgent(requested, deps);
+
+      expect(lastTurns).toHaveBeenCalledWith("default", "t-9", 1);
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledWith("memory.thread-reuse-without-memory", WARNING, {
+        executionId: "run-1",
+        tenantId: "default",
+      });
+    });
+
+    it.each([
+      ["an application with no memories at all", undefined, [{ id: "earlier" }]],
+      ["a workflow with a memory", { memories: ["m"] }, [{ id: "earlier" }]],
+      ["a thread with no turns", { memories: [] }, []],
+    ])("is not warned about for %s", async (_why, memories, turns) => {
+      const { deps, warn } = reuse(memories, turns);
+
+      await executeAgent(requested, deps);
+
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("a thread that is new, not named by the request, is not looked at", async () => {
+      const { deps, lastTurns, warn } = reuse({ memories: [] }, [{ id: "earlier" }]);
+
+      await executeAgent(startedWith, deps);
+
+      expect(lastTurns).not.toHaveBeenCalled();
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("an application with no log runs on without one", async () => {
+      const { deps, lastTurns } = reuse({ memories: [] }, [{ id: "earlier" }], false);
+
+      await expect(executeAgent(requested, deps)).resolves.toEqual({ status: "finished" });
+      expect(lastTurns).toHaveBeenCalledOnce();
+    });
+  });
+
   it("the compaction's spend goes through the run's recorder: on the meter, and on the list the finish reads", async () => {
     const { deps, graph, meter } = setup();
     graph.stream.mockResolvedValue(statesOf({ usage: [compaction] }));

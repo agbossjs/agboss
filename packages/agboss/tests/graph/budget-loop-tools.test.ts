@@ -634,6 +634,30 @@ describe("#1366: what an ended task stores", () => {
     expect(out.piiTokens).toEqual({});
   });
 
+  it("the after hooks are told whose call it is: the agent and the call id", async () => {
+    const { node } = setup();
+
+    await node(taskOf(), undefined);
+
+    expect(vi.mocked(afterCall).mock.calls[0]?.[4]).toStrictEqual({
+      agent: "alpha",
+      callId: "c1",
+    });
+  });
+
+  it("a call prepared as invalid has no after hooks: the error of its arguments is what the model reads, as it ran", async () => {
+    const { node } = setup();
+    vi.mocked(runTool).mockResolvedValue({ kind: "error", message: "invalid input" } as never);
+
+    await node(endedTaskOf({ kind: "invalid" }), undefined);
+
+    expect(afterCall).not.toHaveBeenCalled();
+    expect(vi.mocked(closedResult).mock.calls[0]?.[2]).toEqual({
+      kind: "error",
+      message: "invalid input",
+    });
+  });
+
   it("arguments its tool's input check refuses are one more validation attempt; valid ones are none", async () => {
     const bad = setup({ tool: toolOf({ input: { safeParse: () => ({ success: false }) } }) });
     const good = setup();

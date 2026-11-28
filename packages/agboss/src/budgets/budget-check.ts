@@ -158,7 +158,7 @@ const listed = (budgets: readonly Class[]): readonly ListedBudget[] =>
 export function budgetsOfExecution(
   {
     budgets,
-    attached: attachedByAny = [],
+    attached: attachedByAny,
     budgetOverlays,
   }: Pick<ApplicationBudgets, "budgets" | "attached" | "budgetOverlays">,
   workflow: Class,
@@ -173,7 +173,8 @@ export function budgetsOfExecution(
   const chosen =
     own ??
     execution.find(
-      (budget) => budget.meta.workflow === undefined && !attachedByAny.includes(budget.type),
+      (budget) =>
+        budget.meta.workflow === undefined && attachedByAny?.includes(budget.type) !== true,
     );
   const kept = all.filter(
     (budget) => budget.meta.scope !== BudgetScope.Execution || budget === chosen,

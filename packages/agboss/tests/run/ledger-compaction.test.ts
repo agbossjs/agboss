@@ -477,3 +477,47 @@ describe("#1366: which turns are due, and what the compaction's model reads", ()
     expect(inputOf(invoke)).toBe(`${TURNS_TO_COMPACT_HEADING}\n`);
   });
 });
+
+describe("#1399: a summary call that fails mid-way", () => {
+  it("records what it spent under `memory:<name>` at once, and the failure is the memory's", async () => {
+    const { run, invoke, recorded, binding } = setup([]);
+    invoke.mockImplementationOnce(async (_messages: unknown, options: { callbacks?: unknown }) => {
+      const handlers = Array.isArray(options.callbacks) ? options.callbacks : [];
+      for (const handler of handlers) await handler.handleLLMNewToken?.("abcdefgh");
+      throw new Error("the provider died");
+    });
+
+    const failure = await summaryOf(binding as never, compaction(), "four", run).catch(
+      (error: unknown) => error,
+    );
+
+    expect(failure).toBeInstanceOf(StepError.Memory);
+    expect(recorded).toHaveBeenCalledOnce();
+    expect(recorded.mock.calls[0]?.[0]).toEqual([
+      expect.objectContaining({ caller: "memory:notes", model: "cheap", outputTokens: 2 }),
+    ]);
+  });
+});
+
+describe("#1366: only a queue reports its length", () => {
+  it("a single summary's work has no summaryQueueLength, a queue's has it", async () => {
+    const single = setup([answer("one", 0.25)]);
+    const queue = setup([answer("two", 0.25)]);
+
+    const ofSingle = await compactDue(
+      single.deps,
+      { compactions: [compaction({ strategy: CompactionStrategy.SingleSummary })] } as never,
+      single.run,
+    );
+    const ofQueue = await compactDue(
+      queue.deps,
+      { compactions: [compaction()] } as never,
+      queue.run,
+    );
+
+    expect(ofSingle.compacted).toEqual([{ memory: "notes", fromTurn: 1, toTurn: 2, summaries: 2 }]);
+    expect(ofQueue.compacted).toEqual([
+      { memory: "notes", fromTurn: 1, toTurn: 2, summaries: 2, summaryQueueLength: 3 },
+    ]);
+  });
+});

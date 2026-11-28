@@ -14,8 +14,11 @@ import { readByDecision } from "../../src/channels/reply-decision.js";
 import { readByModel } from "../../src/channels/reply-reader.js";
 import { CostSource, ZERO_USAGE, type UsageRecord } from "../../src/finops/usage.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
+import { ChannelInterpreterOutcome } from "../../src/flow/observers/channel-interpreter.js";
+import { testFrame } from "../helpers/frame.js";
 
-vi.mock("../../src/flow/context/frame.js", () => ({
+vi.mock("../../src/flow/context/frame.js", async (original) => ({
+  ...(await original<typeof import("../../src/flow/context/frame.js")>()),
   runInFrame: vi.fn((_frame: unknown, work: () => unknown) => work()),
 }));
 vi.mock("../../src/channels/reply-code.js", async (original) => ({
@@ -119,6 +122,58 @@ describe("#1366: a model interpreter's call is checked first", () => {
     ]);
   });
 
+  it("tells the provider and the unpriced mark of the interpreter's model to its settings and to the gateway's kind", async () => {
+    const { call } = callOf();
+    vi.mocked(readByModel).mockResolvedValue({ kind: "answered", answer: 1, usage: [] });
+    const interpreter = {
+      ...interpreterOf("some/chat-model"),
+      modelProvider: "acme",
+      unpriced: true,
+    };
+
+    await readReplyBy(interpreter as never, call, parts as never);
+
+    expect(parts.gateway.kindOf).toHaveBeenCalledWith("acme");
+    expect(parts.chatModelSettings).toHaveBeenCalledWith("some/chat-model", "acme");
+    expect(vi.mocked(readByModel).mock.calls[0]?.[2].settings).toStrictEqual({
+      defaults: true,
+      temperature: 0,
+      from: "some/chat-model",
+      model: "some/chat-model",
+      modelProvider: "acme",
+      unpriced: true,
+      resolved: true,
+    });
+  });
+
+  it("an interpreter's model with no provider and no unpriced mark has neither key in its settings", async () => {
+    const { call } = callOf();
+    vi.mocked(readByModel).mockResolvedValue({ kind: "answered", answer: 1, usage: [] });
+
+    await readReplyBy(interpreterOf("some/chat-model") as never, call, parts as never);
+
+    expect(parts.gateway.kindOf).toHaveBeenCalledWith(undefined);
+    expect(parts.chatModelSettings).toHaveBeenCalledWith("some/chat-model", undefined);
+    expect(Object.keys(vi.mocked(readByModel).mock.calls[0]?.[2].settings ?? {})).toEqual([
+      "defaults",
+      "temperature",
+      "from",
+      "model",
+      "resolved",
+    ]);
+  });
+
+  it("a gateway that cannot tell its models apart reads every one as a chat model", async () => {
+    const { call } = callOf();
+    vi.mocked(readByModel).mockResolvedValue({ kind: "answered", answer: 1, usage: [] });
+    const bare = { ...parts, gateway: { name: "bare" } };
+
+    await readReplyBy(interpreterOf("some/chat-model") as never, call, bare as never);
+
+    expect(readByModel).toHaveBeenCalledOnce();
+    expect(readByDecision).not.toHaveBeenCalled();
+  });
+
   it("a decision model is read as one: its caller named for the interpreter, its gateway and model, and its PII", async () => {
     const { call, order } = callOf();
     vi.mocked(parts.gateway.kindOf).mockReturnValue(ModelKind.Decisions);
@@ -163,6 +218,32 @@ describe("#1366: a model interpreter's call is checked first", () => {
     expect(beforeModelCall).not.toHaveBeenCalled();
     expect(out).toEqual({ kind: "read", decision: { ok: 1 }, usage: [] });
     expect(vi.mocked(readByCode).mock.calls[0]?.[1]).toEqual({ ask: { q: "?" }, reply: "yes" });
+  });
+
+  it("tells the observer of the paused execution, who reads and what it cost, around the reading", async () => {
+    const onChannelInterpreterStart = vi.fn();
+    const onChannelInterpreterEnd = vi.fn();
+    const { call } = callOf({
+      frame: testFrame(),
+      observer: { onChannelInterpreterStart, onChannelInterpreterEnd },
+    });
+    vi.mocked(readByModel).mockResolvedValue({
+      kind: "answered",
+      answer: 1,
+      usage: [record(0.25)],
+    });
+
+    await readReplyBy(interpreterOf("some/chat-model") as never, call, parts as never);
+
+    const about = { interpreter: "boss-reply-interpreter", target: "tg", isCode: false };
+    expect(onChannelInterpreterStart).toHaveBeenCalledWith(expect.objectContaining(about));
+    expect(onChannelInterpreterEnd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...about,
+        outcome: ChannelInterpreterOutcome.Read,
+        costUsd: usd(0.25),
+      }),
+    );
   });
 
   it("the reading runs in the call's frame", async () => {
