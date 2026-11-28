@@ -277,5 +277,14 @@
     "anchor": "const isOver = (): boolean => ended.aborted;",
     "kind": "wall-clock",
     "reason": "a renewal that never sees its call end loops for ever on awaited promises (the clock's sleep wakes when the call's signal aborts, the check no longer ends the loop, the renewal is asked again at once): a loop of microtasks that no timer, vitest's or Stryker's, can end, and whose mutated arrow runs once per loop turn only after the call ended; run alone with 3 x the shard's run it still did not finish"
+  },
+  {
+    "shard": "a2a-files",
+    "file": "src/a2a/files/files-work.ts",
+    "mutator": "ObjectLiteral",
+    "replacement": "{}",
+    "anchor": "caller: { tenant: tenantKeyOf(tenantId), owner: callerKeyOf(tenantId, execution.ownerId) },",
+    "kind": "runtime-error",
+    "reason": "a read by url with no tenant or owner key in its share crashes the test process ('Cannot convert object to primitive value' in the runner, 'Test runner crashed'), which Stryker counts as an error, not a kill; the test of the pool share fails on it in a run alone (a tenant's second read no longer waits), the crash is only how the runner ends it"
   }
 ]
