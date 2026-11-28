@@ -18,13 +18,16 @@ import {
 } from "../../src/infrastructure/pause-record.js";
 import { PauseExpirySignal } from "../../src/flow/runtime/pause-expiry-failure.js";
 import {
+  channelOfPause,
+  checkedExternalRef,
   ChannelSendError,
   pauseStep,
+  sendOnce,
   PauseWithdrawnError,
   sentBy,
   THREAD_OWNER,
 } from "../../src/flow/runtime/pause.js";
-import { hours } from "../../src/units/index.js";
+import { hours, seconds } from "../../src/units/index.js";
 import { VirtualClock } from "../../src/testing/clock.js";
 import { testFrame } from "../helpers/frame.js";
 import { PauseRespondent } from "../../src/pause/respondent.js";
@@ -401,5 +404,261 @@ describe("#1366: the record of a step's pause", () => {
     const lookedForNone = vi.spyOn(none.pauses, "findByTenantIdAndRootExecutionIdAndStepKey");
     await pauseStep(none.site, question).catch(() => undefined);
     expect(lookedForNone).not.toHaveBeenCalled();
+  });
+});
+
+describe("#1356: the reference a channel gave its pause", () => {
+  it("is a key's text, none at all, or refused naming the channel: a stored value nobody can read back is never kept", () => {
+    expect(checkedExternalRef("refund-channel", undefined)).toBeUndefined();
+    expect(checkedExternalRef("refund-channel", "TICKET-1")).toBe("TICKET-1");
+    for (const given of [5, "", { id: "x" }, "x".repeat(1000)])
+      expect(() => checkedExternalRef("refund-channel", given)).toThrow(
+        new TypeError("channel refund-channel: externalRef of awaitReply() is a key's text"),
+      );
+  });
+
+  it("an awaitReply's reference is the pause's, and a reply with none leaves it out", async () => {
+    const pause = { pauseId: "p-1", input: {}, trail: [] } as never;
+    const channel = (outcome: unknown) =>
+      ({ name: "refund-channel", sender: { send: () => Promise.resolve(outcome) } }) as never;
+
+    expect(
+      await sendOnce(
+        channel(ChannelOutcome.awaitReply({ externalRef: "TICKET-1" })),
+        pause,
+        undefined,
+      ),
+    ).toStrictEqual({ externalRef: "TICKET-1" });
+    expect(await sendOnce(channel(ChannelOutcome.awaitReply()), pause, undefined)).toStrictEqual({
+      externalRef: undefined,
+    });
+    expect(
+      await sendOnce(channel(ChannelOutcome.decided({ approved: true })), pause, undefined),
+    ).toStrictEqual({ decision: { approved: true } });
+  });
+
+  it("of a pause with no channel asks nobody: it waits for its owner", async () => {
+    expect(await sendOnce(undefined, { pauseId: "p-1" } as never, undefined)).toStrictEqual({});
+  });
+});
+
+describe("#1356: the channel of a pause", () => {
+  it("is the one its record names on its target, none for an owner's pause or a name the target has not", () => {
+    const refund = { name: "refund-channel" } as never;
+    const other = { name: "other-channel" } as never;
+    const target = {
+      channels: new Map([
+        ["other-channel", other],
+        ["refund-channel", refund],
+      ]),
+    };
+
+    expect(channelOfPause(target, { channel: "refund-channel" })).toBe(refund);
+    expect(channelOfPause(target, { channel: undefined })).toBeUndefined();
+    expect(channelOfPause(target, { channel: "moved-channel" })).toBeUndefined();
+  });
+});
+
+describe("#1356: a send's time", () => {
+  const pause = { pauseId: "p-1", input: {}, trail: [] } as never;
+  const stalledChannel = (timeout?: number) =>
+    ({
+      name: "refund-channel",
+      ...(timeout === undefined ? {} : { timeout: timeout as never }),
+      sender: { send: () => new Promise<never>(() => undefined) },
+    }) as never;
+  const within = () => {
+    const virtual = new VirtualClock();
+    return { virtual, call: { frame, clock: virtual, interruption: undefined } as never };
+  };
+
+  it("is the channel's own timeout: a send that outlasts it is the channel's failure, naming it", async () => {
+    const { virtual, call } = within();
+    const sent = sendOnce(stalledChannel(seconds(5)), pause, undefined, call).catch(
+      (error: unknown) => error,
+    );
+
+    await virtual.advance(seconds(6));
+
+    const failure = await sent;
+    expect(failure).toBeInstanceOf(ChannelSendError);
+    expect((failure as Error).message).toBe("channel refund-channel: send() failed");
+    expect((failure as Error).cause).toHaveProperty("message", "timed out after 5 s");
+  });
+
+  it("is thirty seconds when the channel names none", async () => {
+    const { virtual, call } = within();
+    let settled = false;
+    const sent = sendOnce(stalledChannel(), pause, undefined, call).catch((error: unknown) => {
+      settled = true;
+      return error;
+    });
+
+    await virtual.advance(seconds(29));
+    expect(settled).toBe(false);
+    await virtual.advance(seconds(2));
+
+    expect((await sent) as Error).toHaveProperty("cause.message", "timed out after 30 s");
+  });
+
+  it("is no one's when no call frame is given: the send runs bare", async () => {
+    const channel = {
+      name: "refund-channel",
+      timeout: seconds(1),
+      sender: { send: () => Promise.resolve(ChannelOutcome.awaitReply()) },
+    } as never;
+
+    expect(await sendOnce(channel, pause, undefined)).toStrictEqual({ externalRef: undefined });
+  });
+});
+
+describe("#1356: a pause a write found changed meanwhile", () => {
+  const decided = (decision: unknown) => ChannelOutcome.decided(decision);
+
+  it("a channel's decision that lost its write to a change in place: the pause stays pending, is marked sent unasked again, and the step stops at interrupt()", async () => {
+    const { site, pauses } = setup({ send: () => Promise.resolve(decided({ approved: true })) });
+    vi.spyOn(pauses, "decideByTenantIdAndPauseId").mockResolvedValue(false);
+
+    await expect(pauseStep(site, question)).rejects.toThrow(
+      /was resumed without a recorded decision/,
+    );
+
+    const [pause] = await pauses.findAllByTenantIdAndRootExecutionId(
+      tenantId,
+      frame.execution.executionId,
+    );
+    expect(pause?.isSent).toBe(true);
+    expect(pause?.status).toBe(PauseStatus.Pending);
+    expect(mocks.interrupt).toHaveBeenCalledOnce();
+  });
+
+  it("a pause that is marked sent by the time its write is lost is not marked again", async () => {
+    const { site, pauses, delivered } = setup({
+      send: () => Promise.resolve(decided({ approved: true })),
+    });
+    vi.spyOn(pauses, "decideByTenantIdAndPauseId").mockImplementation(async (_t, id) => {
+      await pauses.markSentByTenantIdAndPauseId(tenantId, id, NO_RECIPIENTS);
+      delivered.mockClear();
+      return false;
+    });
+
+    await expect(pauseStep(site, question)).rejects.toThrow(
+      /was resumed without a recorded decision/,
+    );
+
+    expect(delivered).not.toHaveBeenCalled();
+  });
+
+  it("a decision that lost its write to an answer recorded meanwhile: the answer recorded meanwhile is the step's, not the channel's own", async () => {
+    const { site, pauses } = setup({ send: () => Promise.resolve(decided({ approved: true })) });
+    const decide = pauses.decideByTenantIdAndPauseId.bind(pauses);
+    vi.spyOn(pauses, "decideByTenantIdAndPauseId").mockImplementation(
+      async (_t, id, _answer, at, seen) => {
+        await decide(
+          tenantId,
+          id,
+          { decision: { approved: false }, actor: { id: "ann" } },
+          at,
+          seen,
+        );
+        return false;
+      },
+    );
+
+    expect(await pauseStep(site, question)).toEqual({
+      decision: { approved: false },
+      by: "refund-approval-channel",
+      usage: [],
+    });
+  });
+
+  it("a decision the store took is the channel's, never read again", async () => {
+    const { site, pauses } = setup({ send: () => Promise.resolve(decided({ approved: true })) });
+    const read = vi.spyOn(pauses, "findByTenantIdAndPauseId");
+
+    expect(await pauseStep(site, question)).toEqual({
+      decision: { approved: true },
+      by: "refund-approval-channel",
+      usage: [],
+    });
+    expect(read).not.toHaveBeenCalled();
+  });
+});
+
+describe("#1356: a pause that is not this step's target's to send", () => {
+  it("one of another target's channel (moved by an expiry or an operator) is asked nobody and not marked sent: the re-send look asks it", async () => {
+    const { site, pauses, send, onSend } = setup();
+    await stored(pauses, { channel: "moved-channel" });
+    const marked = vi.spyOn(pauses, "markSentByTenantIdAndPauseId");
+
+    await expect(pauseStep(site, question)).rejects.toThrow(
+      /was resumed without a recorded decision/,
+    );
+
+    expect(onSend).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+    expect(marked).not.toHaveBeenCalled();
+    expect(mocks.interrupt).toHaveBeenCalledWith({ pauseId: "pause-1" });
+  });
+
+  it("an owner's pause (no channel) is reported, asks nobody, and is marked sent", async () => {
+    const { site, pauses, send, onSend } = setup();
+    await stored(pauses, { channel: undefined });
+    const marked = vi.spyOn(pauses, "markSentByTenantIdAndPauseId");
+
+    await expect(pauseStep(site, question)).rejects.toThrow(
+      /was resumed without a recorded decision/,
+    );
+
+    expect(onSend).toHaveBeenCalledOnce();
+    expect(send).not.toHaveBeenCalled();
+    expect(marked).toHaveBeenCalledOnce();
+  });
+
+  it("a new pause that waits is not read again, and one a reply resolved while `send` returned is taken with its answer", async () => {
+    const waiting = setup();
+    const read = vi.spyOn(waiting.pauses, "findByTenantIdAndPauseId");
+    await pauseStep(waiting.site, question).catch(() => undefined);
+    expect(read).not.toHaveBeenCalled();
+
+    const { site, pauses } = setup();
+    const mark = pauses.markSentByTenantIdAndPauseId.bind(pauses);
+    vi.spyOn(pauses, "markSentByTenantIdAndPauseId").mockImplementation(
+      async (t, id, recipients, ref) => {
+        await pauses.resolveByTenantIdAndPauseId(
+          t,
+          id,
+          { decision: { approved: false }, actor: { id: "ann" } },
+          clock.now(),
+          recipients,
+        );
+        return mark(t, id, recipients, ref);
+      },
+    );
+
+    expect(await pauseStep(site, question)).toEqual({
+      decision: { approved: false },
+      by: "ann",
+      usage: [],
+    });
+  });
+
+  it("a replacement that waits after a lost write is not marked sent in the place of the pause this step asked", async () => {
+    const { site, pauses } = setup({
+      send: () => Promise.resolve(ChannelOutcome.decided({ ok: 1 })),
+    });
+    vi.spyOn(pauses, "decideByTenantIdAndPauseId").mockResolvedValue(false);
+    const original = await stored(pauses);
+    const moved = { ...original, status: PauseStatus.Cancelled, reassignedTo: "pause-2" };
+    const replacement = { ...original, pauseId: "pause-2", stepKey: "k~r1", isSent: false };
+    vi.spyOn(pauses, "findByTenantIdAndPauseId").mockResolvedValue(moved);
+    vi.spyOn(pauses, "findAllByTenantIdAndRootExecutionId").mockResolvedValue([moved, replacement]);
+    const marked = vi.spyOn(pauses, "markSentByTenantIdAndPauseId");
+
+    await expect(pauseStep(site, question)).rejects.toThrow(
+      /was resumed without a recorded decision/,
+    );
+
+    expect(marked).not.toHaveBeenCalled();
   });
 });
