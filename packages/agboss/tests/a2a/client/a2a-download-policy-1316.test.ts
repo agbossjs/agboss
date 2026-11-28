@@ -4,7 +4,7 @@
  * client's own pool: a full pool is `FileError.Unavailable` (`FetchBusy`), never an unbounded fetch.
  */
 import { describe, expect, it } from "vitest";
-import { boundsOf } from "../../../src/a2a/client/a2a-download-bounds.js";
+import { boundsOf, downloadedBy } from "../../../src/a2a/client/a2a-download-bounds.js";
 import { downloadedFile } from "../../../src/a2a/client/a2a-download.js";
 import { SystemClock } from "../../../src/infrastructure/clock.js";
 import { FileUnavailableReason } from "../../../src/files/file-errors.js";
@@ -110,5 +110,32 @@ describe("#1316: downloadFile under a @FilePolicy", () => {
     );
     expect(boundsOf(a, undefined, kilobytes(3)).maxSize).toBe(kilobytes(3));
     expect(seconds(1)).toBe(1000);
+  });
+});
+
+describe("#1356: what bounds a client's download", () => {
+  it("with no policy it is the pool alone, and the call's maxSize only when it names one", () => {
+    const client = {};
+
+    expect(boundsOf(client, undefined, undefined)).toStrictEqual({
+      slots: boundsOf(client, undefined, undefined).slots,
+    });
+    expect(boundsOf(client, undefined, kilobytes(3))).toStrictEqual({
+      slots: boundsOf(client, undefined, undefined).slots,
+      maxSize: kilobytes(3),
+    });
+  });
+
+  it("downloadedBy reads within the call's maxSize, and with no options at all within the default", async () => {
+    const client = {};
+    const using = [bodyOf(2000), new SystemClock(), undefined] as const;
+
+    expect((await downloadedBy(client, urlFile, undefined, using)).byteLength).toBe(2000);
+    expect((await downloadedBy(client, urlFile, { maxSize: kilobytes(3) }, using)).byteLength).toBe(
+      2000,
+    );
+    expect(await reasonOf(downloadedBy(client, urlFile, { maxSize: kilobytes(1) }, using))).toBe(
+      FileUnavailableReason.TooLarge,
+    );
   });
 });

@@ -42,6 +42,7 @@ export function listFinishItemsOf(
   workflows: readonly Class[],
 ): ReadonlyMap<string, readonly DtoClass[]> {
   const part = workflowPartsOf(workflows).find((each) => each.nodes.includes(start));
+  // Stryker disable next-line ArrayDeclaration: equivalent: the start is one of the nodes of the part found for it
   const entries = (part?.nodes ?? []).flatMap((node): [string, readonly DtoClass[]][] => {
     const finish = declarationOf(node);
     // Stryker disable next-line OptionalChaining: equivalent: every node of a flow has a declaration
@@ -54,12 +55,12 @@ export function listFinishItemsOf(
 
 /** The bytes one exported start may keep as files; 0 for a start without. */
 function startSizeOf(
+  declaration: NonNullable<ReturnType<typeof declarationOf>>,
   start: Class,
   workflows: readonly Class[],
   limits: ReturnType<ComponentOptions["fileLimits"]>,
 ): number {
-  const declaration = declarationOf(start);
-  if (declaration?.kind !== ComponentKind.WorkflowStart) return 0;
+  if (declaration.kind !== ComponentKind.WorkflowStart) return 0;
   const input = inputClassOf(declaration.options.input);
   const takes = input !== undefined && fileFieldsOf(input).length > 0;
   const gives = [...finishDtosOf(start, workflows).values()].some(
@@ -78,13 +79,13 @@ export function fileTierSizeOf(
     const meta = componentOf(expose);
     if (meta?.kind !== "a2a-endpoint") return [];
     return startsOfEndpoint(meta.meta).map((start) => {
-      // Stryker disable next-line StringLiteral: equivalent: a start with no declaration gets size 0 whatever its name
-      const name = declarationOf(start)?.options.name ?? "";
+      const declaration = declarationOf(start);
+      if (declaration === undefined) return 0;
       const limits = options.workflowFileLimits(
         workflowOfStart(start, workflows),
-        skillOptionsOf(meta.meta, name)?.filePolicy,
+        skillOptionsOf(meta.meta, declaration.options.name)?.filePolicy,
       );
-      return startSizeOf(start, workflows, limits);
+      return startSizeOf(declaration, start, workflows, limits);
     });
   });
   return Math.max(0, ...sizes);
