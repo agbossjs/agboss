@@ -58,6 +58,7 @@ export function toMailbox(row: unknown): StoredMailbox {
         ids: { pause: pauseKeyOf(r.tenant_id, r.pause_id) },
       }),
       "pause notice mailbox",
+      // Stryker disable next-line ArrayDeclaration: equivalent: the value read is the notices' array, no key of it names an id, so any key list reads no id
       [],
     ),
     delivered: r.delivered,

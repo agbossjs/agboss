@@ -427,3 +427,147 @@ describe("#1307, M3: a mailbox time is read only in the canonical spelling, nami
     ).toMatchObject({ next_attempt_at: NON_CANONICAL });
   });
 });
+
+describe("#1356: the mailbox statements refuse an Invalid Date naming the field and the record", () => {
+  const invalid = new Date(Number.NaN);
+  const valid = new Date("2026-11-20T10:00:00.000Z");
+  const refusal = (field: string): string =>
+    `an Invalid Date was given for ${field} of a pause mailbox: nothing was written (the fields name no stored row; check the clock or the time that was passed)`;
+  const rowsOf = () => new SqlitePauseNoticeRows(opened().database);
+  const claim = {} as never;
+
+  it.each([
+    [
+      "claimDue at",
+      "at",
+      (rows: SqlitePauseNoticeRows) => rows.claimDue(invalid, 1, 1, ["r"], () => "t"),
+    ],
+    ["ack at", "at", (rows: SqlitePauseNoticeRows) => rows.ack(claim, invalid)],
+    ["renew at", "at", (rows: SqlitePauseNoticeRows) => rows.renew(claim, invalid, 1)],
+    ["retry", "nextAttemptAt", (rows: SqlitePauseNoticeRows) => rows.retry(claim, invalid, "p")],
+    [
+      "setAsideStale writtenBefore",
+      "writtenBefore",
+      (rows: SqlitePauseNoticeRows) => rows.setAsideStale(invalid, valid, "p", 1),
+    ],
+    [
+      "setAsideStale at",
+      "at",
+      (rows: SqlitePauseNoticeRows) => rows.setAsideStale(valid, invalid, "p", 1),
+    ],
+  ])("%s", (_name, field, run) => {
+    const error = thrownBy(() => run(rowsOf()));
+
+    expect(error).toBeInstanceOf(StoreError.UnreadableRecord);
+    expect(error).toHaveProperty("message", refusal(field));
+    expect(error).toHaveProperty("isInvalidDate", true);
+  });
+});
+
+describe("#1356: a mailbox that does not read", () => {
+  const due = "2026-11-20T10:00:00.000Z";
+  const insert = (
+    database: ReturnType<typeof opened>["database"],
+    values: Record<string, unknown>,
+  ) => {
+    const row = { ...mailboxRow({ head_written_at: due }), ...values };
+    database
+      .prepare(
+        "INSERT INTO pause_notices (tenant_id, pause_id, recipient, notices, delivered, attempts, next_attempt_at, head_written_at, is_dead, problem, claim_token, claimed_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(
+        row["tenant_id"] as string,
+        row["pause_id"] as never,
+        row["recipient"] as string,
+        row["notices"] as string,
+        row["delivered"] as number,
+        row["attempts"] as number,
+        row["next_attempt_at"] as string,
+        row["head_written_at"] as string,
+        row["is_dead"] as number,
+        null,
+        null,
+        null,
+      );
+  };
+
+  it("with a notice kind no code writes: set aside as dead with the problem `unreadable mailbox`, the claim of the others goes on", () => {
+    const { database } = opened();
+    insert(database, {
+      pause_id: "p-bad",
+      notices: JSON.stringify([{ seq: 1, kind: "gone", writtenAt: due }]),
+    });
+    insert(database, { pause_id: "p-good" });
+
+    const claims = new SqlitePauseNoticeRows(database).claimDue(
+      new Date("2026-11-20T10:00:01.000Z"),
+      10,
+      30_000,
+      ["channel:refund"],
+      () => "token-1",
+    );
+
+    expect(claims.map((c) => c.mailbox.pauseId)).toEqual(["p-good"]);
+    expect(
+      database.prepare("SELECT is_dead, problem FROM pause_notices WHERE pause_id = 'p-bad'").get(),
+    ).toEqual({ is_dead: 1, problem: "unreadable mailbox" });
+  });
+
+  it("with no readable key: the reading error is thrown, nothing is set aside", () => {
+    const { database } = opened();
+    insert(database, { pause_id: new Uint8Array([1, 2]) });
+
+    expect(() =>
+      new SqlitePauseNoticeRows(database).claimDue(
+        new Date("2026-11-20T10:00:01.000Z"),
+        10,
+        30_000,
+        ["channel:refund"],
+        () => "token-1",
+      ),
+    ).toThrow(/pause_id/);
+    expect(database.prepare("SELECT is_dead FROM pause_notices").get()).toEqual({ is_dead: 0 });
+  });
+
+  it("notices of a wrong shape: unreadable as a pause notice mailbox, naming the field and the pause, never the value", () => {
+    const failure = thrownBy(() =>
+      toMailbox(mailboxRow({ notices: JSON.stringify([{ seq: "x", kind: "closed" }]) })),
+    );
+
+    expect(failure).toBeInstanceOf(StoreError.UnreadableRecord);
+    expect(failure).toHaveProperty("message");
+    expect((failure as Error).message).toBe(
+      "a stored pause notice mailbox is not readable: the field(s) 0.seq, 0.writtenAt missing or not what the framework wrote",
+    );
+  });
+
+  it("a due time that is no instant text: unreadable as a pause notice mailbox, naming next_attempt_at", () => {
+    const failure = thrownBy(() => toMailbox(mailboxRow({ next_attempt_at: NON_CANONICAL })));
+
+    expect(failure).toBeInstanceOf(StoreError.UnreadableRecord);
+    expect((failure as Error).message).toBe(
+      "a stored pause notice mailbox is not readable: the field(s) next_attempt_at missing or not what the framework wrote",
+    );
+  });
+});
+
+describe("#1356: the pauses table's indexes", () => {
+  it("are all made, the deadline and reminder scans', the tenant's pages', the external reference's and the unsent's", () => {
+    const names = opened()
+      .database.prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'pauses' AND name LIKE 'pauses_%' ORDER BY name",
+      )
+      .all()
+      .map((row) => row["name"]);
+
+    expect(names).toEqual([
+      "pauses_by_external_ref",
+      "pauses_by_resolved_at",
+      "pauses_by_root",
+      "pauses_by_tenant",
+      "pauses_pending_by_expiry",
+      "pauses_pending_by_remind",
+      "pauses_pending_unsent",
+    ]);
+  });
+});
