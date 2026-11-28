@@ -298,16 +298,20 @@ describe("#1307, H2: an act of an operator on a pause whose target guards its an
   it.each(["permitTimeoutChange", "permitReassign"] as const)(
     "is let through when the target declares %s, or guards no answer, or cannot be resolved",
     (hook) => {
-      expect(() => { assertNotAnswerGuarded(
+      expect(() => {
+        assertNotAnswerGuarded(
           depsOf({ ...guarded, [hook]: () => Promise.resolve(true) }),
           PAUSE,
           hook,
           "x",
-        ); },
-      ).not.toThrow();
-      expect(() => { assertNotAnswerGuarded(depsOf({}), PAUSE, hook, "x"); }).not.toThrow();
-      expect(() => { assertNotAnswerGuarded(depsOf(guarded), { ...PAUSE, target: "gone" }, hook, "x"); },
-      ).not.toThrow();
+        );
+      }).not.toThrow();
+      expect(() => {
+        assertNotAnswerGuarded(depsOf({}), PAUSE, hook, "x");
+      }).not.toThrow();
+      expect(() => {
+        assertNotAnswerGuarded(depsOf(guarded), { ...PAUSE, target: "gone" }, hook, "x");
+      }).not.toThrow();
     },
   );
 
