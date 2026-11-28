@@ -28,6 +28,10 @@ export default defineConfig({
       // #1356: the call ids' other tests
       "tests/infrastructure/lease-fencing.test.ts",
       "tests/graph/budget-loop-model-calls.test.ts",
+      // #1356: Idempotency's own tests, the async rejections, the errors' report members
+      "tests/app/{idempotency-*,action-timeout}.test.ts",
+      "tests/errors/async-rejects.test.ts",
+      "tests/core/diagnostics/*.test.ts",
     ],
   },
 });

@@ -91,6 +91,7 @@ export function callKeyDigestUnder(secret: string, key: CallKeyFields): string {
 
 /** The prefix of `key` a gateway with a short limit takes (`16..43`), else `undefined`. */
 export const shortKeyOf = (key: string, length: unknown): string | undefined =>
-  typeof length === "number" && Number.isInteger(length) && length >= 16 && length <= DIGEST_LENGTH
-    ? key.slice(0, length)
+  // `Number.isInteger` is false for anything that is no number
+  Number.isInteger(length) && (length as number) >= 16 && (length as number) <= DIGEST_LENGTH
+    ? key.slice(0, length as number)
     : undefined;

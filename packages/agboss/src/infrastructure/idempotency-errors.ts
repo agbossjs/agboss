@@ -38,14 +38,16 @@ export const invalidBusinessKey = (
 };
 
 /** A `shortKey(length)` whose length is not a whole number from 16 to 43 (#1317d): never a bare `RangeError`. */
-export const invalidShortKeyLength = (length: unknown): IdempotencyError.InvalidKey =>
-  new IdempotencyError.InvalidKey({
+export function invalidShortKeyLength(length: unknown): IdempotencyError.InvalidKey {
+  return new IdempotencyError.InvalidKey({
     message: `call.shortKey(length) takes a whole number of characters from 16 to 43 (a shorter prefix of an HMAC is not unique enough), not ${typeof length === "number" ? String(length) : typeof length}`,
   });
+}
 
 /** A key a store or `Idempotency` was given that no key-maker made (#825): a copy, a hand-built object. */
-export const unissuedKey = (message: string): IdempotencyError.InvalidKey =>
-  new IdempotencyError.InvalidKey({ message });
+export function unissuedKey(message: string): IdempotencyError.InvalidKey {
+  return new IdempotencyError.InvalidKey({ message });
+}
 
 /** What a conflict knows: the effect and the business key's handle — never the key. */
 export interface BusinessKeyConflictOptions {

@@ -140,6 +140,19 @@ describe("#1366: the frame of one visit of a node", () => {
     expect(Object.keys(none.execution)).not.toContain("lease");
   });
 
+  it("carries the observer of the deps, when they have one, and none otherwise", () => {
+    const observer = { id: "observer" };
+
+    const observed = stepFrameOf(node, stateOf(), configOf(), {
+      ...(deps as object),
+      observer,
+    } as never);
+    const bare = stepFrameOf(node, stateOf(), configOf(), deps);
+
+    expect(observed.execution.observer).toBe(observer);
+    expect(Object.keys(bare.execution)).not.toContain("observer");
+  });
+
   it("knows where its request came from and its deadlines, when its contexts hold them", () => {
     const own = {
       mesh: { trusted: { origin: { application: "peer" } } },

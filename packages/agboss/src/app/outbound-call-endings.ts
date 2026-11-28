@@ -100,7 +100,7 @@ export async function fencedEnd<TRequest, TResult>(
   try {
     return await write();
   } catch (error) {
-    if (error instanceof ExecutionError.Fenced || error instanceof ExecutionError.Fenced) {
+    if (error instanceof ExecutionError.Fenced) {
       const { name } = run.key;
       const { operation, target } = run.options;
       const text = `outbound call "${name}" (${operation} on ${target}) attempt ${String(attempt)} was answered after its lease was handed over: the answer is not stored and the new holder reconciles the intent — check ${target} if it was sent again`;

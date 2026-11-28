@@ -167,7 +167,8 @@ export class SqliteConnection implements OnDestroy {
    * `runOnce` an in-memory store runs, `IdempotencyError.OutsideTransaction`.
    */
   requireTransaction(): SqliteTransactionHandle {
-    const scope = this.#mutex.isInside ? this.#mutex.active?.scope : undefined;
+    const hold = this.#mutex.isInside ? this.#mutex.active : undefined;
+    const scope = hold?.scope;
     if (scope !== undefined) return scope.handle;
     const name = runOnceNameOf();
     throw new IdempotencyError.OutsideTransaction({

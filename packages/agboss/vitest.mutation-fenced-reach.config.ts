@@ -19,6 +19,10 @@ export default defineConfig({
       // the effect a direct-reply A2A skill's nodes reach (src/a2a/a2a-effect-reach.ts)
       "tests/a2a/direct/direct-rule-units.test.ts",
       "tests/a2a/direct/direct-rules.test.ts",
+      // #1356: Idempotency's options, errors and keys; the A2A client's direct call
+      "tests/app/idempotency-*.test.ts",
+      "tests/app/{outbound-call-idempotency-options-units,action-timeout,fingerprint-required,outbound-call-keyed}.test.ts",
+      "tests/a2a/client/a2a-client-direct.test.ts",
     ],
   },
 });

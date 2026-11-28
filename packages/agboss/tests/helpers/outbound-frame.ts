@@ -53,6 +53,12 @@ export interface OutboundFrameOptions {
   readonly instanceClock?: (clock: VirtualClock) => Clock;
   readonly settings?: OutboundMasking;
   readonly store?: typeof InMemoryOutboundCallRepository;
+  /** The step's own signal (default: the test frame's, which never aborts). */
+  readonly signal?: AbortSignal;
+  /** The idempotency secrets of the step's execution (default: the test's one key); `rotateTo` changes them. */
+  readonly fingerprintKeys?: { readonly current: string; readonly previous?: string };
+  /** What the holder's fence check does right before a send (default: nothing: the lease is held). */
+  readonly assertHeld?: () => void;
 }
 
 /**
@@ -87,6 +93,8 @@ export interface OutboundFrame {
   /** The text of a business key a test made with `keyIn` (the store keeps its digest). */
   readonly textOf: (key: EffectKey) => string | undefined;
   readonly otherInstance: () => Idempotency;
+  /** The execution's idempotency secrets from now on (a rotation: the new one, and the one it replaced). */
+  readonly rotateTo: (keys: { readonly current: string; readonly previous?: string }) => void;
   /** `work` in the frame of the step `key` was made under. */
   readonly inFrame: <TValue>(key: EffectKey, work: () => Promise<TValue>) => Promise<TValue>;
   /** `sendOnce` of the execution `key` was made under, in a frame of its lease. */
@@ -115,6 +123,9 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   const effects = new InMemoryFencedEffectRepository(storeClockOf(clock), database, leases);
   const idempotency = new Idempotency(effects, store, settings, logger, instanceClock);
   const origin = { executionId: base.execution.executionId, nodeId: "pay-action", visitNumber: 1 };
+  let secrets: { current: string; previous?: string } = options.fingerprintKeys ?? {
+    current: TEST_IDEMPOTENCY_KEY,
+  };
   /** The frame of the step `key` was made under: the lease it names, its step. */
   const frameOf = (key: EffectKey): FrameSpec => {
     const lease: FrameLease = {
@@ -124,7 +135,7 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
       token: key.token,
       trustedUntil: Number.POSITIVE_INFINITY,
       isYielded: false,
-      assertHeld: () => undefined,
+      assertHeld: options.assertHeld ?? (() => undefined),
       renewNow: () => Promise.resolve(),
       enterStep: () => Promise.resolve(() => undefined),
       recordOutboundCall: (report) => {
@@ -132,10 +143,15 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
       },
     };
     // an application's frame carries its idempotency keys (#825): a business key's fingerprint
-    const fingerprintKeys = { current: TEST_IDEMPOTENCY_KEY };
+    const fingerprintKeys = secrets;
     return {
       ...base,
-      execution: { ...base.execution, lease, fingerprintKeys },
+      execution: {
+        ...base.execution,
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+        lease,
+        fingerprintKeys,
+      },
       step: { ...base.step, idempotencyKey: key.idempotencyKey },
     };
   };
@@ -179,6 +195,9 @@ export function outboundFrame(options: OutboundFrameOptions = {}): OutboundFrame
   return {
     ...{ clock, store, leases, reports, logger, keyIn, send, effects },
     ...{ idempotency, otherInstance, inFrame },
+    rotateTo: (keys) => {
+      secrets = { ...keys };
+    },
     textOf: (key: EffectKey): string | undefined =>
       key.businessKey === undefined ? undefined : (texts.get(key.businessKey) ?? key.businessKey),
   };

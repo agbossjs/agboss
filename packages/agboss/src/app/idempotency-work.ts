@@ -10,11 +10,14 @@ import type { IdempotencyRunOptions } from "./idempotency-types.js";
  */
 
 /** Whether a work's result is a promise (or any thenable): an asynchronous work. */
-export const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-  typeof value === "object" &&
-  value !== null &&
-  "then" in value &&
-  typeof value.then === "function";
+export function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
+}
 
 /**
  * `execute` bounded by `timeout` on the application's clock (#1317): a stalled one rejects with a
@@ -31,15 +34,14 @@ export function boundedWork<TResult>(
     // a synchronous work is returned as it is: nothing synchronous can be bounded by a timer
     if (!isThenable(work)) return work as never;
     const stop = new AbortController();
+    // the race settles before `stop` aborts (below), so a sleep that ends on the abort is read by no one
     const timer = clock.sleep(timeout, stop.signal).then(() => {
-      if (stop.signal.aborted) return new Promise<never>(() => undefined);
       // the store rolls the attempt back and closes its transaction: a late completion writes nothing
       throw new DOMException(
         `idempotent effect "${name}" passed its timeout of ${String(timeout)} ms: rolled back`,
         "TimeoutError",
       );
     });
-    timer.catch(() => undefined);
     return Promise.race([work as Promise<never>, timer]).finally(() => {
       stop.abort();
     });

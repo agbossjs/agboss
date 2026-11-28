@@ -64,7 +64,6 @@ export const supersededError = (options: SupersededOptions): OutboundCallError.S
     attempt,
     supersededBy,
     cause,
-    details: { attempt, ...(supersededBy === undefined ? {} : { supersededBy }) },
   });
 };
 

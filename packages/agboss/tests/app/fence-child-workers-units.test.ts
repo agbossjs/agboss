@@ -6,7 +6,12 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
-import { ExecutionPauseFencedError, ExecutionPausedError } from "../../src/app/lease-stopped.js";
+import { ChildPlacement } from "../../src/flow/child-placement.js";
+import {
+  ExecutionPauseFencedError,
+  ExecutionPausedError,
+  ExecutionStoppedError,
+} from "../../src/app/lease-stopped.js";
 import { startChildWorkers, type ChildWorkers } from "../../src/app/remote/child-workers.js";
 import { remoteChildSignals } from "../../src/flow/runtime/remote/remote-child-signals.js";
 import { ExecutionRecordStatus } from "../../src/infrastructure/execution-record.repository.js";
@@ -365,6 +370,31 @@ describe("#1366: the claims of a worker", () => {
     expect((signal?.reason as Error).message).toBe("the child's tree was paused");
   });
 
+  it("a write refused after the tree's stop ends the child with a stop, never a cancel", async () => {
+    const held = lease();
+    const s = setup({ held: [held] });
+    let signal: AbortSignal | undefined;
+    mocks.completedChild.mockImplementation(
+      (_parts: unknown, _row: unknown, _lease: unknown, given: AbortSignal) => {
+        signal = given;
+        return new Promise((resolve) => {
+          given.addEventListener("abort", () => {
+            resolve(undefined);
+          });
+        });
+      },
+    );
+    s.rows.push(row("child-1"));
+    s.start();
+    await until(() => signal !== undefined);
+
+    held.foundCancel(new ExecutionStoppedError({ message: "stopped" }));
+
+    expect(signal?.aborted).toBe(true);
+    expect(signal?.reason).toBeInstanceOf(ExecutionStoppedError);
+    expect((signal?.reason as Error).message).toBe("the child's tree was stopped");
+  });
+
   it.each(["lease", "interruption"])("the child's signal ends with its %s", async (which) => {
     const held = lease();
     const s = setup({ held: [held] });
@@ -539,6 +569,32 @@ describe("#1366: a running child's reclaim", () => {
       queuedAt: new Date("2026-01-05T09:00:00.000Z"),
     });
   });
+
+  it.each([
+    [ChildPlacement.IsolatedWorker, true],
+    [ChildPlacement.AnyWorker, false],
+    [undefined, false],
+  ])(
+    "a reclaimed child of placement %s wakes the other claimers of this process: %s (an isolated one is forked by a supervisor)",
+    async (placement, isWoken) => {
+      const held = lease();
+      const s = setup({ held: [held] });
+      const claimed = { ...running, ...(placement === undefined ? {} : { placement }) };
+      s.queue.findByTenantIdAndExecutionId.mockResolvedValue(claimed);
+      mocks.isSameRunningClaim.mockReturnValue(true);
+      mocks.childTakeOf.mockReturnValue({ isTakeover: true });
+      s.start();
+      await until(() => s.sleeps.length === 1);
+      const other = vi.fn();
+      const stopHearing = remoteChildSignals.onQueued(other);
+
+      remoteChildSignals.running(claimed);
+      await until(() => held.release.mock.calls.length === 1);
+      stopHearing();
+
+      expect(other).toHaveBeenCalledTimes(isWoken ? 1 : 0);
+    },
+  );
 
   it("a row that is no longer the claim seen (ended, claimed again, gone): no lease asked for", async () => {
     const s = setup({ held: [lease()] });

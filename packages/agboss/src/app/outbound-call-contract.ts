@@ -1,6 +1,3 @@
-import { fingerprintRequired, FingerprintProblem } from "../infrastructure/idempotency-errors.js";
-import { isIssuedKey } from "../infrastructure/issued-keys.js";
-import type { EffectKey, OutboundCallKey } from "../infrastructure/fenced-effect.repository.js";
 import type { Milliseconds, Ttl } from "../units/index.js";
 import { invalidRecoveryError } from "./outbound-call-errors.js";
 import type { OutboundCallLookup, OutboundCallNotSent } from "./outbound-call-types.js";
@@ -31,7 +28,8 @@ function shown(value: unknown): string {
 
 /** Why a window is not one, or `undefined` when it is. */
 function windowProblemOf(window: unknown): string | undefined {
-  return typeof window === "number" && Number.isFinite(window) && window > 0
+  // `Number.isFinite` is false for anything that is no number
+  return Number.isFinite(window) && (window as number) > 0
     ? undefined
     : `the key window is ${shown(window)}, not a positive, finite duration`;
 }
@@ -45,7 +43,8 @@ function windowProblemOfCall(
   if (windowProblemOf(window) !== undefined) return windowProblemOf(window);
   if (window <= timeout)
     return `the key window (${String(window)} ms) is not above the call's timeout (${String(timeout)} ms): a crash could never be reconciled inside it`;
-  return typeof ttl === "number" && ttl < window
+  // a ttl that is `Ttl.Forever` is no number and below nothing
+  return (ttl as number) < window
     ? `the call's ttl (${String(ttl)} ms) is below the key window (${String(window)} ms)`
     : undefined;
 }
@@ -89,18 +88,4 @@ export function checkedRecovery<TResult>(
     reconcile:
       recovery.kind === "replay-within" ? () => Reconciliation.notExecuted() : recovery.reconcile,
   };
-}
-
-/**
- * A key `Idempotency.sendOnce` refuses (#825), thrown: one effectKeyOf did not make (a copy, an
- * object built by hand), or one that says `withoutFingerprint` — a call's request is always its
- * fingerprint, so another request under its business key is a conflict, and a policy says nothing.
- */
-export function callKeyErrorOf(key: EffectKey | OutboundCallKey): void {
-  if (!isIssuedKey(key))
-    throw new TypeError(
-      "Idempotency.sendOnce: not a key effectKeyOf made — a copy or an object built by hand is no key",
-    );
-  if (key.withoutFingerprint !== undefined)
-    throw fingerprintRequired({ effect: key.name, reason: FingerprintProblem.Contradictory });
 }

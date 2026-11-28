@@ -21,6 +21,7 @@ import {
   FINGERPRINT_LABEL,
   effectKeyOf,
   fingerprintsOf,
+  previousIdentityOf,
   replayedFromOf,
   shownCallOf,
 } from "../../src/infrastructure/fenced-effect-key.js";
@@ -157,6 +158,52 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
 
     expect(Object.keys(key)).not.toContain("businessKeyHash");
     expect(key.businessKey).toBe("order:42");
+  });
+
+  it("a business key's key under a PII key carries its handle, the one businessKeyHashOf gives", async () => {
+    const context = {
+      executionId: "execution-1",
+      root: { executionId: "execution-1" },
+      step: {
+        nodeId: "charge-action",
+        visitNumber: 1,
+        idempotencyKey: "execution-1:charge-action:1",
+      },
+      [FENCE]: {
+        scopeKey: "default:execution-1",
+        tenantId: "default",
+        leaseExecutionId: "execution-1",
+        token: 1,
+      },
+    } as never;
+    const frame = frameWith({ correlationKey: "pii-key" });
+
+    const [key, handle] = await inFrame(frame, () => [
+      effectKeyOf(context, "charge", { businessKey: "order:42" }),
+      businessKeyHashOf("order:42"),
+    ]);
+
+    expect(handle).toMatch(/^[0-9a-f]{12}$/u);
+    expect(key.businessKeyHash).toBe(handle);
+  });
+});
+
+describe("#1317d: the row a rotation left", () => {
+  it("is the key under its previous business key digest; a key with none, or with no business key, has no such row", () => {
+    const named = keyMadeBy(ORIGIN);
+
+    expect(
+      previousIdentityOf(effectKeyForTesting(named, { previousBusinessKey: "old" })),
+    ).toMatchObject({
+      businessKey: "old",
+      idempotencyKey: named.idempotencyKey,
+    });
+    expect(previousIdentityOf(named)).toBeUndefined();
+    expect(
+      previousIdentityOf(
+        effectKeyForTesting(named, { businessKey: undefined, previousBusinessKey: "old" }),
+      ),
+    ).toBeUndefined();
   });
 });
 

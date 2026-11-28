@@ -60,19 +60,16 @@ const CORE_TOKENS: ReadonlySet<Token> = new Set<Token>([
 
 /** The bound classes that are `dep`, extend it, or name it in `injectAs`; none for a value token. */
 const implementersOf = (dep: Token, bound: readonly Class[]): readonly Class[] =>
-  typeof dep === "function" && typeof dep.prototype === "object"
+  // a value token and a function with no prototype have no class to implement
+  typeof (dep as { prototype?: unknown }).prototype === "object"
     ? bound.filter((cls) => cls !== dep && implementsContract(cls, dep as Class))
     : [];
 
 /** A core token, or a class that extends one (an application's own `ExecutionContext`). */
 const isCoreToken = (dep: Class): boolean =>
   CORE_TOKENS.has(dep) ||
-  [...CORE_TOKENS].some(
-    (core) =>
-      typeof core === "function" &&
-      typeof dep.prototype === "object" &&
-      dep.prototype instanceof core,
-  );
+  // every core token is a class (the contexts are three classes), though `Token` also names values
+  [...CORE_TOKENS].some((core) => dep.prototype instanceof (core as Class));
 
 /**
  * Whether a dependency is a class that nothing says what it is: no decorator and no bound class
@@ -112,8 +109,7 @@ function effectBehind(dep: Token, bound: readonly Class[], seen: Set<Token>): Cl
   if (isUnresolvedPort(dep, bound)) return dep;
   for (const impl of implementersOf(dep, bound)) {
     if (isEffect(impl)) return impl;
-    if (seen.has(impl)) continue;
-    seen.add(impl);
+    // `effectOf` marks every dep it walks, so an implementation reached twice adds nothing
     const viaImpl = effectOf(impl, bound, seen);
     if (viaImpl !== undefined) return viaImpl;
   }
