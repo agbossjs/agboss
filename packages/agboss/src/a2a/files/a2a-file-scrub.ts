@@ -84,12 +84,9 @@ const KEPT_KEYS = ["mediaType", "fileId", "url", "sha256", "sizeBytes"] as const
 
 /** Whether a url may stay in a turn line: an `https:` url without a user or a password. */
 function isKeptUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" && parsed.username === "" && parsed.password === "";
-  } catch {
-    return false;
-  }
+  if (!URL.canParse(url)) return false;
+  const parsed = new URL(url);
+  return parsed.protocol === "https:" && parsed.username === "" && parsed.password === "";
 }
 
 /** The descriptor's kept fields only (never its bytes, never a key the DTO does not have). */
@@ -104,7 +101,7 @@ function keptDescriptorOf(file: FileDto): Plain | undefined {
 function withFilesBack(
   value: unknown,
   slotKey: string,
-  files: readonly Plain[],
+  files: ReadonlyMap<number, Plain>,
   depth = 0,
 ): unknown {
   if (depth > MAX_DEPTH) return TOO_DEEP;
@@ -114,7 +111,7 @@ function withFilesBack(
   const slot = value[slotKey];
   if (typeof slot === "number") {
     const { filename } = value;
-    return { ...files[slot], ...(typeof filename === "string" ? { filename } : {}) };
+    return { ...files.get(slot), ...(typeof filename === "string" ? { filename } : {}) };
   }
   return rebuilt(value, (item) => withFilesBack(item, slotKey, files, depth + 1));
 }
@@ -131,13 +128,13 @@ export async function throughKeepingFiles(
   through: (rest: unknown) => Promise<unknown>,
 ): Promise<unknown> {
   const slotKey = `$kept-${randomUUID()}`;
-  const files: Plain[] = [];
+  const files = new Map<number, Plain>();
   const rest = mapped(value, (file) => {
     const kept = keptDescriptorOf(file);
     if (kept === undefined) return redactedFileOf(file);
-    files.push(kept);
+    files.set(files.size, kept);
     return {
-      [slotKey]: files.length - 1,
+      [slotKey]: files.size - 1,
       ...(file.filename === undefined ? {} : { filename: file.filename }),
     };
   });

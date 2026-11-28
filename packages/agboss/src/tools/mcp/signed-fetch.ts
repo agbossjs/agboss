@@ -23,10 +23,8 @@ const withoutMeshHeader = (headers: Record<string, string>): Record<string, stri
 const urlOf = (input: Parameters<typeof fetch>[0]): string =>
   typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
 
-const isRedirect = (response: Response): boolean =>
-  response.status >= HTTP_REDIRECTS &&
-  response.status < HTTP_NOT_REDIRECTS &&
-  response.headers.has("location");
+const isRedirectStatus = (status: number): boolean =>
+  status >= HTTP_REDIRECTS && status < HTTP_NOT_REDIRECTS;
 
 /** What a hop of a redirect is made of: GET only is repeated as it was; the others are not followed. */
 const isRepeatable = (init: RequestInit | undefined): boolean =>
@@ -42,7 +40,8 @@ function sameOriginHopOf(
   at: { readonly url: string; readonly home: URL; readonly hops: number },
 ): string | undefined {
   const location = response.headers.get("location");
-  if (!isRedirect(response) || location === null || !isRepeatable(init)) return undefined;
+  if (location === null || !isRedirectStatus(response.status) || !isRepeatable(init))
+    return undefined;
   if (at.hops >= MAX_REDIRECTS) return undefined;
   const next = new URL(location, at.url);
   return next.origin === at.home.origin ? next.href : undefined;

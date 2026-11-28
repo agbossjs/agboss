@@ -8,7 +8,7 @@ import type { A2AEndpointMeta } from "./a2a-endpoint.decorator.js";
 const MAX_TTL = 100 * 365 * 24 * 60 * 60 * 1000;
 
 const isPositiveDuration = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value) && value > 0 && value <= MAX_TTL;
+  typeof value === "number" && value > 0 && value <= MAX_TTL;
 
 /**
  * `[a2a.ttl-invalid]` at assembly (#1320): an `@A2AEndpoint`'s `ttl.tasks` is a positive duration or

@@ -297,4 +297,10 @@ describe("#1366: what a meshed call's settle charges, and where", () => {
       remotes: [],
     });
   });
+
+  it("a completed task with no report, in a frame with no services, is recorded nowhere and does not throw", async () => {
+    const out = await settled(completed(), true, { withoutServices: true });
+
+    expect(out).toMatchObject({ charged: 0, remotes: [] });
+  });
 });

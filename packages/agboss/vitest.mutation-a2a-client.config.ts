@@ -23,6 +23,8 @@ export default defineConfig({
       // #1320: what a client signs, and never across an origin
       "tests/a2a/client/a2a-mesh-http-sign.test.ts",
       "tests/mcp/mcp-signed-fetch.test.ts",
+      "tests/mcp/mcp-signed-fetch-exact.test.ts",
+      "tests/mesh/outbound-http-exact.test.ts",
       "tests/mcp/mcp-mesh-trust.test.ts",
       // #810: the mesh end to end, the takeover's charges
       "tests/a2a/mesh/*.test.ts",

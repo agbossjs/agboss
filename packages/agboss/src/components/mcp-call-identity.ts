@@ -9,7 +9,11 @@ const keylessCalls = new WeakMap<object, number>();
 function canonicalArguments(args: unknown): string {
   const sorted = (_key: string, value: unknown): unknown =>
     typeof value === "object" && value !== null && !Array.isArray(value)
-      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      ? Object.fromEntries(
+          Object.keys(value)
+            .sort()
+            .map((name) => [name, Reflect.get(value, name)]),
+        )
       : value;
   try {
     return JSON.stringify(args ?? null, sorted);

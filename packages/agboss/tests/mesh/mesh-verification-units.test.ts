@@ -56,6 +56,21 @@ describe("#1366: the signature of an envelope", () => {
     );
   });
 
+  it("is held by any one of the issuer's keys (a rotation lists the old and the new)", () => {
+    const read = signedBy();
+
+    expect(
+      signatureRefusalOf(read, [stranger.publicKey, issuer.publicKey], at(0), WINDOW),
+    ).toBeUndefined();
+    expect(
+      signatureRefusalOf(read, [issuer.publicKey, stranger.publicKey], at(0), WINDOW),
+    ).toBeUndefined();
+    expect(signatureRefusalOf(read, [stranger.publicKey], at(0), WINDOW)).toBe(
+      MeshRefusalCode.SignatureInvalid,
+    );
+    expect(signatureRefusalOf(read, [], at(0), WINDOW)).toBe(MeshRefusalCode.SignatureInvalid);
+  });
+
   it("is never checked against a key when the envelope carries no signature at all", () => {
     vi.mocked(isSignedBy).mockClear();
 
@@ -77,6 +92,20 @@ describe("#1366: the replay window of a signed envelope", () => {
     expect(refusal(read, at(LIFETIME + CLOCK_SKEW + 1))).toBe(MeshRefusalCode.EnvelopeExpired);
     expect(refusal(read, at(LIFETIME / 2))).toBeUndefined();
     expect(CLOCK_SKEW).toBe(30_000);
+  });
+
+  it("is capped by the receiver's own envelopeTtl: a longer lifetime claimed does not outlive it", () => {
+    const read = signedBy(issuer.privateKey, { expiresIn: "PT3600S" });
+
+    expect(refusal(read, at(LIFETIME + CLOCK_SKEW))).toBeUndefined();
+    expect(refusal(read, at(LIFETIME + CLOCK_SKEW + 1))).toBe(MeshRefusalCode.EnvelopeExpired);
+  });
+
+  it("is the shorter lifetime when the envelope claims less than the receiver's", () => {
+    const read = signedBy(issuer.privateKey, { expiresIn: "PT10S" });
+
+    expect(refusal(read, at(10_000 + CLOCK_SKEW))).toBeUndefined();
+    expect(refusal(read, at(10_000 + CLOCK_SKEW + 1))).toBe(MeshRefusalCode.EnvelopeExpired);
   });
 
   it.each([

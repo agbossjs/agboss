@@ -53,6 +53,10 @@ interface Setup {
   readonly services?: FrameSpec["services"];
   readonly deadlineAt?: string;
   readonly parent?: boolean;
+  /** `@Mesh({ peers })` as the application keeps them: what each peer is allowed. */
+  readonly peers?: ReadonlyMap<string, { propagateTenant: boolean }>;
+  /** `@Mesh({ envelopeTtl })`, ms. */
+  readonly envelopeTtl?: number;
 }
 
 /** The frame of a step whose tree has a call chain, with what `setup` changes. */
@@ -63,8 +67,8 @@ function frameOf(setup: Setup = {}): FrameSpec {
     rememberContextMeshSettings(application, {
       clock: new VirtualClock(NOW),
       keys: { signingKey: setup.signs === false ? undefined : privateKey, peers: new Map() },
-      peers: new Map(),
-      envelopeTtl: 60_000,
+      peers: setup.peers ?? new Map(),
+      envelopeTtl: setup.envelopeTtl ?? 60_000,
     } as never);
   const root = {
     ...base.execution,
@@ -202,7 +206,14 @@ describe("#1366: the envelope's identity of the call", () => {
     const read = readMeshEnvelope(sent?.envelope);
 
     expect(read?.envelope.issuedAt).toBe("1970-01-01T00:00:00.000Z");
+    expect(read?.envelope.expiresIn).toBe("PT60S");
     expect(read?.signed).toBeUndefined();
+  });
+
+  it("is valid for the application's envelopeTtl", async () => {
+    const sent = await outboundIn(frameOf({ envelopeTtl: 90_000 }));
+
+    expect(readMeshEnvelope(sent?.envelope)?.envelope.expiresIn).toBe("PT90S");
   });
 
   it("the call chain of the frame's tree is the one its root keeps", async () => {
@@ -241,6 +252,31 @@ describe("#1366: who an envelope is addressed to, and when it is signed", () => 
 
     expect(read?.envelope.audience).toBe("peer-app");
     expect(read?.signed).toBeUndefined();
+  });
+});
+
+describe("#1356: the tenant an envelope carries to a peer", () => {
+  const peers = new Map([
+    ["trusting", { propagateTenant: true }],
+    ["plain", { propagateTenant: false }],
+  ]);
+  const tenantOf = async (audience: string | undefined, withPeers = peers) => {
+    const frame = frameOf({ peers: withPeers });
+    const read = readMeshEnvelope((await outboundIn(frame, audience))?.envelope)?.envelope;
+    return { read, tenantId: frame.execution.tenant.tenantId };
+  };
+
+  it("is the execution's own for a peer that propagates the tenant", async () => {
+    const { read, tenantId } = await tenantOf("trusting");
+
+    expect(read?.audience).toBe("trusting");
+    expect(read?.tenantId).toBe(tenantId);
+  });
+
+  it("is none for a peer that does not, for a peer not listed, and for no audience", async () => {
+    for (const audience of ["plain", "stranger", undefined])
+      expect((await tenantOf(audience)).read).not.toHaveProperty("tenantId");
+    expect((await tenantOf("trusting", new Map())).read).not.toHaveProperty("tenantId");
   });
 });
 
@@ -304,6 +340,34 @@ describe("#1366: what the envelope claims of the calling execution", () => {
       budget: { remaining: "0", currency: "USD" },
       deadline: { remaining: "PT0S" },
     });
+  });
+
+  it("claims the tokens it may still use, whole and never below 0, alone or with dollars", async () => {
+    const tokens = async (left: number | undefined, remaining?: number) =>
+      (
+        await claimsOf({
+          services: {
+            meshCall: { ...call(remaining, 1000), remainingTokens: () => left },
+            remainingTokens: () => 777,
+          },
+        })
+      ).budget;
+
+    expect(await tokens(1234.9)).toStrictEqual({ remainingTokens: 1234 });
+    expect(await tokens(7)).toStrictEqual({ remainingTokens: 7 });
+    expect(await tokens(-5)).toStrictEqual({ remainingTokens: 0 });
+    expect(await tokens(40, 0.5)).toStrictEqual({
+      remaining: "0.5",
+      currency: "USD",
+      remainingTokens: 40,
+    });
+    expect(await tokens(undefined)).toBeUndefined();
+  });
+
+  it("a step's own call claims the tokens its step may still use", async () => {
+    const budget = (await claimsOf({ services: { remainingTokens: () => 321 } })).budget;
+
+    expect(budget).toStrictEqual({ remainingTokens: 321 });
   });
 
   it("claims no deadline when the execution's is no date", async () => {

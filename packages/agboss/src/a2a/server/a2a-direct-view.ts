@@ -34,7 +34,7 @@ function reportOf(
     issuer: mesh.application,
     executionId: message.attemptId,
     spentUsd: reply.spentUsd,
-    ...(reply.spentTokens === undefined ? {} : { spentTokens: reply.spentTokens }),
+    spentTokens: reply.spentTokens,
     bodyHash: meshBodyHash,
     issuedAt: completedAt,
   };

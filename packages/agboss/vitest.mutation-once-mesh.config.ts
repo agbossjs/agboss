@@ -18,6 +18,7 @@ export default defineConfig({
       "tests/mcp/mcp-dedupe.units.test.ts",
       // the claim of the stores themselves, in memory and in SQLite
       "tests/infrastructure/mesh-request-units.test.ts",
+      "tests/infrastructure/mesh-request-lease.test.ts",
       // the signed report a trusted call returns: its facts, one by one
       "tests/mcp/mcp-run-report.units.test.ts",
       // the dedupe end to end, over a real MCP session
@@ -27,6 +28,7 @@ export default defineConfig({
       // #1356: the MCP call's identity
       "tests/mcp/mcp-client-call.test.ts",
       "tests/mcp/mcp-call-frame-ids.test.ts",
+      "tests/mcp/mcp-call-identity-exact.test.ts",
     ],
   },
 });

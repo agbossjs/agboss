@@ -52,9 +52,7 @@ export function encodeRunReport(facts: RunReportFacts, signingKey: KeyObject): s
     spend: {
       total: amountOf(facts.spentUsd),
       currency: "USD",
-      ...(facts.spentTokens === undefined || facts.spentTokens <= 0
-        ? {}
-        : { totalTokens: facts.spentTokens }),
+      ...((facts.spentTokens ?? 0) > 0 ? { totalTokens: facts.spentTokens } : {}),
     },
     bodyHash: facts.bodyHash,
     issuedAt: facts.issuedAt.toISOString(),
@@ -109,7 +107,7 @@ export function takeRunReport(
       service,
       cost: usd(charge.cost),
       // the remote run's tokens, as input tokens: a token budget counts input plus output
-      ...(charge.tokens > 0 ? { tokens: { inputTokens: charge.tokens } } : {}),
+      tokens: { inputTokens: charge.tokens },
     });
     frame.services.reportUsage?.(withLedgerKey(spent, identity, report));
   }

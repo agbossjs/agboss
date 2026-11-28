@@ -100,11 +100,8 @@ export async function dedupedMcpCall(
   };
   if (!(await requests.saveIfAbsent(record))) {
     const kept = await requests.findByKey(key);
-    // a key that is another call's is never answered with that call's result
-    if (
-      kept !== undefined &&
-      (kept.tool !== record.tool || kept.requestHash !== record.requestHash)
-    )
+    // a key that is another call's is never answered with that call's result (the hash holds the tool too)
+    if (kept !== undefined && kept.requestHash !== record.requestHash)
       return refusal(MeshRefusalCode.IdempotencyKeyReused);
     return kept?.response === undefined
       ? refusal(MeshRefusalCode.RequestInProgress)

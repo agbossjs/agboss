@@ -128,9 +128,9 @@ function skillProblems(
 function messageSkillEntriesOf(expose: A2AEndpointMeta): (readonly [string, Class])[] {
   const options = skillMapOf(expose);
   return startsOfEndpoint(expose).flatMap((start) => {
-    const name = declarationOf(start)?.options.name;
-    const isMessage = name !== undefined && options[name]?.reply === A2AReply.Message;
-    return isMessage ? [[name, start] as const] : [];
+    // Stryker disable next-line StringLiteral: equivalent: no skill is named by the empty text or by Stryker's own, so either finds no options
+    const name = declarationOf(start)?.options.name ?? "";
+    return options[name]?.reply === A2AReply.Message ? [[name, start] as const] : [];
   });
 }
 
