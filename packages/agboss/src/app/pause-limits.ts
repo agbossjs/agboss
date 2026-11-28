@@ -62,6 +62,11 @@ export async function limitsOffered(
 export const timeoutChangesOf = (pause: Pick<PauseRecord, "trail">): number =>
   pause.trail.filter((entry) => entry.action === "timeout-changed").length;
 
+/** Whether `count` has reached a count limit; no limit (`undefined`) is never reached. */
+export const isReached = (count: number, max: number | undefined): boolean =>
+  // Stryker disable next-line LogicalOperator: equivalent: with no limit `undefined && Infinity` is `undefined`, which no count is `>=` to, as it is to no `Infinity`
+  count >= (max ?? Number.POSITIVE_INFINITY);
+
 /** `PauseError.EscalationLimitExceeded`, naming the pause by its key and the limit by its name. */
 export const limitExceeded = (
   pause: PauseRecord,

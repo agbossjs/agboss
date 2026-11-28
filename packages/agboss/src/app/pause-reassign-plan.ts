@@ -1,4 +1,3 @@
-import { copyOf } from "../infrastructure/instants.js";
 import { definedFields } from "../core/defined-fields.js";
 import { PauseError } from "../core/error-families/pause-errors.js";
 import { canTakePausesOf, pauseTargetOf } from "../channels/pause-targets.js";
@@ -22,6 +21,7 @@ import type { AppDeps } from "./app-deps.js";
 import { type CalendarParts } from "./pause-calendar.js";
 import {
   countsOffered,
+  isReached,
   limitExceeded,
   limitsOf,
   limitsOffered,
@@ -85,9 +85,9 @@ function destinationTarget(
 ): PauseTarget {
   if (asked === undefined || asked === from.cls) return from;
   const own = ownDepsOf(deps, pause.workflow);
-  const found = (own.targets ?? []).find((target) => target.cls === asked);
+  const found = own.targets?.find((target) => target.cls === asked);
   // only a target the source declares in `escalatesTo` may take its pauses
-  if (found === undefined || !(from.escalatesTo ?? []).includes(found.name))
+  if (found === undefined || from.escalatesTo?.includes(found.name) !== true)
     throw incompatible(pause, "the target is not one this pause's target escalates to");
   const before = pauseTargetOf(from.cls);
   const after = pauseTargetOf(found.cls);
@@ -147,11 +147,7 @@ async function channelAfter(
   return chosenChannel(
     to,
     { input: pause.input, toolCall: pause.toolCall },
-    {
-      ...(opening.assignees === undefined ? {} : { assignees: opening.assignees }),
-      ...(opening.expiresAt === undefined ? {} : { expiresAt: copyOf(opening.expiresAt) }),
-      trail: pause.trail,
-    },
+    { ...definedFields(opening), trail: pause.trail },
   );
 }
 
@@ -203,10 +199,10 @@ function changeOf(
 /** The reassignment limit, and the extension limit for a call that sets a deadline, not yet reached. */
 function assertWithinLimits(pause: PauseRecord, ask: ReassignFacts, limits: ChainLimits): void {
   const { maxReassignments, maxExtensions } = limits;
-  if (maxReassignments !== undefined && reassignmentsOf(pause) >= maxReassignments)
+  if (isReached(reassignmentsOf(pause), maxReassignments))
     throw limitExceeded(pause, "maxReassignments");
   const isExtension = ask.timeout !== undefined && !ask.isExpiry;
-  if (isExtension && maxExtensions !== undefined && timeoutChangesOf(pause) >= maxExtensions)
+  if (isExtension && isReached(timeoutChangesOf(pause), maxExtensions))
     throw limitExceeded(pause, "maxExtensions");
 }
 

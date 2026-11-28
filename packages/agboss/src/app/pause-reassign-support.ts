@@ -9,7 +9,7 @@ import { targetOfPause } from "./answer-permit.js";
 import type { AppDeps } from "./app-deps.js";
 import { ownDepsOf } from "./own-deps.js";
 import { pauseClosed } from "./pause-closed.js";
-import { limitExceeded } from "./pause-limits.js";
+import { isReached, limitExceeded } from "./pause-limits.js";
 
 /** What a reassignment reads and refuses with (#946, #1307d): split from `pause-reassignment.ts`. */
 
@@ -69,8 +69,7 @@ export async function refusedReassignment(
     (await parts.pauses.findByTenantIdAndPauseId(pause.tenantId, pause.pauseId)) ?? pause;
   const isDue = isDeadlineDue(fresh.expiresAt, now);
   if (fresh.status !== PauseStatus.Pending || isDue) return pauseClosed(parts.pauses, pause, now);
-  if (max !== undefined && reassignmentsOf(fresh) >= max)
-    return limitExceeded(fresh, "maxReassignments");
+  if (isReached(reassignmentsOf(fresh), max)) return limitExceeded(fresh, "maxReassignments");
   return new PauseError.UpdateContended({
     message: `pause ${pauseKeyOf(pause.tenantId, pause.pauseId)}: another change won; retry is safe`,
   });

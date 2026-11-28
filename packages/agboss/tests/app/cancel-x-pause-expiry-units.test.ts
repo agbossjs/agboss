@@ -6,6 +6,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { duePausesOf, expirePauses } from "../../src/app/pause-expiry.js";
+import { UnknownPauseTargetError } from "../../src/app/pause-lookups.js";
 import { NoticeTimeoutError } from "../../src/app/pause-notice-call.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import {
@@ -31,7 +32,16 @@ const mocks = vi.hoisted(() => ({
   validate: vi.fn(),
   treeToolsOf: vi.fn(),
   treeQuestionAnswersOf: vi.fn(),
+  moved: undefined as ((...args: unknown[]) => unknown) | undefined,
 }));
+vi.mock("../../src/app/pause-expiry-reassign.js", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../../src/app/pause-expiry-reassign.js")>();
+  return {
+    ...real,
+    movedOnExpiry: (...args: Parameters<typeof real.movedOnExpiry>) =>
+      mocks.moved === undefined ? real.movedOnExpiry(...args) : mocks.moved(...args),
+  };
+});
 vi.mock("../../src/app/cancel-requests.js", () => ({ isCancelRequested: mocks.isCancelRequested }));
 vi.mock("../../src/app/pause-notice-call.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/app/pause-notice-call.js")>()),
@@ -77,6 +87,7 @@ function partsOf(
     pauseStores?: boolean;
     applied?: Record<string, unknown> | undefined;
     toolTimeout?: number;
+    targetOf?: unknown;
   } = {},
 ) {
   const expire = vi.fn((_t: string, id: string, _e: unknown, _at: Date, _r: unknown) =>
@@ -97,9 +108,12 @@ function partsOf(
     channelOf:
       "channelOf" in options ? options.channelOf : () => ({ sender: options.sender ?? {} }),
     // the expiry is the target's call (`onExpired`), kept here under the old option's name
-    targetOf: () => ({
-      onExpired: (options.sender as { onPauseExpired?: unknown } | undefined)?.onPauseExpired,
-    }),
+    targetOf:
+      "targetOf" in options
+        ? options.targetOf
+        : () => ({
+            onExpired: (options.sender as { onPauseExpired?: unknown } | undefined)?.onPauseExpired,
+          }),
     tools,
     log: { warn },
     pause:
@@ -132,6 +146,7 @@ function partsOf(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.moved = undefined;
   mocks.isCancelRequested.mockResolvedValue(false);
   mocks.treeStateOf.mockResolvedValue({ state: true });
   mocks.pauseTreeOf.mockResolvedValue("the tree");
@@ -430,5 +445,148 @@ describe("#1366: what a closed pause leaves behind, and what stops the expiring"
     expect(expire).toHaveBeenCalledTimes(2);
     expect(delivered).toHaveBeenCalledOnce();
     expect(closed).toHaveBeenCalledOnce();
+  });
+});
+
+describe("#1356: what the handler of an expiry is told", () => {
+  const handlerTold = async (changes: Record<string, unknown>) => {
+    const onPauseExpired = vi.fn((_context: unknown) => PauseExpiration.fail());
+    const { parts } = partsOf({ sender: { onPauseExpired } });
+    await expirePauses(parts, [pause(changes) as never]);
+    return onPauseExpired.mock.calls[0]?.[0] as Record<string, unknown>;
+  };
+
+  it("has the pause's input, its dates as copies, and each of the assignees, the latest instant, the tool call and the reference only when the pause has it", async () => {
+    const maxExpiresAt = new Date("2026-01-02T00:00:00.000Z");
+    const context = await handlerTold({
+      assignees: ["ann"],
+      maxExpiresAt,
+      externalRef: "TICKET-1",
+    });
+
+    expect(context).toStrictEqual({
+      pauseKey: pauseKeyOf("acme", "p-1"),
+      input: {},
+      assignees: ["ann"],
+      askedAt: pause().askedAt,
+      firstAskedAt: pause().firstAskedAt,
+      expiresAt: pause().expiresAt,
+      maxExpiresAt,
+      toolCall: pause().toolCall,
+      externalRef: "TICKET-1",
+      trail: [],
+    });
+    expect(context.maxExpiresAt).not.toBe(maxExpiresAt);
+    expect(context.expiresAt).not.toBe(pause().expiresAt);
+  });
+
+  it("with none of them has none of them, and the deadline a pause lacks is the time it was asked", async () => {
+    const context = await handlerTold({
+      kind: PauseKind.ExternalTask,
+      toolCall: undefined,
+      expiresAt: undefined,
+    });
+
+    expect(context).toStrictEqual({
+      pauseKey: pauseKeyOf("acme", "p-1"),
+      input: {},
+      askedAt: pause().askedAt,
+      firstAskedAt: pause().firstAskedAt,
+      expiresAt: pause().askedAt,
+      trail: [],
+    });
+  });
+});
+
+describe("#1356: the target a pause expires under", () => {
+  it.each([
+    ["a workflow with no targets", undefined],
+    [
+      "a target a deploy removed",
+      () => {
+        throw new UnknownPauseTargetError("Unknown pause target: refund-tool-approval");
+      },
+    ],
+  ])("%s: no handler is asked, the pause expires as fail()", async (_name, targetOf) => {
+    const { parts, expire } = partsOf({ targetOf });
+
+    expect(await expirePauses(parts, [pause() as never])).toBe(1);
+
+    expect(expire).toHaveBeenCalledWith("acme", "p-1", {}, NOW, RECIPIENTS);
+  });
+});
+
+describe("#1356: a target lookup that fails for another reason", () => {
+  it("is the look's to retry: no handler is guessed, no decision is recorded against the pause", async () => {
+    const failure = new Error("the container failed");
+    const { parts, expire } = partsOf({
+      targetOf: () => {
+        throw failure;
+      },
+    });
+
+    await expect(expirePauses(parts, [pause() as never])).rejects.toBe(failure);
+
+    expect(expire).not.toHaveBeenCalled();
+  });
+});
+
+describe("#1356: a reassignment as an expiry's decision", () => {
+  const reassigning = (options: Parameters<typeof PauseExpiration.reassign>[0]) =>
+    partsOf({ sender: { onPauseExpired: () => PauseExpiration.reassign(options) } });
+
+  it("a valid one goes to the move as the outcome, and what the move did is counted: done closes one, lost closes none, neither records an expiry", async () => {
+    for (const [moved, closed] of [
+      ["done", 1],
+      ["lost", 0],
+    ] as const) {
+      const { parts, expire } = reassigning({ timeout: seconds(60), reason: "second look" });
+      mocks.moved = vi.fn(() => Promise.resolve(moved));
+
+      expect(await expirePauses(parts, [pause() as never])).toBe(closed);
+
+      expect(mocks.moved).toHaveBeenCalledWith(parts, pause(), {
+        reassign: { kind: "reassign", timeout: seconds(60), reason: "second look" },
+      });
+      expect(expire).not.toHaveBeenCalled();
+    }
+  });
+
+  it("one the move could not make expires the pause as fail(), never with the reassignment as its expiry", async () => {
+    const { parts, expire } = reassigning({ timeout: seconds(60) });
+    mocks.moved = vi.fn(() => Promise.resolve("failed"));
+
+    expect(await expirePauses(parts, [pause() as never])).toBe(1);
+
+    expect(expire).toHaveBeenCalledWith("acme", "p-1", {}, NOW, RECIPIENTS);
+  });
+
+  it("an invalid one (a blank reason) is a decision that does not validate: fail() with the fixed problem, logged", async () => {
+    const { parts, expire, warn } = reassigning({ reason: "   " });
+
+    expect(await expirePauses(parts, [pause() as never])).toBe(1);
+
+    expect(expire).toHaveBeenCalledWith(
+      "acme",
+      "p-1",
+      { problem: ExpiryProblem.AnswerInvalid },
+      NOW,
+      RECIPIENTS,
+    );
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("a decision of one pause does not stop the next: each is moved or expired by its own", async () => {
+    const { parts, expire } = reassigning({ timeout: seconds(60) });
+    mocks.moved = vi.fn((_parts: unknown, one: unknown) =>
+      Promise.resolve((one as { pauseId: string }).pauseId === "p-1" ? "done" : "failed"),
+    );
+
+    expect(await expirePauses(parts, [pause() as never, pause({ pauseId: "p-2" }) as never])).toBe(
+      2,
+    );
+
+    expect(expire).toHaveBeenCalledOnce();
+    expect(expire).toHaveBeenCalledWith("acme", "p-2", {}, NOW, RECIPIENTS);
   });
 });

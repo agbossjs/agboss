@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   duePausesOf: vi.fn(),
   expirePauses: vi.fn(),
   byIds: vi.fn(),
+  unpausedMove: vi.fn(),
   announceResume: vi.fn(
     (_observer: unknown, _event: unknown, _reason: ResumeReason, _resume: unknown) =>
       Promise.resolve(),
@@ -93,6 +94,7 @@ vi.mock("../../src/app/pause-expiry.js", () => ({
   duePausesOf: mocks.duePausesOf,
   expirePauses: mocks.expirePauses,
 }));
+vi.mock("../../src/app/unpause-move.js", () => ({ unpausedMove: mocks.unpausedMove }));
 vi.mock("../../src/app/recovery-pass.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/app/recovery-pass.js")>()),
   recoveryPassOf: mocks.recoveryPassOf,
@@ -612,5 +614,115 @@ describe("#928: a release that fails after the tree's terminal record is durable
       expect.anything(),
       expect.anything(),
     );
+  });
+});
+
+describe("#1356: the lift of an operator's pause", () => {
+  const command = { ownerId: "ops-1", reason: "lifted" };
+  const hooksOf = async (parts: TreeMoveParts, moves: ReturnType<typeof treeMovesOf>) => {
+    mocks.unpausedMove.mockResolvedValueOnce(output(ExecutionStatus.Paused));
+    await moves.unpaused(
+      { runId: ROOT, threadId: "thread-1", tenantId: "acme", startedVersion: "1.0.0" },
+      call,
+      command,
+    );
+    return mocks.unpausedMove.mock.calls[0]?.[1] as {
+      endedAtTake: (state: unknown, lease: unknown) => Promise<unknown>;
+      announce: (
+        reason: ResumeReason,
+        resume: unknown,
+        state: unknown,
+        unpauseReason?: string,
+      ) => Promise<void>;
+      drained: (state: unknown, lease: unknown, planned: unknown) => Promise<unknown>;
+    };
+  };
+  const STATE = { runId: ROOT, threadId: "thread-1", tenantId: "acme", startedVersion: "1.0.0" };
+
+  it("is moved with the parts, its state, its call and its command, and returns what the move gave", async () => {
+    const { parts, moves } = partsOf();
+    mocks.unpausedMove.mockResolvedValueOnce(output(ExecutionStatus.Finished));
+
+    expect(await moves.unpaused(STATE, call, command)).toEqual(output(ExecutionStatus.Finished));
+
+    expect(mocks.unpausedMove).toHaveBeenCalledWith(
+      parts,
+      expect.any(Object),
+      STATE,
+      call,
+      command,
+    );
+  });
+
+  it("holds the sweep off the tree while it moves, a failure included, and not after", async () => {
+    const { moves } = partsOf();
+    let end: (value: unknown) => void = () => undefined;
+    mocks.unpausedMove.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          end = resolve;
+        }),
+    );
+    const moving = moves.unpaused(STATE, call, command);
+
+    expect(await moves.recovered(INTERRUPTED, call)).toBeUndefined();
+    expect(await moves.endIfEnding(INTERRUPTED)).toBe(false);
+    expect(mocks.endIfCancelled).not.toHaveBeenCalled();
+    end(output(ExecutionStatus.Paused));
+    await moving;
+    await moves.endIfEnding(INTERRUPTED);
+    expect(mocks.endIfCancelled).toHaveBeenCalledOnce();
+
+    mocks.endIfCancelled.mockClear();
+    mocks.unpausedMove.mockRejectedValueOnce(new Error("lift failed"));
+    await expect(moves.unpaused(STATE, call, command)).rejects.toThrow("lift failed");
+    await moves.endIfEnding(INTERRUPTED);
+    expect(mocks.endIfCancelled).toHaveBeenCalledOnce();
+  });
+
+  it("its take ends the tree for a cancel or an undo, never for the freeze it lifts", async () => {
+    const { parts, moves } = partsOf();
+    const hooks = await hooksOf(parts, moves);
+    const lease = leaseOf();
+    Reflect.set(parts.leases, "pauseOf", () => Promise.resolve({ pause: { reason: "ops" } }));
+
+    expect(await hooks.endedAtTake(STATE, lease)).toBeUndefined();
+
+    const cancelled = new Error("cancelled at the take");
+    mocks.endedAtTake.mockResolvedValueOnce(cancelled);
+    expect(await hooks.endedAtTake(STATE, lease)).toBe(cancelled);
+  });
+
+  it("is announced as an unpause with the event, no decision, no actor and the operator's reason when there is one; any other reason as a resume is", async () => {
+    const { parts, moves } = partsOf();
+    const onExecutionResume = vi.fn((_event: unknown) => Promise.resolve());
+    Reflect.set(parts.deps, "observer", { onExecutionResume });
+    const hooks = await hooksOf(parts, moves);
+
+    await hooks.announce(ResumeReason.Unpaused, undefined, STATE, "after the deploy");
+    await hooks.announce(ResumeReason.Unpaused, undefined, STATE);
+    await hooks.announce(ResumeReason.Answered, resumeOf("p-1"), STATE);
+
+    expect(onExecutionResume.mock.calls).toEqual([
+      [
+        {
+          reason: ResumeReason.Unpaused,
+          decision: undefined,
+          actor: undefined,
+          unpauseReason: "after the deploy",
+        },
+      ],
+      [{ reason: ResumeReason.Unpaused, decision: undefined, actor: undefined }],
+    ]);
+    expect(Object.keys(onExecutionResume.mock.calls[1]?.[0] ?? {})).toEqual([
+      "reason",
+      "decision",
+      "actor",
+    ]);
+    expect(mocks.announceResume).toHaveBeenCalledOnce();
+    expect(mocks.announceResume.mock.calls[0]?.slice(2)).toEqual([
+      ResumeReason.Answered,
+      resumeOf("p-1"),
+    ]);
   });
 });

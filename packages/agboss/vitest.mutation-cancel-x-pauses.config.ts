@@ -18,6 +18,7 @@ export default defineConfig({
       "tests/app/cancel-x-pause-expiry-units.test.ts",
       "tests/channels/cancel-x-pause-step-units.test.ts",
       "tests/channels/cancel-x-pause-errors.test.ts",
+      "tests/flow/pause-open-units.test.ts",
       "tests/channels/pause-step{,-key,-deadline,-working-time}.test.ts",
     ],
   },

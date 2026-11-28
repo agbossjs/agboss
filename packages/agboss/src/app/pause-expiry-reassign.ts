@@ -97,6 +97,7 @@ async function expiryPlanOf(
 ): Promise<Awaited<ReturnType<typeof planOf>> | undefined> {
   const own = ownDepsOf(parts.deps, pause.workflow);
   const reason = await maskedReason(own.pii?.observability, asked.reason);
+  // prettier-ignore
   try {
     return await planOf(
       { deps: parts.deps, clock: parts.clock },
@@ -110,7 +111,9 @@ async function expiryPlanOf(
         isExpiry: true,
       },
     );
-  } catch {
+  }
+  // Stryker disable next-line BlockStatement: equivalent: an empty catch leaves the function with `undefined`, as its return does
+  catch {
     return undefined;
   }
 }

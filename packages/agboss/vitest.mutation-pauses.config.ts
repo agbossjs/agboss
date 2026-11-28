@@ -20,6 +20,16 @@ export default defineConfig({
       // #1307, Q-D: where the limits are first written
       "tests/sweep-1366h/flow/pause-record-made-1366h.test.ts",
       "tests/flow/pause-record-deadlines.test.ts",
+      "tests/flow/pause-open-units.test.ts",
+      "tests/app/answer-permit-units.test.ts",
+      "tests/app/pause-timeout-request-units.test.ts",
+      "tests/app/pause-reassign-plan-units.test.ts",
+      "tests/app/pause-expiry-reassign-units.test.ts",
+      "tests/app/pause-reassign-deadline-units.test.ts",
+      "tests/app/pause-timeout-units.test.ts",
+      "tests/app/cancel-x-pause-expiry-units.test.ts",
+      "tests/infrastructure/pause-instants-labels-units.test.ts",
+      "tests/infrastructure/pause-records-shapes-units.test.ts",
       "tests/channels/pause-step{,-deadline,-working-time}.test.ts",
       // #1356: the answer permit
       "tests/channels/pause-permit-unresolved.test.ts",

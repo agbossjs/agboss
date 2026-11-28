@@ -13,12 +13,12 @@ import { StoreError } from "../core/error-families/store-errors.js";
 export const sameInstant = (a: Date | undefined, b: Date | undefined): boolean =>
   (a?.getTime() ?? null) === (b?.getTime() ?? null);
 
-/** The one spelling of a time a store keeps as text: what `toISOString()` writes (four-digit year, milliseconds, `Z`). */
-const CANONICAL = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+/** The length of the one spelling of a time a store keeps as text: what `toISOString()` writes for a four-digit year (`2026-01-05T10:00:00.000Z`); a year past 9999 or before 0000 has a sign and six digits, and is longer. */
+const CANONICAL_LENGTH = 24;
 
 /** Whether a `Date` names an instant a store can keep and read back: an Invalid Date (`new Date(NaN)`) does not, nor one outside the years 0000-9999 (its `toISOString()` is the six-digit `+010000-...` form the reader refuses). */
 export const isValidInstant = (at: Date): boolean =>
-  !Number.isNaN(at.getTime()) && CANONICAL.test(at.toISOString());
+  !Number.isNaN(at.getTime()) && at.toISOString().length === CANONICAL_LENGTH;
 
 /**
  * Refuses an Invalid Date a store was handed to keep (or a rule to apply): it would be written as
@@ -66,7 +66,7 @@ export const copyOfOptional = (at: Date | undefined): Date | undefined =>
  * order of the instants.
  */
 export const isCanonicalInstantText = (text: string): boolean => {
-  if (!CANONICAL.test(text)) return false;
+  if (text.length !== CANONICAL_LENGTH) return false;
   const at = new Date(text);
   return !Number.isNaN(at.getTime()) && at.toISOString() === text;
 };

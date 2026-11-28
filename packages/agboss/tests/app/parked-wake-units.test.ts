@@ -9,6 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppDeps } from "../../src/app/app-deps.js";
 import { wakeParkedOf } from "../../src/app/answered-wake.js";
+import { LeaseTakeoverReason } from "../../src/infrastructure/execution-audit-log.repository.js";
 import type { LeaseTake } from "../../src/app/execution-leases.js";
 import type { TreeMoveParts } from "../../src/app/tree-move-types.js";
 import { ExecutionRecordStatus } from "../../src/infrastructure/execution-record.repository.js";
@@ -36,6 +37,8 @@ function partsOf(
     readonly isHeld?: boolean;
     readonly now?: string;
     readonly history?: readonly object[];
+    readonly isWithoutPauses?: boolean;
+    readonly isGone?: boolean;
   } = {},
 ) {
   const takes: LeaseTake[] = [];
@@ -46,15 +49,26 @@ function partsOf(
     takes.push(take);
     return Promise.resolve(options.isHeld === true ? undefined : { release: released });
   });
+  const byIds = vi.fn((_ids: string[]) =>
+    Promise.resolve(
+      options.isGone === true ? [] : [recordOf(options.now ?? ExecutionRecordStatus.Paused)],
+    ),
+  );
+  const statusHistory = vi.fn((_tenantId: string, _threadId: string) =>
+    Promise.resolve(options.history ?? [{ toStatus: "externally-paused" }]),
+  );
   const parts: Pick<TreeMoveParts, "deps" | "leases"> = {
     deps: {
       config: { version: "2.0.0" },
-      pause: { pauses: { findAllByTenantIdAndRootExecutionId: mocks.pauses } },
+      pause:
+        options.isWithoutPauses === true
+          ? undefined
+          : { pauses: { findAllByTenantIdAndRootExecutionId: mocks.pauses } },
       turns: {
         statusHistory: () =>
           Promise.resolve(options.history ?? [{ toStatus: "externally-paused" }]),
         completeIfStatus,
-        byIds: () => Promise.resolve([recordOf(options.now ?? ExecutionRecordStatus.Paused)]),
+        byIds,
       },
     } as never,
     leases: {
@@ -62,10 +76,8 @@ function partsOf(
       tryHold,
     } as never,
   };
-  const records = {
-    statusHistory: () => Promise.resolve(options.history ?? [{ toStatus: "externally-paused" }]),
-  } as never;
-  return { parts, records, takes, released, completeIfStatus, tryHold };
+  const records = { statusHistory } as never;
+  return { parts, records, takes, released, completeIfStatus, tryHold, byIds, statusHistory };
 }
 
 beforeEach(() => {
@@ -167,5 +179,63 @@ describe("#1341c: the wake of a parked root", () => {
     ).toBe(false);
     expect(await moved.takes[0]?.isOver?.()).toBe(true);
     expect(moved.released).toHaveBeenCalledOnce();
+  });
+
+  it("a pause answered and waiting to be taken (resolved) is a business rest too: not woken, no lease taken", async () => {
+    const { parts, records, tryHold } = partsOf();
+    mocks.pauses.mockResolvedValue([{ status: "taken" }, { status: "resolved" }]);
+
+    expect(await wakeParkedOf(parts, records)(recordOf(ExecutionRecordStatus.Paused))).toBe(false);
+    expect(tryHold).not.toHaveBeenCalled();
+  });
+
+  it("an application with no pause stores has no business rest to read: the root is woken by its history alone", async () => {
+    const { parts, records, completeIfStatus } = partsOf({ isWithoutPauses: true });
+
+    expect(await wakeParkedOf(parts, records)(recordOf(ExecutionRecordStatus.Paused))).toBe(true);
+    expect(completeIfStatus).toHaveBeenCalledOnce();
+  });
+
+  it("only the thread's last change counts, and a thread with none is not woken", async () => {
+    const none = partsOf({ history: [] });
+    const lifted = partsOf({
+      history: [{ toStatus: "running" }, { toStatus: "paused" }, { trigger: "unpause" }],
+    });
+    const liftedBefore = partsOf({
+      history: [{ trigger: "unpause" }, { toStatus: "running" }, { toStatus: "paused" }],
+    });
+
+    expect(
+      await wakeParkedOf(none.parts, none.records)(recordOf(ExecutionRecordStatus.Paused)),
+    ).toBe(false);
+    expect(
+      await wakeParkedOf(lifted.parts, lifted.records)(recordOf(ExecutionRecordStatus.Paused)),
+    ).toBe(true);
+    expect(
+      await wakeParkedOf(
+        liftedBefore.parts,
+        liftedBefore.records,
+      )(recordOf(ExecutionRecordStatus.Paused)),
+    ).toBe(false);
+    expect(none.tryHold).not.toHaveBeenCalled();
+  });
+
+  it("is taken as a takeover for the recovery, of the tree the record's run names", async () => {
+    const { parts, records, tryHold, takes, byIds, statusHistory } = partsOf({ isGone: true });
+
+    await wakeParkedOf(parts, records)(recordOf(ExecutionRecordStatus.Paused));
+
+    // the pauses and the history are read for the tree and the thread of the record
+    expect(mocks.pauses).toHaveBeenCalledWith("acme", "root-1");
+    expect(statusHistory).toHaveBeenCalledWith("acme", "thread-1");
+
+    expect(tryHold).toHaveBeenCalledWith(
+      { tenantId: "acme", rootExecutionId: "root-1" },
+      expect.anything(),
+    );
+    expect(takes[0]).toMatchObject({ reason: LeaseTakeoverReason.Recovered, isTakeover: true });
+    // a record gone (its tree's end removed it) is over too
+    expect(await takes[0]?.isOver?.()).toBe(true);
+    expect(byIds).toHaveBeenCalledWith(["turn-1"]);
   });
 });

@@ -5,7 +5,7 @@
  * executions, and a working-time reminder asks the calendar nothing without a deadline and is set
  * only strictly after the ask.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FrameSpec } from "../../../src/flow/context/frame.js";
 import {
   boundedDeadlineOf,
@@ -84,6 +84,52 @@ describe("#1366: the record a pause step makes", () => {
     expect("remindAt" in record).toBe(false);
     expect("toolLoopIteration" in record).toBe(false);
     expect("expiresAt" in record).toBe(false);
+  });
+
+  it("asks the channel's choice with the deadline as a copy, the assignees and the chain's first entry — each only when there (#1356)", async () => {
+    const choose = vi.fn((_opening: unknown) => Promise.resolve(undefined));
+    const target = targetOfChannel({ ...channel, expiresIn: hours(2) });
+
+    const record = await newRecordOf(
+      frameOf(stepOf("ask")),
+      target,
+      question,
+      new VirtualClock(ASKED),
+      noCalendar,
+      undefined,
+      choose,
+      { assignees: ["ann"] },
+    );
+    await newRecordOf(
+      frameOf(stepOf("ask")),
+      targetOfChannel(channel),
+      question,
+      new VirtualClock(ASKED),
+      noCalendar,
+      undefined,
+      choose,
+    );
+
+    const [withDeadline, bare] = choose.mock.calls.map(
+      ([opening]) => opening as Record<string, unknown>,
+    );
+    expect(withDeadline).toStrictEqual({
+      expiresAt: record.expiresAt,
+      assignees: ["ann"],
+      trail: [
+        {
+          action: "opened",
+          at: ASKED,
+          target: target.name,
+          expiresAt: record.expiresAt,
+          assignees: ["ann"],
+        },
+      ],
+    });
+    expect(withDeadline?.expiresAt).not.toBe(record.expiresAt);
+    expect(bare).toStrictEqual({
+      trail: [{ action: "opened", at: ASKED, target: target.name }],
+    });
   });
 
   it("carries the toolLoopIteration of a step inside a tool loop", async () => {

@@ -118,8 +118,7 @@ export { branchKeyOf, type BranchKeySite } from "./pause-record-made.js";
 export const channelOfPause = (
   target: Pick<PauseTarget, "channels">,
   pause: Pick<PauseRecord, "channel">,
-): PauseChannel | undefined =>
-  pause.channel === undefined ? undefined : target.channels.get(pause.channel);
+): PauseChannel | undefined => [...target.channels].find(([name]) => name === pause.channel)?.[1];
 
 /** What a channel's `send` said: the decision it gave now, or that the step waits (with the pause's reference in its system). */
 export type Sent = { readonly decision: unknown } | { readonly externalRef?: string | undefined };

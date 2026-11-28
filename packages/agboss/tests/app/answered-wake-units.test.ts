@@ -50,6 +50,7 @@ function partsOf(
     readonly status?: string;
     readonly stored?: unknown;
     readonly isGone?: boolean;
+    readonly isFrozen?: boolean;
   } = {},
 ) {
   const takes: LeaseTake[] = [];
@@ -69,7 +70,7 @@ function partsOf(
     paused: { find: () => Promise.resolve("stored" in options ? options.stored : STORED) },
     leases: {
       // not paused from outside (#1341c)
-      pauseOf: () => Promise.resolve({}),
+      pauseOf: () => Promise.resolve(options.isFrozen === true ? { pause: { reason: "ops" } } : {}),
       tryHold: (_tree: unknown, take: LeaseTake) => {
         takes.push(take);
         return Promise.resolve(options.isHeld === true ? undefined : { release: released });
@@ -221,6 +222,18 @@ describe("#1187: the wake of a paused root beside an untaken answer", () => {
     expect(await running.takes[0]?.isOver?.()).toBe(true);
     // a record gone (its tree's end removed it) is over too
     expect(await gone.takes[0]?.isOver?.()).toBe(true);
+    mocks.treeResumeNow.mockReset();
+  });
+
+  it("a tree frozen from outside (#1341c) is not woken by its answer before `app.unpause`: the lease given back, nothing read or marked", async () => {
+    mocks.treeResumeNow.mockResolvedValue(RESUME);
+    const { parts, completeIfStatus, released } = partsOf({ isFrozen: true });
+
+    expect(await wakeAnsweredOf(parts)(recordOf(ExecutionRecordStatus.Paused))).toBe(false);
+
+    expect(mocks.treeResumeNow).not.toHaveBeenCalled();
+    expect(completeIfStatus).not.toHaveBeenCalled();
+    expect(released).toHaveBeenCalledOnce();
     mocks.treeResumeNow.mockReset();
   });
 });

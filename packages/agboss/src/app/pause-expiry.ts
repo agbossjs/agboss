@@ -25,6 +25,7 @@ import { callInFrame, NoticeTimeoutError } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import { trailOf } from "../flow/runtime/pause-chain.js";
 import { ownDepsOf } from "./own-deps.js";
+import { UnknownPauseTargetError } from "./pause-lookups.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 
 /**
@@ -142,8 +143,9 @@ function expiredContextOf(pause: PauseRecord): ExpiredContext<never> {
 function targetOf(parts: TreeMoveParts, pause: PauseRecord): PauseTarget | undefined {
   try {
     return ownDepsOf(parts.deps, pause.workflow).targetOf?.(pause.target);
-  } catch {
-    // a target a deploy removed: no handler
+  } catch (error) {
+    // a target a deploy removed: no handler; any other failure of the lookup is the look's to retry
+    if (!(error instanceof UnknownPauseTargetError)) throw error;
     return undefined;
   }
 }
@@ -164,18 +166,18 @@ async function expiryOf(
 /** The pause expired with `expiry` by the store's compare-and-set: its notices, its tally, its answer logged; `false` when it closed meanwhile. */
 async function expiredPause(
   parts: TreeMoveParts,
+  stores: NonNullable<TreeMoveParts["deps"]["pause"]>,
   pause: PauseRecord,
   expiry: PauseExpiry,
 ): Promise<boolean> {
-  const stores = parts.deps.pause;
-  const applied = await stores?.pauses.expireByTenantIdAndPauseId(
+  const applied = await stores.pauses.expireByTenantIdAndPauseId(
     pause.tenantId,
     pause.pauseId,
     expiry,
     parts.clock.now(),
     recipientsIn(stores, pause),
   );
-  if (stores === undefined || applied === undefined) return false;
+  if (applied === undefined) return false;
   noticesWritten(stores);
   pauseTallyOf(stores)?.closed(applied);
   await logPauseAnswer(stores.answers, applied, applied.resolution ?? PauseResolution.Expired);
@@ -207,7 +209,7 @@ export async function expirePauses(
     if (moved === "done") closed += 1;
     if (moved !== "failed") continue;
     const expiry: PauseExpiry = "reassign" in outcome ? FAILED : outcome;
-    if (await expiredPause(parts, pause, expiry)) closed += 1;
+    if (await expiredPause(parts, stores, pause, expiry)) closed += 1;
   }
   return closed;
 }

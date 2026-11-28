@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { ExecutionCancelledError } from "../../src/core/errors.js";
+import { ExecutionStoppedError } from "../../src/app/lease-stopped.js";
 import {
   closeTreePauses,
   resolutionOfEnd,
@@ -56,6 +57,18 @@ describe("#939: closeTreePauses", () => {
       PauseResolution.Cancelled,
     );
     expect(resolutionOfEnd({ cause: new Error("failed") })).toBe(PauseResolution.TreeEnded);
+  });
+
+  it("a stop (#1341b), though it is a kind of cancel, or a cancel under it, ends the tree: its pauses close by `TreeEnded`", () => {
+    expect(resolutionOfEnd({ cause: new ExecutionStoppedError() })).toBe(PauseResolution.TreeEnded);
+    expect(
+      resolutionOfEnd({
+        cause: new ExecutionStoppedError({ cause: new ExecutionCancelledError() }),
+      }),
+    ).toBe(PauseResolution.TreeEnded);
+    expect(resolutionOfEnd({ cause: new Error("x", { cause: new ExecutionStoppedError() }) })).toBe(
+      PauseResolution.TreeEnded,
+    );
   });
 
   it("a pause a step consumed (Taken) is left alone: no close, no log write", async () => {

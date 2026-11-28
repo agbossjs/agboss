@@ -84,15 +84,17 @@ export async function isAtBusinessPause(deps: AppDeps, tree: TreeRun): Promise<b
     tree.tenantId,
     tree.runId,
   );
-  return (records ?? []).some(
-    (pause) => pause.status === PauseStatus.Pending || pause.status === PauseStatus.Resolved,
+  return (
+    records?.some(
+      (pause) => pause.status === PauseStatus.Pending || pause.status === PauseStatus.Resolved,
+    ) ?? false
   );
 }
 
 /** Whether the thread's last status change is an operator's pause or the lift of one (#1341d). */
 async function isUnpausing(
   records: Pick<ExecutionRecordRepository, "statusHistory">,
-  tree: TreeState,
+  tree: Pick<TreeState, "tenantId" | "threadId">,
 ): Promise<boolean> {
   const last = (await records.statusHistory(tree.tenantId, tree.threadId)).at(-1);
   return (
@@ -109,11 +111,12 @@ export const wakeParkedOf =
     const { runId, threadId, tenantId } = record;
     if (runId === null || record.status !== RESTING) return false;
     const { deps, leases } = parts;
-    const startedVersion = record.configVersion ?? deps.config.version;
-    const state = { runId, threadId, tenantId, startedVersion };
+    // the tree as the pause rows and the lease row name it: its version is nothing to read here
+    const state = { runId, threadId, tenantId };
+    const tree = { tenantId, rootExecutionId: runId };
     // read only, before any lease is taken: a frozen tree and a business rest — most of the `paused`
     // roots the look pages through — cost no write
-    if (await isExternallyPaused(leases, treeOf(state))) return false;
+    if (await isExternallyPaused(leases, tree)) return false;
     if (await isAtBusinessPause(deps, state)) return false;
     // only a tree the history says an operator parked and began to unpause: a `paused` record with no
     // pause rows is no proof (a restarted application with in-memory pauses has none of anyone's)
@@ -123,11 +126,11 @@ export const wakeParkedOf =
       isOver: async (): Promise<boolean> =>
         (await deps.turns.byIds([record.id]))[0]?.status !== RESTING,
     };
-    const lease = await leases.tryHold(treeOf(state), take);
+    const lease = await leases.tryHold(tree, take);
     if (lease === undefined) return false;
     try {
       // the lease is the one place the mark is written under: asked again now that it is held
-      if (await isExternallyPaused(leases, treeOf(state))) return false;
+      if (await isExternallyPaused(leases, tree)) return false;
       const outcome = runningOutcome(record.route, record.costUsd);
       return await deps.turns.completeIfStatus(record.id, ExecutionRecordStatus.Paused, outcome, {
         toStatus: ThreadStatus.Running,
