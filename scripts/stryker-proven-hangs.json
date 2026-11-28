@@ -115,5 +115,158 @@
     "anchor": ") { return <TClass extends new",
     "kind": "wall-clock",
     "reason": "the body of HealthCheck is emptied, so the decorator it returns is undefined and every test file that decorates a class with it fails to load ('decorators[i] is not a function') outside any test: on a short run Stryker reads that as a RuntimeError, on CI's slower runner the shard ends it by the clock as a Timeout (a Timeout in the shard's own run, a RuntimeError in a run alone: the same mutant, listed under both kinds); nothing that loads survives it"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "function named<T extends object>(constructor: T, name: string): T {",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "function familyBaseOf(family: FamilySpec<object>): typeof AGBossError {",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "if (typeof kind !== \"string\" || !isVariantSpec(spec))",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "typeof kind === \"string\"",
+    "anchor": "if (typeof kind !== \"string\" || !isVariantSpec(spec))",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "StringLiteral",
+    "replacement": "\"\"",
+    "anchor": "if (typeof kind !== \"string\" || !isVariantSpec(spec))",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "BooleanLiteral",
+    "replacement": "isVariantSpec(spec)",
+    "anchor": "if (typeof kind !== \"string\" || !isVariantSpec(spec))",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "BlockStatement",
+    "replacement": "{}",
+    "anchor": "function isVariantSpec(value: unknown): value is VariantSpec {",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "BooleanLiteral",
+    "replacement": "Array.isArray(value)",
+    "anchor": "if (!Array.isArray(value)) return false;",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "true",
+    "anchor": "if (!Array.isArray(value)) return false;",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "if (typeof sentence === \"string\") return true;",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "typeof sentence !== \"string\"",
+    "anchor": "if (typeof sentence === \"string\") return true;",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "StringLiteral",
+    "replacement": "\"\"",
+    "anchor": "if (typeof sentence === \"string\") return true;",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "BooleanLiteral",
+    "replacement": "false",
+    "anchor": "if (typeof sentence === \"string\") return true;",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "ConditionalExpression",
+    "replacement": "false",
+    "anchor": "return typeof sentence === \"function\";",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "EqualityOperator",
+    "replacement": "typeof sentence !== \"function\"",
+    "anchor": "return typeof sentence === \"function\";",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "StringLiteral",
+    "replacement": "\"\"",
+    "anchor": "return typeof sentence === \"function\";",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "takeover",
+    "file": "src/core/error-families/family.ts",
+    "mutator": "ArrowFunction",
+    "replacement": "() => undefined",
+    "anchor": "const variants = Object.fromEntries(names.map((name) => [name, variantOf(Base, family, name)]));",
+    "kind": "runtime-error",
+    "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
   }
 ]

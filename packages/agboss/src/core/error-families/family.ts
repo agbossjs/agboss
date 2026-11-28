@@ -220,7 +220,10 @@ function variantOf(
 }
 
 function isVariantSpec(value: unknown): value is VariantSpec {
-  return Array.isArray(value) && (typeof value[0] === "string" || typeof value[0] === "function");
+  if (!Array.isArray(value)) return false;
+  const sentence: unknown = value[0];
+  if (typeof sentence === "string") return true;
+  return typeof sentence === "function";
 }
 
 /**
