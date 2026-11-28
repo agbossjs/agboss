@@ -91,8 +91,8 @@ async function unwindSiteOf(site: JoinUnwindSite): Promise<UnwindSite> {
   const covers = (entry: CompensationEntry): boolean =>
     entry.launchId === site.ticket.launchId &&
     holderOf(entry) === executionId &&
-    (excluded === undefined ||
-      (entry.branchIndex !== undefined && excluded.has(entry.branchIndex)));
+    // an entry of no branch is none of the excluded ones: -1 is no index
+    (excluded === undefined || excluded.has(entry.branchIndex ?? -1));
   const marks: UndoneMarks = { trees: site.deps.compensation?.trees, tree: undo.tree };
   return {
     tree: undo.tree,
