@@ -45,7 +45,9 @@ export class SpendItemWorkflowFinish {}
   name: "spend-item-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(SpendItemWorkflowStart).toAction(PayItemAction).toFinish(SpendItemWorkflowFinish)],
+  flow: [onStart(SpendItemWorkflowStart)
+    .toAction(PayItemAction)
+    .toFinish(SpendItemWorkflowFinish)],
 })
 export class SpendItemWorkflow {}
 

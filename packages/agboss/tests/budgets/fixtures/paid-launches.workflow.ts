@@ -41,7 +41,9 @@ export class NoteChildWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(NoteChildWorkflowStart).toAction(NoteOrderAction).toFinish(NoteChildWorkflowFinish),
+    onStart(NoteChildWorkflowStart)
+      .toAction(NoteOrderAction)
+      .toFinish(NoteChildWorkflowFinish),
   ],
 })
 export class NoteChildWorkflow {}
@@ -82,7 +84,8 @@ export class PaidItemsAction {
     readonly notes: readonly Tracked<OrderNoteDto>[];
   }): Promise<OrderNoteDto> {
     return {
-      note: input.notes.map((note) => note.note).join("; "),
+      note: input.notes.map((note) => note.note)
+        .join("; "),
     };
   }
 }
@@ -124,7 +127,8 @@ export class PaidLevelWorkflowFinish {}
     onStart(PaidLevelWorkflowStart)
       .toAction(LevelOrderAction)
       .toOneOf([
-        toWorkflow(() => PaidLevelWorkflow).toFinish(PaidLevelWorkflowFinish),
+        toWorkflow(() => PaidLevelWorkflow)
+          .toFinish(PaidLevelWorkflowFinish),
         toFinish(PaidLevelWorkflowFinish),
       ]),
   ],
