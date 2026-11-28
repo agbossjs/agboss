@@ -9,11 +9,11 @@ import type { ArbiterModel } from "../../../src/flow/decorators/arbiter.js";
 
 const modelOf = (name: string) => {
   const decide = vi.fn(() => Promise.resolve({ answered: name }));
-  const arbiter = {
+  const arbiter: ArbiterModel = {
     model: name,
     invoke: (input: unknown) => Promise.resolve(`${name} says ${JSON.stringify(input)}`),
     decide,
-  } as unknown as ArbiterModel;
+  } as never;
   return { arbiter, decide };
 };
 

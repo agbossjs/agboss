@@ -331,7 +331,7 @@ describe("#1356: the records of a call that failed mid-way", () => {
   it("a call that cannot be priced is its tokens unpriced, under its model and provider, never dropped; any other failure is not hidden", () => {
     const unpriceable = { model: "base/model", modelProvider: "acme" };
     const noProvider = { model: "base/model" };
-    const free = { ...unpriceable, unpriced: true };
+    const free = { ...unpriceable, unpriced: true as const };
     const call = { requestChars: 4, answerChars: 8 };
     const broken = {
       get model(): string {
