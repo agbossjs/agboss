@@ -392,7 +392,7 @@ const failureOf = (work: () => unknown): unknown => {
 };
 
 describe("#1317c: the transaction of a runOnce, as the connection hands it out", () => {
-  const memory = () => new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+  const memory = () => new SqliteConnection({ kind: "sqlite", path: ":memory:" });
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -460,7 +460,7 @@ describe("#1317c: a transaction of the connection and the operation it is inside
   beforeEach(recordingDatabases);
 
   const faked = (): { connection: SqliteConnection; statements: string[] } => {
-    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" });
     const statements = RecordingDatabase.made.at(-1)?.statements ?? [];
     statements.length = 0;
     return { connection, statements };
@@ -475,7 +475,7 @@ describe("#1317c: a transaction of the connection and the operation it is inside
   });
 
   it("inside an operation that has written it joins the operation's transaction as a savepoint, and a failure undoes only its own statements", async () => {
-    const real = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const real = new SqliteConnection({ kind: "sqlite", path: ":memory:" });
     const { database } = real;
     database.exec("CREATE TABLE notes (text TEXT NOT NULL)");
 
@@ -518,7 +518,7 @@ describe("#1317c: a transaction of the connection and the operation it is inside
   });
 
   it("an operation called from inside another is part of its attempt: its result is its own, its busy answer the outer one's", async () => {
-    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" });
     let outer = 0;
     let inner = 0;
     const busyOnce = Object.assign(new Error("database is locked"), { errcode: 5 });
@@ -539,7 +539,7 @@ describe("#1317c: a transaction of the connection and the operation it is inside
   });
 
   it("a nested operation's result is returned as it is, without a tick when the file is free", () => {
-    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" });
 
     const result = connection.gate(() => connection.gate(() => 7));
 
@@ -548,7 +548,7 @@ describe("#1317c: a transaction of the connection and the operation it is inside
 });
 
 describe("#1317c: the operations served ahead of a hold, and the renewals that survive its rollback", () => {
-  const memory = () => new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+  const memory = () => new SqliteConnection({ kind: "sqlite", path: ":memory:" });
   const turn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
   beforeEach(() => {
@@ -589,19 +589,25 @@ describe("#1317c: the operations served ahead of a hold, and the renewals that s
     async (isRenewal, kept) => {
       const connection = memory();
       connection.database.exec("CREATE TABLE rows (row TEXT)");
-      const options = isRenewal === undefined ? { isPriority: true } : { isPriority: true, isRenewal };
+      const options =
+        isRenewal === undefined ? { isPriority: true } : { isPriority: true, isRenewal };
 
       await expect(
         connection.held(async () => {
           await turn();
-          await connection.serve(() => connection.database.exec("INSERT INTO rows VALUES ('renewed')"), options);
+          await connection.serve(() => {
+            connection.database.exec("INSERT INTO rows VALUES ('renewed')");
+          }, options);
           throw new Error("a declined card");
         }),
       ).rejects.toThrow("a declined card");
       await turn();
 
       expect(
-        connection.database.prepare("SELECT row FROM rows").all().map((found) => found.row),
+        connection.database
+          .prepare("SELECT row FROM rows")
+          .all()
+          .map((found) => found.row),
       ).toEqual(kept);
     },
   );
@@ -611,7 +617,7 @@ describe("#1317: the work of a startup, and the schema an application's reposito
   beforeEach(recordingDatabases);
 
   const faked = (): { connection: SqliteConnection; statements: string[] } => {
-    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" });
     const statements = RecordingDatabase.made.at(-1)?.statements ?? [];
     statements.length = 0;
     return { connection, statements };
@@ -692,7 +698,7 @@ describe("#1317: the work of a startup, and the schema an application's reposito
     const failure = new Error("the schema could not be made");
     RecordingDatabase.failing.set("PRAGMA busy_timeout = 0", failure);
 
-    const error = failureOf(() => new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never));
+    const error = failureOf(() => new SqliteConnection({ kind: "sqlite", path: ":memory:" }));
 
     expect(error).toBe(failure);
     expect(RecordingDatabase.made.at(-1)?.closed).toBe(1);
@@ -712,7 +718,7 @@ describe("#1317c: the SQLite implementations' operations meet their instance's c
       }
     }
     sqliteImplementation(Gated);
-    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" });
     const gate = vi.spyOn(connection, "gate");
 
     expect(new Gated(connection).read()).toBe("read");
@@ -731,7 +737,7 @@ describe("#1317c: the SQLite implementations' operations meet their instance's c
       }
     }
     sqliteImplementation(Late);
-    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" } as never);
+    const connection = new SqliteConnection({ kind: "sqlite", path: ":memory:" });
     const gate = vi.spyOn(connection, "gate");
 
     new Late(connection).read();

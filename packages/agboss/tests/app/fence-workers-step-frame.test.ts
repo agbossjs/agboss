@@ -143,7 +143,10 @@ describe("#1366: the frame of one visit of a node", () => {
   it("carries the observer of the deps, when they have one, and none otherwise", () => {
     const observer = { id: "observer" };
 
-    const observed = stepFrameOf(node, stateOf(), configOf(), { ...(deps as object), observer } as never);
+    const observed = stepFrameOf(node, stateOf(), configOf(), {
+      ...(deps as object),
+      observer,
+    } as never);
     const bare = stepFrameOf(node, stateOf(), configOf(), deps);
 
     expect(observed.execution.observer).toBe(observer);

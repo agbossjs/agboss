@@ -34,7 +34,6 @@ export async function lostToClaim(
     workflow: site.workflow,
     waitedMs,
     message: `Child workflow "${site.workflow}" (execution ${site.executionId}) was claimed by no other worker in ${String(waitedMs)} ms: ChildPlacement.OtherWorker never runs on the instance that launched it`,
-    details: { childExecutionId: site.executionId, workflow: site.workflow, waitedMs },
   });
 }
 

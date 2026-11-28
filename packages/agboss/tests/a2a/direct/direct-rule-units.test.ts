@@ -216,11 +216,21 @@ class ReachViaHarmless {}
 class ReachViaWriter {}
 @Injectable({ deps: [ReachHarmless, ReachWriter] })
 class ReachSecondDepWrites {}
-abstract class ReachPort {}
+abstract class ReachPort {
+  abstract port(): void;
+}
 @Injectable()
-class ReachHarmlessPortImpl extends ReachPort {}
+class ReachHarmlessPortImpl extends ReachPort {
+  port(): void {
+    return undefined;
+  }
+}
 @Injectable({ deps: [Idempotency] })
-class ReachWritingPortImpl extends ReachPort {}
+class ReachWritingPortImpl extends ReachPort {
+  port(): void {
+    return undefined;
+  }
+}
 @Injectable({ deps: [ReachPort] })
 class ReachUsesPort {}
 @Injectable({ deps: [Clock] })
@@ -228,7 +238,9 @@ class ReachUsesClock {}
 abstract class ReachOwnClock extends Clock {}
 @Injectable({ deps: [ReachOwnClock] })
 class ReachUsesOwnClock {}
-class ReachUndecorated {}
+class ReachUndecorated {
+  readonly kind = "undecorated";
+}
 @Injectable({ deps: [ReachUndecorated] })
 class ReachUsesUndecorated {}
 @Injectable({ deps: [RuleA2AAgent] })
@@ -265,8 +277,12 @@ describe("#1319: the effect a component's deps reach", () => {
   });
 
   it("a port with several implementations is the first effect among them, in the order bound", () => {
-    expect(effectOf(ReachUsesPort, [ReachHarmlessPortImpl, ReachWritingPortImpl])).toBe(Idempotency);
-    expect(effectOf(ReachUsesPort, [ReachWritingPortImpl, ReachHarmlessPortImpl])).toBe(Idempotency);
+    expect(effectOf(ReachUsesPort, [ReachHarmlessPortImpl, ReachWritingPortImpl])).toBe(
+      Idempotency,
+    );
+    expect(effectOf(ReachUsesPort, [ReachWritingPortImpl, ReachHarmlessPortImpl])).toBe(
+      Idempotency,
+    );
   });
 
   it("a value token and a function with no prototype are read past, the first with bound classes about", () => {
@@ -309,10 +325,10 @@ describe("#1319: the classes an application can bind to a port", () => {
       providers: [ReachWriter],
       services: [ReachViaWriter],
       workflows: [BoundWorkflow, plain, PlainTool],
-    } as unknown as ApplicationOptions);
+    } as never);
 
     expect(bound).toEqual([ReachWriter, ReachViaWriter, ReachHarmless, ReachHarmlessPortImpl]);
-    expect(boundClassesOf({ workflows: [] } as unknown as ApplicationOptions)).toEqual([]);
+    expect(boundClassesOf({ workflows: [] } as never)).toEqual([]);
   });
 });
 

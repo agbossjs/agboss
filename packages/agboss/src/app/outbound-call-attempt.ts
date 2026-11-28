@@ -1,3 +1,4 @@
+import { definedOf } from "../infrastructure/clock.js";
 import { OutboundCallEventOutcome } from "../infrastructure/execution-audit-log.repository.js";
 import { OutboundCallStatus } from "../infrastructure/outbound-call.repository.js";
 import { failedOrPending, leftPending } from "./outbound-call-ambiguity.js";
@@ -21,7 +22,6 @@ import { OutboundCallSendStatus, type OutboundCallOutcome } from "./outbound-cal
 function attemptTimeoutOf<TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   attemptEnd: AbortController,
-  fired: { isFired: boolean },
 ): { readonly promise: Promise<never>; readonly stop: () => void } {
   const stopped = new AbortController();
   const promise: Promise<never> = run.parts.clock
@@ -29,11 +29,11 @@ function attemptTimeoutOf<TRequest, TResult>(
     .then(() => {
       // `sleep` also resolves when it is stopped: the attempt ended first, so nothing timed out
       if (stopped.signal.aborted) return new Promise<never>(() => undefined);
-      fired.isFired = true;
       const error = new DOMException(
         `outbound call "${run.key.name}" attempt passed its timeout of ${String(run.options.timeout)} ms`,
         "TimeoutError",
       );
+      // the attempt's signal ends only here, so `attemptEnd.signal.aborted` says the bound passed
       attemptEnd.abort(error);
       throw error;
     });
@@ -90,22 +90,25 @@ export async function sendNow<TRequest, TResult>(
   owner: string,
 ): Promise<OutboundCallOutcome<TResult>> {
   const { repository } = run.parts;
-  const lease = run.frame.execution.lease;
-  await lease?.renewNow();
+  // a call's key is made under the lease of the step (`callKeyIn` reads its fence), so a call that is sent has one
+  const lease = definedOf(
+    run.frame.execution.lease,
+    "an outbound call is sent under the lease its key was made under",
+  );
+  await lease.renewNow();
   run.frame.execution.signal.throwIfAborted();
   const attemptEnd = new AbortController();
-  const timeout = { isFired: false };
   const stepSignal = run.frame.execution.signal;
-  const timedOut = attemptTimeoutOf(run, attemptEnd, timeout);
+  const timedOut = attemptTimeoutOf(run, attemptEnd);
   const call = callOf(run, attempt, AbortSignal.any([stepSignal, attemptEnd.signal]));
   // nothing leaves after the holder's fence (#533): checked on its monotonic clock right before
-  lease?.assertHeld();
+  lease.assertHeld();
   let answer: TResult;
   const sending = (async () => run.options.send(call))();
   try {
     answer = await Promise.race([sending, timedOut.promise]);
   } catch (error) {
-    if (timeout.isFired) {
+    if (attemptEnd.signal.aborted) {
       // the attempt's bound passed: the other system may have carried it out — never a definite
       // failure, whatever the call's classifier would say; the intent stays pending, in doubt, and
       // the send is still listened to: its late answer is recorded fenced, never lost (#1317)

@@ -191,7 +191,7 @@ export class InMemoryOutboundCallRepository extends OutboundCallRepository {
   #changed(
     key: EffectKey,
     change: (found: OutboundCallRecord) => OutboundCallRecord | undefined,
-    isSend = false,
+    isSend: boolean,
     expiresAt?: number | null,
   ): Promise<boolean> {
     return this.#fenced(key, () => {

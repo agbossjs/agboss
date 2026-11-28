@@ -131,7 +131,8 @@ describe("#1341b, #1341c: the stop and the pause fences of the in-memory stores"
   });
 
   it("a child's write is refused while the root's current token is the fenced one or lower, whatever the child's own token", () => {
-    const fenced = (rootToken: number) => rowOf({ fencedThroughToken: 5, lease: { token: rootToken } });
+    const fenced = (rootToken: number) =>
+      rowOf({ fencedThroughToken: 5, lease: { token: rootToken } });
 
     expect(refusalOf(fenced(5), key({ token: 99 }))).toBeInstanceOf(ExecutionPauseFencedError);
     expect(refusalOf(fenced(4), key({ token: 99 }))).toBeInstanceOf(ExecutionPauseFencedError);

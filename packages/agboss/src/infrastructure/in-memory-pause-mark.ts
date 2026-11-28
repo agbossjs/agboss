@@ -25,10 +25,11 @@ export function pausedInMemory(
   const stored = database.executionLeases.get(key) ?? seedRowOf(tree);
   const { request } = pause;
   const wasPaused = stored.externalPause !== undefined;
-  const through =
+  // an `Immediate` pause fences the row's token and below; any other leaves the fence the row has (`stored` carries it)
+  const fence =
     request.mode === Mode.Immediate
-      ? Math.max(stored.fencedThroughToken ?? 0, stored.lease.token)
-      : stored.fencedThroughToken;
+      ? { fencedThroughToken: Math.max(stored.fencedThroughToken ?? 0, stored.lease.token) }
+      : {};
   database.executionLeases.set(key, {
     ...stored,
     externalPause: {
@@ -36,7 +37,7 @@ export function pausedInMemory(
       // the mode only escalates: a repeat that asks `AfterStep` of an `Immediate` pause changes nothing
       mode: stored.externalPause?.mode === Mode.Immediate ? Mode.Immediate : request.mode,
     },
-    ...(through === undefined ? {} : { fencedThroughToken: through }),
+    ...fence,
   });
   // the mark and its history row land in one synchronous step; a repeat writes none
   if (!wasPaused && pause.transition !== undefined)

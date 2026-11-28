@@ -4,7 +4,7 @@
  * where it must not be, and the service an application's own container does not have. Each rule on its own, over
  * the in-memory stores of `outboundFrame`.
  */
-import { describe, expect, it, vi, type Mock } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Idempotency, IDEMPOTENCY_OUTSIDE_APPLICATION } from "../../src/app/idempotency.js";
 import { cancelFencedOf } from "../../src/app/cancel-fenced.js";
 import { keyedByRequest } from "../../src/app/outbound-call-business.js";
@@ -51,7 +51,7 @@ const sendOnceOf = (changes: Record<string, unknown>) =>
 
 describe("#1317: runOnce refuses a bad option before anything is recorded or run, each with its own text", () => {
   it.each([
-    [0, 'ttl is 0, not a positive duration'],
+    [0, "ttl is 0, not a positive duration"],
     [-1, "ttl is -1, not a positive duration"],
     ["1h", 'ttl is "1h", not a positive duration'],
     [Number.NaN, "ttl is NaN, not a positive duration"],
@@ -68,7 +68,7 @@ describe("#1317: runOnce refuses a bad option before anything is recorded or run
     [-5, "timeout is -5, not a positive duration"],
     [Number.NaN, "timeout is NaN, not a positive duration"],
     [Number.POSITIVE_INFINITY, "timeout is Infinity, not a positive duration"],
-    ["5s", 'timeout is 5s, not a positive duration'],
+    ["5s", "timeout is 5s, not a positive duration"],
     [
       172_800_000,
       "timeout is 172800000 ms, above its largest of 1 day (86400000 ms) — a longer timer would fire at once",
@@ -86,7 +86,9 @@ describe("#1317: runOnce refuses a bad option before anything is recorded or run
     const error = await runOnceOf({ execute: "charge it" });
 
     expect(error).toBeInstanceOf(ConfigError.Option);
-    expect((error as Error).message).toBe(`Idempotency.runOnce: execute is not a function ${NOTHING}`);
+    expect((error as Error).message).toBe(
+      `Idempotency.runOnce: execute is not a function ${NOTHING}`,
+    );
   });
 
   it("the ttl is told before the timeout, the timeout before the lease, the lease before the execute", async () => {
@@ -247,7 +249,9 @@ describe("#1317: sendOnce refuses a bad option before anything is recorded or se
     expect((send as Error).message).toBe(`Idempotency.sendOnce: send is not a function ${NOTHING}`);
     for (const error of [empty, number, missing]) {
       expect(error).toBeInstanceOf(ConfigError.Option);
-      expect((error as Error).message).toBe(`Idempotency.sendOnce: target is not a name ${NOTHING}`);
+      expect((error as Error).message).toBe(
+        `Idempotency.sendOnce: target is not a name ${NOTHING}`,
+      );
     }
   });
 
@@ -335,7 +339,11 @@ describe("#1317: the work of a runOnce and its bound", () => {
     const { clock, sleeps } = clockOf();
     const value = { n: 1 };
 
-    const result = boundedWork(clock, { name: "charge", timeout: seconds(5) }, () => value as never)();
+    const result = boundedWork(
+      clock,
+      { name: "charge", timeout: seconds(5) },
+      () => value as never,
+    )();
 
     expect(result).toBe(value);
     expect(sleeps).toEqual([]);
@@ -394,13 +402,17 @@ describe("#1317: the work of a runOnce and its bound", () => {
 describe("#1317: the lease of a call's frame is optional, its owner and its late answer", () => {
   const cancel = () =>
     cancelFencedOf({ scopeKey: "s", tenantId: "t", leaseExecutionId: "e", token: 1, name: "pay" });
-  const runWith = (lease: unknown, answer: Record<string, unknown> = {}) =>
+  const runWith = (
+    lease: unknown,
+    answer: Record<string, unknown> = {},
+    owners = new Set<string>(),
+  ) =>
     ({
       key: { name: "pay", scopeKey: "s", token: 1 },
       options: { target: "gateway", operation: "pay", timeout: 5000 },
       frame: { execution: { lease } },
       answer,
-      parts: { owners: new Set<string>() },
+      parts: { owners },
     }) as never;
 
   it("a cancel the tree's lease is told of when the frame has a lease that listens; any error is thrown as it is", async () => {
@@ -419,15 +431,13 @@ describe("#1317: the lease of a call's frame is optional, its owner and its late
   });
 
   it("an attempt is owned while it runs and kept open until its late answer settled; a lease that does not keep, or none, is no matter", async () => {
-    const run = runWith({ keepWhile: vi.fn() }, { lateTail: undefined });
-    const keepWhile = (run as unknown as { frame: { execution: { lease: { keepWhile: Mock } } } })
-      .frame.execution.lease.keepWhile;
+    const keepWhile = vi.fn();
+    const answer: Record<string, unknown> = {};
+    const run = runWith({ keepWhile }, answer);
     let late: () => void = () => undefined;
-    (run as unknown as { answer: { lateTail: Promise<void> } }).answer.lateTail = new Promise<void>(
-      (resolve) => {
-        late = resolve;
-      },
-    );
+    answer.lateTail = new Promise<void>((resolve) => {
+      late = resolve;
+    });
 
     const result = await owning(run, "owner-1", () => Promise.resolve("sent"));
 
@@ -450,17 +460,16 @@ describe("#1317: the lease of a call's frame is optional, its owner and its late
 
   it("a failed attempt waits for its late answer too, and its error is thrown", async () => {
     const keepWhile = vi.fn();
-    const run = runWith({ keepWhile }, {});
+    const answer: Record<string, unknown> = {};
+    const run = runWith({ keepWhile }, answer);
     let late: () => void = () => undefined;
-    (run as unknown as { answer: { lateTail: Promise<void> } }).answer.lateTail = new Promise<void>(
-      (resolve) => {
-        late = resolve;
-      },
-    );
+    answer.lateTail = new Promise<void>((resolve) => {
+      late = resolve;
+    });
 
-    await expect(owning(run, "o", () => Promise.reject(new Error("the send failed")))).rejects.toThrow(
-      "the send failed",
-    );
+    await expect(
+      owning(run, "o", () => Promise.reject(new Error("the send failed"))),
+    ).rejects.toThrow("the send failed");
 
     const [tracked] = keepWhile.mock.calls[0] as [Promise<unknown>];
     let isSettled = false;
@@ -479,8 +488,8 @@ describe("#1317: the lease of a call's frame is optional, its owner and its late
     [false, false],
     [true, true],
   ])("an owner whose attempt is late (%s) stays owner: %s", async (isLate, stays) => {
-    const run = runWith(undefined, isLate === undefined ? {} : { isLate });
-    const { owners } = (run as unknown as { parts: { owners: Set<string> } }).parts;
+    const owners = new Set<string>();
+    const run = runWith(undefined, isLate === undefined ? {} : { isLate }, owners);
 
     await owning(run, "owner-1", () => {
       expect(owners.has("owner-1")).toBe(true);
@@ -503,7 +512,7 @@ describe("#825: a call's key and the fingerprint it carries", () => {
         name: "pay",
         businessKey: "digest",
         ...changes,
-      } as never,
+      },
       {},
     );
 
@@ -513,7 +522,10 @@ describe("#825: a call's key and the fingerprint it carries", () => {
     const said = keyOf({ fingerprint: "said" });
 
     const made = await runInFrame(
-      { ...frame, execution: { ...frame.execution, fingerprintKeys: { current: TEST_IDEMPOTENCY_KEY } } },
+      {
+        ...frame,
+        execution: { ...frame.execution, fingerprintKeys: { current: TEST_IDEMPOTENCY_KEY } },
+      },
       () => Promise.resolve(keyedByRequest(bare, { amount: 1 })),
     );
 
@@ -548,9 +560,9 @@ describe("#1317: the window a replay trusts, against the call's timeout and ttl"
     sendOnceOf({ recovery, ...changes });
 
   it("a window equal to the ttl is kept; one above it is refused, saying both; one at the timeout is refused", async () => {
-    const atTtl = await callWith(OutboundRecovery.replayWithin(hours(48) as never));
+    const atTtl = await callWith(OutboundRecovery.replayWithin(hours(48)));
     const aboveTtl = await callWith(OutboundRecovery.replayWithin((hours(48) + 1) as never));
-    const atTimeout = await callWith(OutboundRecovery.replayWithin(seconds(5) as never));
+    const atTimeout = await callWith(OutboundRecovery.replayWithin(seconds(5)));
 
     expect((atTtl as Error).message).toMatch(/^Idempotency read .* outside an execution\./);
     expect((aboveTtl as Error).message).toContain(
@@ -573,7 +585,7 @@ describe("#1317: the window a replay trusts, against the call's timeout and ttl"
   );
 
   it("a window against a ttl that is Ttl.Forever is never above it", async () => {
-    const error = await callWith(OutboundRecovery.replayWithin(hours(72) as never), {
+    const error = await callWith(OutboundRecovery.replayWithin(hours(72)), {
       ttl: Ttl.Forever,
     });
 
@@ -587,7 +599,7 @@ describe("#1317: an Idempotency needs its logger and its clock", () => {
     new Idempotency(
       frame.effects,
       frame.store,
-      { requiresMask: false } as never,
+      { requiresMask: false },
       logger as never,
       clock as never,
     );

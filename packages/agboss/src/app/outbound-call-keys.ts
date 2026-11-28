@@ -20,7 +20,4 @@ export const shortKeyOrThrow = (key: string, length: number): string => {
 export const pinnedTo = <TRequest, TResult>(
   run: CallRun<TRequest, TResult>,
   found: OutboundCallRecord,
-): CallRun<TRequest, TResult> =>
-  found.idempotencyKey === run.idempotencyKey
-    ? run
-    : { ...run, idempotencyKey: found.idempotencyKey };
+): CallRun<TRequest, TResult> => ({ ...run, idempotencyKey: found.idempotencyKey });

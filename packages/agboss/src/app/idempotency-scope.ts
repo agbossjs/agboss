@@ -49,7 +49,9 @@ export function inRunOnce<TWork extends () => unknown>(
 }
 
 /** `work` with no `runOnce` around it: a branch or a child launched from inside one is not in its transaction. */
-export const outsideRunOnce = <TValue>(work: () => TValue): TValue => scopes.run(undefined, work);
+export function outsideRunOnce<TValue>(work: () => TValue): TValue {
+  return scopes.run(undefined, work);
+}
 
 /** `IdempotencyError.NestedRunOnce` when called inside a `runOnce`: one transaction at a time. */
 export function assertNotNested(name: string): void {

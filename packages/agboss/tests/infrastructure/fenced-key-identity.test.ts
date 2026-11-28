@@ -164,7 +164,11 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
     const context = {
       executionId: "execution-1",
       root: { executionId: "execution-1" },
-      step: { nodeId: "charge-action", visitNumber: 1, idempotencyKey: "execution-1:charge-action:1" },
+      step: {
+        nodeId: "charge-action",
+        visitNumber: 1,
+        idempotencyKey: "execution-1:charge-action:1",
+      },
       [FENCE]: {
         scopeKey: "default:execution-1",
         tenantId: "default",
@@ -180,7 +184,7 @@ describe("#626: the fingerprint and the handle, under their labels", () => {
     ]);
 
     expect(handle).toMatch(/^[0-9a-f]{12}$/u);
-    expect(key?.businessKeyHash).toBe(handle);
+    expect(key.businessKeyHash).toBe(handle);
   });
 });
 
@@ -188,7 +192,9 @@ describe("#1317d: the row a rotation left", () => {
   it("is the key under its previous business key digest; a key with none, or with no business key, has no such row", () => {
     const named = keyMadeBy(ORIGIN);
 
-    expect(previousIdentityOf(effectKeyForTesting(named, { previousBusinessKey: "old" }))).toMatchObject({
+    expect(
+      previousIdentityOf(effectKeyForTesting(named, { previousBusinessKey: "old" })),
+    ).toMatchObject({
       businessKey: "old",
       idempotencyKey: named.idempotencyKey,
     });

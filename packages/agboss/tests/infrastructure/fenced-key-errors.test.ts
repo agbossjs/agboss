@@ -185,7 +185,11 @@ describe("#906 AC4: IdempotencyError.FingerprintRequired({ effect, reason, cause
 
 describe("#1317: the other errors of an idempotent effect", () => {
   it("IdempotencyError.ResultTooLarge: its text and what it knows", () => {
-    const error = resultTooLarge({ effect: "charge", size: 70_000 as never, maxResultSize: 65_536 as never });
+    const error = resultTooLarge({
+      effect: "charge",
+      size: 70_000 as never,
+      maxResultSize: 65_536 as never,
+    });
 
     expect(error).toBeInstanceOf(IdempotencyError.ResultTooLarge);
     expect(error).toMatchObject({

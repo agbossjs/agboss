@@ -24,7 +24,9 @@ const mocks = vi.hoisted(() => ({
   markedInterruptOf: vi.fn(),
   interruptErrorOf: vi.fn(),
 }));
-vi.mock("../../src/app/cancelled-output.js", () => ({ cancelledOutputOf: mocks.cancelledOutputOf }));
+vi.mock("../../src/app/cancelled-output.js", () => ({
+  cancelledOutputOf: mocks.cancelledOutputOf,
+}));
 vi.mock("../../src/app/parked-output.js", () => ({ parkedOutputOf: mocks.parkedOutputOf }));
 vi.mock("../../src/pii/final-output-mask.js", () => ({ storedOutputOf: mocks.storedOutputOf }));
 vi.mock("../../src/app/interrupt-requests.js", () => ({
@@ -82,7 +84,13 @@ function setup(
   };
   const settle = vi.fn(() => Promise.resolve());
   const deps = { observer: { id: "observer" } };
-  const parts = { deps, live, paused: { settle }, trees: { id: "trees" }, leases: { id: "leases" } };
+  const parts = {
+    deps,
+    live,
+    paused: { settle },
+    trees: { id: "trees" },
+    leases: { id: "leases" },
+  };
   const pass = vi.fn((_deps: unknown, _signal: AbortSignal) => Promise.resolve({ path: ["a"] }));
   const call = {
     ...(options.callSignal === undefined ? {} : { signal: options.callSignal }),

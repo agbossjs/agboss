@@ -10,10 +10,10 @@ export class OutboundMasking {
 
   // none given: masked (fail closed) — and no required parameter, so the assembly's DI check takes
   // this token as one needing no decorator
-  constructor(options: { readonly requiresMask: boolean } = { requiresMask: true }) {
-    // a JavaScript caller's options without a boolean `requiresMask` fail closed too
-    const given: Partial<typeof options> = options;
-    this.requiresMask = given.requiresMask !== false;
+  constructor(options: { readonly requiresMask?: boolean } = {}) {
+    // only an explicit `false` lets a request be stored unmasked: none given, or a JavaScript caller's
+    // options without a boolean `requiresMask`, fail closed
+    this.requiresMask = options.requiresMask !== false;
     Object.freeze(this);
   }
 }
