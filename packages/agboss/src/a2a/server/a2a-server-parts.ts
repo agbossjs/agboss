@@ -200,9 +200,13 @@ export const forNewTask = (request: A2ARequestCaller): A2ARequestCaller =>
 /** The owners this A2A path makes itself, for a caller that names none: the only ones a task id opens. */
 export const TASK_OWNER_PREFIX = "a2a-task:";
 
+/** `ownerId` when it is one this path made for a new task — not an `anonymous:` or `mcp-session:` one — else `undefined`. */
+const taskOwnerOf = (ownerId: string | undefined): string | undefined =>
+  ownerId?.startsWith(TASK_OWNER_PREFIX) === true ? ownerId : undefined;
+
 /** Whether `ownerId` is one this path made for a new task — not an `anonymous:` or `mcp-session:` one. */
 export const isTaskOwner = (ownerId: string | undefined): boolean =>
-  ownerId?.startsWith(TASK_OWNER_PREFIX) === true;
+  taskOwnerOf(ownerId) !== undefined;
 
 /**
  * The caller of an operation on the task `taskId`: one that names no owner holds the task's id as the
@@ -216,8 +220,8 @@ export async function forTask(
 ): Promise<A2ARequestCaller> {
   if (request.ownerId !== undefined || keyTextRuleOf(taskId) !== undefined) return request;
   const task = await parts.tasks.findById({ tenantId: request.tenantId, taskId });
-  if (task?.endpoint !== parts.endpoint || !isTaskOwner(task.ownerId)) return request;
-  return ownedBy(request, task.ownerId ?? "");
+  const owner = task?.endpoint === parts.endpoint ? taskOwnerOf(task.ownerId) : undefined;
+  return owner === undefined ? request : ownedBy(request, owner);
 }
 
 /** The caller's task by its id, repaired; another owner's is "not found" too (spec §3.3). */

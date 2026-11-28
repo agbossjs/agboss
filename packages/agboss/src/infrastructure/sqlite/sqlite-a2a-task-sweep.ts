@@ -14,19 +14,19 @@ export function sweepSqliteA2ATasks(
   cutoffsByEndpoint: ReadonlyMap<string, Date>,
 ): number {
   const terminal = TERMINAL_STATES.map(() => "?").join(", ");
-  const gone = (alias: string) =>
-    `${alias}endpoint = ? AND ${alias}state IN (${terminal}) AND ${alias}status_at < ?`;
+  // unqualified: inside the messages' subquery the names are the tasks' (the innermost table's), as in the delete of tasks
+  const gone = `endpoint = ? AND state IN (${terminal}) AND status_at < ?`;
   let removed = 0;
   for (const [endpoint, cutoff] of cutoffsByEndpoint) {
     const before = cutoff.toISOString();
     database
       .prepare(
         `DELETE FROM a2a_messages WHERE EXISTS (SELECT 1 FROM a2a_tasks t WHERE
-         t.tenant_id = a2a_messages.tenant_id AND t.task_id = a2a_messages.task_id AND ${gone("t.")})`,
+         t.tenant_id = a2a_messages.tenant_id AND t.task_id = a2a_messages.task_id AND ${gone})`,
       )
       .run(endpoint, ...TERMINAL_STATES, before);
     const { changes } = database
-      .prepare(`DELETE FROM a2a_tasks WHERE ${gone("")}`)
+      .prepare(`DELETE FROM a2a_tasks WHERE ${gone}`)
       .run(endpoint, ...TERMINAL_STATES, before);
     removed += Number(changes);
     database

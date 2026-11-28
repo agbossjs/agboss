@@ -73,9 +73,9 @@ function recordStateOf(
       return { status: DurableExecutionStatus.Failed, reason: record.stopReason };
     case ExecutionRecordStatus.Answered:
       return answeredStateOf(parts, record);
-    default:
-      return undefined;
   }
+  // any other record (paused, queued, written, none) says nothing of where the tree is
+  return undefined;
 }
 
 /**
