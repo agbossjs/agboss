@@ -162,9 +162,11 @@ describe("#267: what a reply to a pause is asked", () => {
 
 describe("#267: the entry a resolved pause leaves in the log", () => {
   const logged = async (pause: PauseRecord) => {
-    const savePauseAnswer = vi.fn(() => Promise.resolve());
+    const savePauseAnswer = vi.fn(
+      (_tenant: string, _root: string, _record: Record<string, unknown>) => Promise.resolve(),
+    );
     await logPauseAnswer({ savePauseAnswer } as never, pause, PauseResolution.Replied);
-    return savePauseAnswer.mock.calls[0] as unknown as [string, string, Record<string, unknown>];
+    return savePauseAnswer.mock.calls[0] ?? [];
   };
 
   it("keeps what the pause asked and who had it — the channel, tool call, assignees and reference only when there", async () => {

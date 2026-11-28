@@ -63,37 +63,36 @@ class ChanBeta {
   readonly mark = "beta-channel";
 }
 
-const chanOne = { name: "one-channel", cls: ChanOne } as never as PauseChannel;
-const chanTwo = { name: "two-channel", cls: ChanTwo } as never as PauseChannel;
-const chanBeta = { name: "beta-channel", cls: ChanBeta } as never as PauseChannel;
+const chanOf = (name: string, cls: PauseChannel["cls"]): PauseChannel =>
+  ({ name, cls, sender: {} }) as never;
+const chanOne = chanOf("one-channel", ChanOne);
+const chanTwo = chanOf("two-channel", ChanTwo);
+const chanBeta = chanOf("beta-channel", ChanBeta);
 
-const alpha = (changes: Partial<PauseTarget> = {}): PauseTarget =>
-  ({
-    name: "alpha-tool-approval",
-    cls: Alpha,
-    kind: "tool-approval",
-    respondent: PauseRespondent.Delegate,
-    channels: new Map([["one-channel", chanOne]]),
-    escalatesTo: ["beta-tool-approval", "gamma-external-task"],
-    ...changes,
-  });
-const beta = (changes: Partial<PauseTarget> = {}): PauseTarget =>
-  ({
-    name: "beta-tool-approval",
-    cls: Beta,
-    kind: "tool-approval",
-    respondent: PauseRespondent.Owner,
-    channels: new Map([["beta-channel", chanBeta]]),
-    ...changes,
-  });
-const gamma = (): PauseTarget =>
-  ({
-    name: "gamma-external-task",
-    cls: Gamma,
-    kind: "external-task",
-    respondent: PauseRespondent.Delegate,
-    channels: new Map(),
-  });
+const alpha = (changes: Partial<PauseTarget> = {}): PauseTarget => ({
+  name: "alpha-tool-approval",
+  cls: Alpha,
+  kind: "tool-approval",
+  respondent: PauseRespondent.Delegate,
+  channels: new Map([["one-channel", chanOne]]),
+  escalatesTo: ["beta-tool-approval", "gamma-external-task"],
+  ...changes,
+});
+const beta = (changes: Partial<PauseTarget> = {}): PauseTarget => ({
+  name: "beta-tool-approval",
+  cls: Beta,
+  kind: "tool-approval",
+  respondent: PauseRespondent.Owner,
+  channels: new Map([["beta-channel", chanBeta]]),
+  ...changes,
+});
+const gamma = (): PauseTarget => ({
+  name: "gamma-external-task",
+  cls: Gamma,
+  kind: "external-task",
+  respondent: PauseRespondent.Delegate,
+  channels: new Map(),
+});
 
 const PAUSE: PauseRecord = {
   ...pauseOf("p-1"),
