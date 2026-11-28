@@ -336,7 +336,7 @@ describe("#1356: when a workflow is covered", () => {
     class NotABudget {
       readonly kind = "none";
     }
-    const odd = workflowOf("odd", NotABudget as never);
+    const odd = workflowOf("odd", NotABudget);
 
     expect(budgetRuleViolations(app([odd], [...caps, DefaultBudget]))).toEqual([]);
   });

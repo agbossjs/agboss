@@ -96,9 +96,7 @@ export class LoopPaidWorkflowFinish {}
   name: "loop-pay-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(LoopPayWorkflowStart)
-    .toAgent(LoopPayAgent)
-    .toFinish(LoopPaidWorkflowFinish)],
+  flow: [onStart(LoopPayWorkflowStart).toAgent(LoopPayAgent).toFinish(LoopPaidWorkflowFinish)],
 })
 export class LoopPayWorkflow {}
 
@@ -113,9 +111,7 @@ export class LoopParentWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(LoopParentWorkflowStart)
-      .toWorkflow(LoopPayWorkflow)
-      .toFinish(LoopParentWorkflowFinish),
+    onStart(LoopParentWorkflowStart).toWorkflow(LoopPayWorkflow).toFinish(LoopParentWorkflowFinish),
   ],
 })
 export class LoopParentWorkflow {}

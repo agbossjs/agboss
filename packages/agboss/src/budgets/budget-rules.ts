@@ -32,27 +32,6 @@ export const attachedBudgetOf = (
   return declaration?.kind === ComponentKind.Workflow ? declaration.options.budget : undefined;
 };
 
-/**
- * Every budget of an application (#1318): the ones it lists and the ones its workflows attach with
- * `@Workflow({ budget })` — found without being listed —, each once.
- */
-export const budgetsOfApplication = (
-  application: {
-    readonly workflows?: readonly Class[] | undefined;
-    readonly budgets?: readonly Class[] | undefined;
-  } & OverlaidBudgets,
-): readonly Class[] => {
-  const overlays = application.budgetOverlays;
-  const listed = (application.budgets ?? []).map((budget) => overlaidBudget(budget, overlays));
-  const attached =
-    application.workflows?.flatMap((workflow) => {
-      const budget = attachedBudgetOf(workflow, overlays);
-      return budget === undefined ? [] : [overlaidBudget(budget, overlays)];
-    }) ?? [];
-  // a listed class stays as listed (a class listed twice is still a duplicate); an attached one once
-  return [...listed, ...new Set(attached.filter((budget) => !listed.includes(budget)))];
-};
-
 /** The budget classes some workflow of the application attaches with `@Workflow({ budget })`, each once. */
 export const attachedBudgetsOf = (
   application: {
@@ -66,6 +45,26 @@ export const attachedBudgetsOf = (
     }),
   ),
 ];
+
+/**
+ * Every budget of an application (#1318): the ones it lists and the ones its workflows attach with
+ * `@Workflow({ budget })` — found without being listed —, each once.
+ */
+export const budgetsOfApplication = (
+  application: {
+    readonly workflows?: readonly Class[] | undefined;
+    readonly budgets?: readonly Class[] | undefined;
+  } & OverlaidBudgets,
+): readonly Class[] => {
+  const listed = (application.budgets ?? []).map((budget) =>
+    overlaidBudget(budget, application.budgetOverlays),
+  );
+  // a listed class stays as listed (a class listed twice is still a duplicate); an attached one once
+  return [
+    ...listed,
+    ...attachedBudgetsOf(application).filter((budget) => !listed.includes(budget)),
+  ];
+};
 
 /**
  * The execution budget that caps `workflow` among `metas`: the one it attaches or names with

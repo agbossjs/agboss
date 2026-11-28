@@ -452,7 +452,7 @@ describe("#1356: the idle memory threads", () => {
       auditLog: undefined,
     });
 
-    const fourth = sourcesOf({ threadRecords: silent.threadRecords as never, threadTtls: ttls });
+    const fourth = sourcesOf({ threadRecords: silent.threadRecords, threadTtls: ttls });
     await sweep(first.sources).done;
     await sweep(second.sources).done;
     await sweep(fourth.sources).done;

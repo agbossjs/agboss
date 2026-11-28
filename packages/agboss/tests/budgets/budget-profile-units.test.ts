@@ -195,7 +195,7 @@ describe("#1356: what a profile changes of the budgets", () => {
       readonly kind = "undeclared";
     }
     const plain = workflowOf("plain-flow");
-    vi.mocked(slotsOf).mockImplementation((() => ({ budget: SlottedBudget })) as never);
+    vi.mocked(slotsOf).mockImplementation(() => ({ budget: SlottedBudget }));
 
     const overlays = budgetOverlaysOf(folded({}), optionsOf([], [Undeclared, plain]));
 

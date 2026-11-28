@@ -126,9 +126,7 @@ export class HeldAnyWorkflowFinish {}
   version: "1.0.0",
   historyTtl: Ttl.Forever,
   flow: [
-    onStart(HeldAnyWorkflowStart)
-      .toWorkflow(HeldBranchWorkflow)
-      .toFinish(HeldAnyWorkflowFinish),
+    onStart(HeldAnyWorkflowStart).toWorkflow(HeldBranchWorkflow).toFinish(HeldAnyWorkflowFinish),
   ],
 })
 export class HeldAnyWorkflow {}

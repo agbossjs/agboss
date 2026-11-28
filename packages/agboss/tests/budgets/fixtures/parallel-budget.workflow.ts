@@ -168,8 +168,7 @@ export class ParallelBudgetWorkflowStart {}
 export class NotesAction {
   async execute(input: { readonly notes: readonly Tracked<NoteDto>[] }): Promise<NoteDto> {
     return {
-      text: input.notes.map((note) => note.text)
-        .join("; "),
+      text: input.notes.map((note) => note.text).join("; "),
     };
   }
 }
@@ -201,8 +200,7 @@ export class NoteBudgetStopAction {
 })
 export class BudgetStoppedWorkflowFinish {}
 
-const onBudget = toAction(NoteBudgetStopAction)
-  .toFinish(BudgetStoppedWorkflowFinish);
+const onBudget = toAction(NoteBudgetStopAction).toFinish(BudgetStoppedWorkflowFinish);
 
 /** Both branches at once; an exhausted budget takes `.onError(…)`. */
 @Workflow({
@@ -274,9 +272,7 @@ export class TaskDoneWorkflowFinish {}
   name: "task-workflow",
   version: "1.0.0",
   historyTtl: Ttl.Forever,
-  flow: [onStart(TaskWorkflowStart)
-    .toAgent(TaskAgent)
-    .toFinish(TaskDoneWorkflowFinish)],
+  flow: [onStart(TaskWorkflowStart).toAgent(TaskAgent).toFinish(TaskDoneWorkflowFinish)],
 })
 export class TaskWorkflow {}
 
