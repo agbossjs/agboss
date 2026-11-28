@@ -47,6 +47,7 @@ import {
 } from "../../../src/a2a/client/a2a-origins.js";
 import {
   A2ANetworkError,
+  A2ANotSentError,
   bodyTextOf,
   HttpStatusError,
   sdkClientOf,
@@ -259,6 +260,28 @@ describe("wireErrorOf: codes only", () => {
       sent: true,
       cause: reset,
     });
+  });
+
+  it("a request that was not sent, and one that got no answer, leave as A2AError.Unavailable that says which", () => {
+    const cause = new TypeError("no headers");
+
+    const notSent = wireErrorOf(new A2ANotSentError(cause), "a", op);
+    const noAnswer = wireErrorOf(new A2ANetworkError(cause), "a", op);
+
+    expect(notSent).toMatchObject({
+      sent: false,
+      message: `a (${op}): request was not sent`,
+      cause,
+    });
+    expect(noAnswer).toMatchObject({ sent: true, message: `a (${op}): network failure`, cause });
+  });
+
+  it("an own error that has no cause is its own cause", () => {
+    const notSent = new A2ANotSentError(undefined);
+    const noAnswer = new A2ANetworkError(undefined);
+
+    expect(wireErrorOf(notSent, "a", op)).toMatchObject({ cause: notSent });
+    expect(wireErrorOf(noAnswer, "a", op)).toMatchObject({ cause: noAnswer });
   });
 
   it("a JSON-RPC error keeps its code, not its message", () => {
@@ -582,6 +605,16 @@ describe("each task state's outcome", () => {
     expect(stateOf(taskIn(undefined))).toBeUndefined();
   });
 
+  it("names no ids that are not ones the client may keep and show", () => {
+    const task = { ...taskIn(TaskState.TASK_STATE_CANCELED), id: "has space", contextId: "c/1" };
+
+    expect(failureOf(task, "a", true)).toMatchObject({ taskId: "", contextId: "", agent: "a" });
+    expect(failureOf({ ...task, id: "t-1", contextId: "c-1" }, "a", true)).toMatchObject({
+      taskId: "t-1",
+      contextId: "c-1",
+    });
+  });
+
   it("maps each state to its error", () => {
     expect(failureOf(taskIn(TaskState.TASK_STATE_COMPLETED), "a", true)).toBeUndefined();
     expect(failureOf(taskIn(TaskState.TASK_STATE_FAILED), "a", true)).toMatchObject({
@@ -900,6 +933,17 @@ describe("the transport's edges", () => {
       Promise.resolve(response);
   const fetchOf = (response: Response) =>
     wireFetchOf(once(response), () => Promise.resolve({}), policy);
+
+  it("A2ANotSentError says the request was not sent and keeps its cause", () => {
+    const cause = new TypeError("no headers");
+    const error = new A2ANotSentError(cause);
+
+    expect(error).toMatchObject({
+      name: "A2ANotSentError",
+      message: "the A2A request was not sent: what it needed first failed",
+      cause,
+    });
+  });
 
   it("A2ANetworkError says the request got no answer and keeps its cause", () => {
     const cause = new TypeError("reset");

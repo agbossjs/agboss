@@ -42,6 +42,7 @@ async function getIn(
   fetcher: typeof fetch,
   headers: Record<string, string> = {},
   inFrame = true,
+  withInit = true,
 ): Promise<void> {
   const frame = testFrame();
   rememberContextMeshSettings(frame.execution.tenant.application, {
@@ -52,7 +53,8 @@ async function getIn(
   } as never);
   const policy = originPolicyOf("peer", "https://b.example/a2a", ["https://c.example"]);
   const wire = wireFetchOf(fetcher, () => Promise.resolve(headers), policy, undefined, "b");
-  const run = () => wire("https://b.example/a2a/tasks?pageSize=5", { method: "GET" });
+  const run = () =>
+    wire("https://b.example/a2a/tasks?pageSize=5", withInit ? { method: "GET" } : undefined);
   await (inFrame ? runInFrame(frame, run) : run());
 }
 
@@ -70,6 +72,14 @@ describe("#1320: the client's X-AGBoss-Mesh header", () => {
       method: "GET",
       path: "/a2a/tasks?pageSize=5",
     });
+  });
+
+  it("signs a request that names no method as a GET", async () => {
+    const { seen, fetcher } = recording(undefined);
+
+    await getIn(fetcher, {}, true, false);
+
+    expect(readJws(seen[0]?.mesh)?.payload).toMatchObject({ method: "GET" });
   });
 
   it("signs the hop of a redirect on the same origin, never one to another origin", async () => {

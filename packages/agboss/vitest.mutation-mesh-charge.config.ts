@@ -24,6 +24,9 @@ export default defineConfig({
       // #1356: the MCP call's identity
       "tests/mcp/mcp-client-call.test.ts",
       "tests/mcp/mcp-call-frame-ids.test.ts",
+      "tests/mcp/mcp-call-identity-exact.test.ts",
+      // #1318: the tokens a remote run reports and a caller counts
+      "tests/mesh/mesh-report-tokens.test.ts",
     ],
   },
 });

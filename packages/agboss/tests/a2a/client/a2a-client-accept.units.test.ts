@@ -44,7 +44,7 @@ import {
   type OutboundCallOutcome,
 } from "../../../src/app/outbound-call-types.js";
 import type { LookupRecovery } from "../../../src/app/outbound-recovery.js";
-import { hours, type Milliseconds } from "../../../src/units/index.js";
+import { hours, minutes, seconds, type Milliseconds } from "../../../src/units/index.js";
 
 const SKILLS = "https://agboss.dev/a2a/skills/v1";
 const MESH = "https://agboss.dev/a2a/mesh/v1";
@@ -516,6 +516,28 @@ describe("inside an execution: through Idempotency.sendOnce", () => {
     expect(accepted.task).toEqual(taskOf());
   });
 
+  it("an intent is kept for a week, or twice the peer's dedupe window; one attempt is bound by half the window, two minutes at most", async () => {
+    const boundsOf = async (peer: A2ARemotePeer) => {
+      const { outboundCalls, seen } = outboundCallsScripted("send");
+      await acceptedThrough(
+        callOf({ client: clientAnswering(taskOf()).client, peer }),
+        runtimeOf(outboundCalls),
+      );
+      return { timeout: seen[0]?.options.timeout, ttl: seen[0]?.options.ttl };
+    };
+
+    expect(await boundsOf(AGBOSS)).toEqual({ timeout: minutes(2), ttl: hours(168) });
+    expect(await boundsOf({ ...AGBOSS, idempotencyRetention: seconds(30) })).toEqual({
+      timeout: seconds(15),
+      ttl: hours(168),
+    });
+    expect(await boundsOf({ ...AGBOSS, idempotencyRetention: hours(24 * 100) })).toEqual({
+      timeout: minutes(2),
+      ttl: hours(24 * 200),
+    });
+    expect(await boundsOf(FOREIGN)).toEqual({ timeout: minutes(1), ttl: hours(168) });
+  });
+
   it("a reply is its own call; reconcile asks the agent through the call", async () => {
     const { outboundCalls, seen } = outboundCallsScripted("send");
     const reply = { ...messageAnswer, messageId: messageIdOf("acme", "key-pending") };
@@ -616,7 +638,7 @@ describe("inside an execution: through Idempotency.sendOnce", () => {
     claimCallName(noSkill, "n", callOf(), acceptRequestOf(callOf()));
     expect(() => {
       claimCallName(noSkill, "n", callOf(), acceptRequestOf(callOf({ contextId: "x" })));
-    }).toThrow(expect.objectContaining({ skill: "" }));
+    }).toThrow(expect.objectContaining({ skill: "", differences: [] }));
   });
 });
 

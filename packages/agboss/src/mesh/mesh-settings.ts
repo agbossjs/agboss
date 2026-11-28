@@ -69,8 +69,9 @@ export function rememberContextMeshSigner(context: ApplicationContext, signer: M
 }
 
 /** The signer of an application's context; `undefined` before it is remembered. */
-export const contextMeshSignerOf = (context: ApplicationContext): MeshSigner | undefined =>
-  signersByContext.get(context);
+export const contextMeshSignerOf = (
+  context: ApplicationContext | undefined,
+): MeshSigner | undefined => (context === undefined ? undefined : signersByContext.get(context));
 
 const byApp = new WeakMap<object, () => MeshSettings | undefined>();
 const byContext = new WeakMap<ApplicationContext, MeshSettings>();
@@ -92,8 +93,9 @@ export function rememberContextMeshSettings(
 export const meshSettingsOf = (app: object): MeshSettings | undefined => byApp.get(app)?.();
 
 /** The settings of the application an execution runs in (its frame's `tenant.application`). */
-export const contextMeshSettingsOf = (context: ApplicationContext): MeshSettings | undefined =>
-  byContext.get(context);
+export const contextMeshSettingsOf = (
+  context: ApplicationContext | undefined,
+): MeshSettings | undefined => (context === undefined ? undefined : byContext.get(context));
 
 /** The private key the application signs with; `undefined` when it signs nothing. */
 export const signingKeyOf = (settings: MeshSettings | undefined): KeyObject | undefined =>

@@ -4,6 +4,7 @@
  * still runs with `mesh.request-in-progress`, and forgets a call that threw. Each rule on its own, with
  * a store that says what it was asked.
  */
+import { createHash } from "node:crypto";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it } from "vitest";
 import { seconds } from "../../src/units/index.js";
@@ -308,6 +309,127 @@ describe("#1366: a trusted MCP call runs once", () => {
     await dedupedMcpCall(appOf(requests), { ...TRUSTED, tenantId: undefined }, counting().run);
 
     expect(requests.saved[0]?.tenantId).toBe("default");
+  });
+});
+
+/** A store that lists the renewals of a lease it was asked, and answers each as `renewing` says. */
+class RenewalsListed extends ListedRequests {
+  readonly renewals: { attemptId: string; lockedUntil: string }[] = [];
+  renewing: () => Promise<boolean> = () => Promise.resolve(true);
+
+  override renewLease(key: MeshRequestKey, attemptId: string, lockedUntil: string) {
+    this.renewals.push({ attemptId, lockedUntil });
+    return this.renewing().then(
+      (renewed) => renewed && super.renewLease(key, attemptId, lockedUntil),
+    );
+  }
+}
+
+describe("#1356: a running call renews its lease", () => {
+  /** A handler held until `release`, on a store and a clock the test moves. */
+  const heldCall = (requests: RenewalsListed, clock: VirtualClock) => {
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const first = dedupedMcpCall(appOf(requests, true, clock), TRUSTED, async () => {
+      await held;
+      return result("done");
+    });
+    return { first, release };
+  };
+  const lockedAt = (seconds: number): string =>
+    new Date(NOW.getTime() + seconds * 1000).toISOString();
+
+  it("every ten seconds, for thirty seconds from then, as the attempt that holds it, until the handler ends", async () => {
+    const requests = new RenewalsListed();
+    const clock = new VirtualClock(NOW);
+    const { first, release } = heldCall(requests, clock);
+
+    await clock.advance(seconds(9));
+    expect(requests.renewals).toEqual([]);
+    await clock.advance(seconds(1));
+    await clock.advance(seconds(10));
+    await clock.advance(seconds(10));
+
+    const attemptId = requests.saved[0]?.attemptId ?? "";
+    expect(requests.renewals).toEqual([
+      { attemptId, lockedUntil: lockedAt(40) },
+      { attemptId, lockedUntil: lockedAt(50) },
+      { attemptId, lockedUntil: lockedAt(60) },
+    ]);
+    release();
+    await first;
+    await clock.advance(seconds(60));
+    expect(requests.renewals).toHaveLength(3);
+  });
+
+  it("not at all when the handler ends before its first look", async () => {
+    const requests = new RenewalsListed();
+    const clock = new VirtualClock(NOW);
+
+    await dedupedMcpCall(appOf(requests, true, clock), TRUSTED, () => Promise.resolve(result("x")));
+    await clock.advance(seconds(60));
+
+    expect(requests.renewals).toEqual([]);
+  });
+
+  it("no more once a newer attempt owns the request (fenced)", async () => {
+    const requests = new RenewalsListed();
+    requests.renewing = () => Promise.resolve(false);
+    const clock = new VirtualClock(NOW);
+    const { first, release } = heldCall(requests, clock);
+
+    await clock.advance(seconds(10));
+    await clock.advance(seconds(10));
+    await clock.advance(seconds(10));
+    release();
+    await first;
+
+    expect(requests.renewals).toHaveLength(1);
+  });
+
+  it("again at the next look when the store did not answer", async () => {
+    const requests = new RenewalsListed();
+    requests.renewing = () => Promise.reject(new Error("the store is down"));
+    const clock = new VirtualClock(NOW);
+    const { first, release } = heldCall(requests, clock);
+
+    await clock.advance(seconds(10));
+    await clock.advance(seconds(10));
+    release();
+
+    expect(await first).toEqual(result("done"));
+    expect(requests.renewals).toHaveLength(2);
+  });
+
+  it("no more when the clock cannot wait: the call still runs and answers", async () => {
+    class NoTimer extends VirtualClock {
+      override sleep(): Promise<void> {
+        return Promise.reject(new Error("no timer"));
+      }
+    }
+    const requests = new RenewalsListed();
+
+    const answer = await dedupedMcpCall(appOf(requests, true, new NoTimer(NOW)), TRUSTED, () =>
+      Promise.resolve(result("done")),
+    );
+
+    expect(answer).toEqual(result("done"));
+    expect(requests.renewals).toEqual([]);
+  });
+});
+
+describe("#1356: the slot of a call of another owner", () => {
+  it("is o: and the hash of the owner and the call id, as the JSON of the pair", async () => {
+    const requests = new ListedRequests();
+
+    await dedupedMcpCall(appOf(requests), { ...TRUSTED, ownerId: "dana" }, counting().run);
+    await dedupedMcpCall(appOf(requests), { ...TRUSTED, callId: "o:mine" }, counting().run);
+
+    const hash = (pair: unknown) => createHash("sha256").update(JSON.stringify(pair)).digest("hex");
+    expect(requests.saved.map((record) => record.idempotencyKey)).toEqual([
+      `o:${hash(["dana", "c-1"])}`,
+      `o:${hash([null, "o:mine"])}`,
+    ]);
   });
 });
 

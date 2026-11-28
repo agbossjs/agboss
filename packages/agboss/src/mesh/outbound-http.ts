@@ -27,8 +27,9 @@ export function meshHttpHeaderOf(
   const running = runningFrame();
   const context = running?.execution.tenant.application ?? application;
   const bytes = signableBodyOf(request.body);
-  const signer = context === undefined ? undefined : signerOf(context);
-  if (audience === undefined || signer === undefined || bytes === undefined) return undefined;
+  if (audience === undefined || bytes === undefined) return undefined;
+  const signer = signerOf(context);
+  if (signer === undefined) return undefined;
   // a handshake or a call outside an execution has no tenant to propagate
   const propagate = signer.peers.get(audience)?.propagateTenant === true;
   return signMeshHttp(signer, {
@@ -46,7 +47,7 @@ const runningFrame = (): Frame | undefined => {
 };
 
 /** What the application signs with: its settings once started, else the signer read at its start. */
-const signerOf = (context: ApplicationContext): MeshSigner | undefined =>
+const signerOf = (context: ApplicationContext | undefined): MeshSigner | undefined =>
   contextMeshSettingsOf(context) ?? contextMeshSignerOf(context);
 
 /** The body as text or bytes (none → empty); `undefined` for a stream or a form, which cannot be hashed up front. */

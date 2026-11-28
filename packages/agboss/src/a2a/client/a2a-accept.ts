@@ -124,7 +124,7 @@ function boundsOf(peer: A2ARemotePeer): {
   readonly timeout: Milliseconds;
   readonly ttl: Milliseconds;
 } {
-  const window = peer.kind === A2APeerKind.AGBoss ? peer.idempotencyRetention : undefined;
+  const window = peer.idempotencyRetention;
   return {
     timeout: Math.min(minutes(2), (window ?? minutes(2)) / 2) as Milliseconds,
     ttl: Math.max(hours(168), (window ?? 0) * 2) as Milliseconds,
