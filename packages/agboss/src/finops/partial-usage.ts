@@ -67,7 +67,8 @@ function carrierOf(usage: TokenUsage, cost: Usd | undefined): UsageCarrier {
         cache_creation: usage.cacheWriteTokens,
       },
     },
-    ...(cost === undefined ? {} : { response_metadata: { usage: { cost } } }),
+    // no cost reported is `usage.cost` of nothing: `reportedCostOf` reads it as none
+    response_metadata: { usage: { cost } },
   };
 }
 
@@ -106,17 +107,19 @@ function shareRecordOf(
   try {
     if (server === undefined) return recordUsage(caller, settings, carrier);
     const message = new AIMessage({
+      // Stryker disable next-line StringLiteral: equivalent: the message carries the usage alone, its text is never read
       content: "",
       usage_metadata: {
         input_tokens: usage.inputTokens,
         output_tokens: usage.outputTokens,
+        // Stryker disable next-line ArithmeticOperator: equivalent: `total_tokens` is never read, `recordUsage` counts the input and the output itself
         total_tokens: usage.inputTokens + usage.outputTokens,
         input_token_details: {
           cache_read: usage.cacheReadTokens,
           cache_creation: usage.cacheWriteTokens,
         },
       },
-      response_metadata: cost === undefined ? {} : { usage: { cost } },
+      response_metadata: { usage: { cost } },
     });
     return recordUsage(caller, settings, markedFallbackMessage(message, server));
   } catch (failure) {

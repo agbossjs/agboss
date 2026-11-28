@@ -6,6 +6,7 @@ import type { ChatGenerationChunk } from "@langchain/core/outputs";
 import { FakeStreamingChatModel } from "@langchain/core/utils/testing";
 import { AIMessageChunk, HumanMessage } from "@langchain/core/messages";
 import { describe, expect, it } from "vitest";
+import { fallbackMarkOf } from "../../../src/finops/fallback-mark.js";
 import { EventStreamError } from "../../../src/models/calls/event-stream-guard.js";
 import { ModelCost } from "../../../src/models/cost.js";
 import {
@@ -63,6 +64,24 @@ describe("streamedAnswer", () => {
     expect(told.text).toBe(true);
   });
 
+  it("counts the characters of every chunk it told, so a call that fails later is billed for them", async () => {
+    const told: Told = { text: false, chars: 0 };
+    const { model } = modelOf([chunkOf("Hel"), chunkOf(""), chunkOf("lo!")]);
+
+    await streamedAnswer(model, MESSAGES, undefined, undefined, told);
+
+    expect(told.chars).toBe(6);
+  });
+
+  it("adds to what an earlier part of the call had told", async () => {
+    const told: Told = { text: true, chars: 10 };
+    const { model } = modelOf([chunkOf("abc")]);
+
+    await streamedAnswer(model, MESSAGES, undefined, undefined, told);
+
+    expect(told.chars).toBe(13);
+  });
+
   it("an answer of empty chunks told no text", async () => {
     const tokens = new Tokens();
     const told: Told = { text: false, chars: 0 };
@@ -114,6 +133,17 @@ describe("streamedAnswer", () => {
 
     expect(failure).toBeInstanceOf(EventStreamError);
     expect(failure).toHaveProperty("message", "the model answered nothing");
+  });
+});
+
+describe("markedChunk with no earlier providers", () => {
+  it("leaves no earlier share in the mark when none is given", () => {
+    const marked = markedChunk(chunkOf("t"), {
+      provider: "backup-provider",
+      model: "backup/m",
+      cost: undefined,
+    });
+    expect(fallbackMarkOf(marked.response_metadata)?.earlier).toEqual([]);
   });
 });
 

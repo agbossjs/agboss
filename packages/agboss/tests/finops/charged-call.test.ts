@@ -1,7 +1,12 @@
 import { AIMessage } from "@langchain/core/messages";
 import { FakeListChatModel } from "@langchain/core/utils/testing";
-import { describe, expect, it } from "vitest";
-import { chargedCall, reportToFrame } from "../../src/finops/charged-call.js";
+import { describe, expect, it, vi } from "vitest";
+import {
+  chargedCall,
+  frameOrCollected,
+  reportedCall,
+  reportToFrame,
+} from "../../src/finops/charged-call.js";
 import { CostSource } from "../../src/finops/cost-source.js";
 import type { UsageRecord } from "../../src/finops/usage.js";
 import { runInFrame } from "../../src/flow/context/frame.js";
@@ -148,5 +153,148 @@ describe("#1399: an LLM router that fails mid-way", () => {
     expect(() => {
       reportToFrame([]);
     }).not.toThrow();
+  });
+});
+
+describe("#1356: where the spend of a call that is no agent's goes", () => {
+  const spent = (costUsd: number, name = "router:main"): UsageRecord => ({
+    provider: "test-provider",
+    model: "m",
+    caller: name,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    costUsd: usd(costUsd),
+    costSource: CostSource.Api,
+  });
+  const inStepOf = (
+    reportUsage: ((record: UsageRecord) => void) | undefined,
+    work: () => Promise<unknown>,
+  ) => runInFrame({ ...testFrame(), services: { reportUsage } }, work);
+
+  it("reportToFrame hands every record, in order, to the step that is running; none to report to is no failure", async () => {
+    const reportUsage = vi.fn();
+
+    await inStepOf(reportUsage, () => {
+      reportToFrame([spent(0.5), spent(0.25)]);
+      return Promise.resolve();
+    });
+    expect(reportUsage.mock.calls).toEqual([[spent(0.5)], [spent(0.25)]]);
+
+    expect(() => {
+      reportToFrame([spent(1)]);
+    }).not.toThrow();
+    await expect(
+      inStepOf(undefined, () => {
+        reportToFrame([spent(1)]);
+        return Promise.resolve();
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("frameOrCollected: in a step that takes reports the spend goes to it; anywhere else it is collected for the caller's result", async () => {
+    const reportUsage = vi.fn();
+    const inStep = frameOrCollected();
+    const outside = frameOrCollected();
+    const unreported = frameOrCollected();
+
+    await inStepOf(reportUsage, () => {
+      inStep.sink([spent(0.5)]);
+      return Promise.resolve();
+    });
+    outside.sink([spent(0.25), spent(0.125)]);
+    await inStepOf(undefined, () => {
+      unreported.sink([spent(1)]);
+      return Promise.resolve();
+    });
+
+    expect(reportUsage).toHaveBeenCalledExactlyOnceWith(spent(0.5));
+    expect(inStep.collected).toEqual([]);
+    expect(outside.collected).toEqual([spent(0.25), spent(0.125)]);
+    expect(unreported.collected).toEqual([spent(1)]);
+  });
+
+  it("a call of a component with no sink of its own bills what it spent to the step it runs in", async () => {
+    const reportUsage = vi.fn();
+
+    await inStepOf(reportUsage, () =>
+      reportedCall(caller, settings, "four", async (callbacks) => {
+        await streamed(callbacks, "abcdefgh");
+        throw new Error("cut");
+      }).catch(() => undefined),
+    );
+
+    expect(reportUsage).toHaveBeenCalledOnce();
+    expect(reportUsage.mock.calls[0]?.[0]).toMatchObject({
+      caller,
+      inputTokens: 1,
+      outputTokens: 2,
+    });
+  });
+
+  it("the prompt of a failed call is counted from what it sent: a text's own length, messages' JSON", async () => {
+    const sunk: UsageRecord[] = [];
+    const messages = [{ role: "user", content: "x".repeat(10) }]; // {"role":"user","content":"xxxxxxxxxx"} is 38 characters
+    const fail = async (callbacks: unknown) => {
+      await streamed(callbacks, "abcd");
+      throw new Error("cut");
+    };
+
+    await chargedCall(
+      { caller, settings, sent: "x".repeat(12), sink: (r) => sunk.push(...r) },
+      fail,
+    ).catch(() => undefined);
+    await chargedCall(
+      { caller, settings, sent: messages, sink: (r) => sunk.push(...r) },
+      fail,
+    ).catch(() => undefined);
+
+    expect(sunk.map((record) => record.inputTokens)).toEqual([3, 10]);
+  });
+
+  it("an answer whose metadata is none, null or no record has no earlier share to bill", async () => {
+    const sunk: UsageRecord[] = [];
+    const spec = {
+      caller,
+      settings,
+      sent: "four",
+      sink: (records: readonly UsageRecord[]) => sunk.push(...records),
+    };
+    for (const response_metadata of [undefined, null, "text", 5, ["x"]])
+      await chargedCall(spec, () => Promise.resolve({ response_metadata }));
+
+    expect(sunk).toEqual([]);
+  });
+
+  it("an answer a fallback gave after a primary that spent nothing bills nothing; a failure that spent nothing bills nothing", async () => {
+    const sunk: UsageRecord[] = [];
+    const spec = {
+      caller,
+      settings,
+      sent: "four",
+      sink: (records: readonly UsageRecord[]) => sunk.push(...records),
+    };
+    const backup = { provider: "backup-provider", model: "backup/m", cost: undefined };
+    const answer = markedFallbackMessage(new AIMessage({ content: "ok" }), backup, []);
+
+    await chargedCall(spec, () => Promise.resolve(answer));
+    await chargedCall(spec, () => Promise.reject(new Error("refused"))).catch(() => undefined);
+
+    expect(sunk).toEqual([]);
+  });
+
+  it("the sink is asked only when there is something to take: a call with nothing earlier and a failure with nothing spent never ask", async () => {
+    const sink = vi.fn();
+    const spec = { caller, settings, sent: "four", sink };
+    const backup = { provider: "backup-provider", model: "backup/m", cost: undefined };
+
+    await chargedCall(spec, () =>
+      Promise.resolve(markedFallbackMessage(new AIMessage({ content: "ok" }), backup, [])),
+    );
+    await chargedCall(spec, () => Promise.reject(new Error("refused"))).catch(() => undefined);
+    await chargedCall(spec, () => Promise.resolve(new AIMessage({ content: "ok" })));
+
+    expect(sink).not.toHaveBeenCalled();
   });
 });
