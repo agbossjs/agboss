@@ -15,6 +15,10 @@ export default defineConfig({
       "tests/a2a/a2a-price.test.ts",
       "tests/a2a/a2a-price-providers.test.ts",
       "tests/a2a/a2a-agent-rules.test.ts",
+      "tests/a2a/a2a-endpoint-rules-exact.test.ts",
+      // the address a client reads, and what constructing one does and does not do
+      "tests/a2a/client/a2a-agent-config.test.ts",
+      "tests/a2a/client/a2a-client-construction.test.ts",
       "tests/a2a/client/ledger-a2a-client-reads.test.ts",
       "tests/a2a/client/ledger-a2a-client-card.test.ts",
       "tests/a2a/client/a2a-client-minimal-card.test.ts",

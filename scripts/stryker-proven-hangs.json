@@ -268,5 +268,14 @@
     "anchor": "const variants = Object.fromEntries(names.map((name) => [name, variantOf(Base, family, name)]));",
     "kind": "runtime-error",
     "reason": "the family machinery runs while the real error families load (ConfigError, StepError, ... each call defineFamily at import): the mutant makes every family declaration throw or build a class without its base, so the test files fail to load, outside any test, which Stryker counts as an error, not a kill; a spec this mutant would wrongly refuse or accept is judged by tests/errors/family-machinery-units.test.ts, whose declaration tests kill every mutant that does not stop the load; run alone: the same"
+  },
+  {
+    "shard": "once-mesh",
+    "file": "src/mcp/mcp-dedupe.ts",
+    "mutator": "ArrowFunction",
+    "replacement": "() => undefined",
+    "anchor": "const isOver = (): boolean => ended.aborted;",
+    "kind": "wall-clock",
+    "reason": "a renewal that never sees its call end loops for ever on awaited promises (the clock's sleep wakes when the call's signal aborts, the check no longer ends the loop, the renewal is asked again at once): a loop of microtasks that no timer, vitest's or Stryker's, can end, and whose mutated arrow runs once per loop turn only after the call ended; run alone with 3 x the shard's run it still did not finish"
   }
 ]

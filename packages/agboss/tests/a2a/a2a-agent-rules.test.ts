@@ -40,4 +40,21 @@ describe("#1366: the providers the A2A agent rules read", () => {
 
     expect(found).toEqual([]);
   });
+
+  it("a name that is not kebab-case is told on its decorator", () => {
+    vi.mocked(componentOf).mockReturnValue({
+      kind: "a2a-agent",
+      meta: { name: "Peer_X", target: {} },
+    } as never);
+
+    const found = contractRuleViolations(options(Peer), ComponentOptions.none);
+
+    expect(found).toEqual([
+      {
+        code: "name.not-kebab-case",
+        message: '"Peer_X" on @A2AAgent — a name is kebab-case: "peer-x"',
+        nodes: ["desk"],
+      },
+    ]);
+  });
 });
