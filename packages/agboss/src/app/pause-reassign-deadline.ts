@@ -46,17 +46,14 @@ function clamped(
   pause: PauseRecord,
   own: Date | undefined,
   cap: Date | undefined,
-): { expiresAt?: Date; expiryBound: PauseExpiryBound } {
+): { expiresAt: Date | undefined; expiryBound: PauseExpiryBound } {
   // the cap only counts when it is earlier than the pause's own deadline, or the pause has none
   const earlier = cap === undefined || (own !== undefined && !isBefore(cap, own)) ? own : cap;
   const { boundAt } = pause;
   // the run's or quorum's bound takes it only when strictly earlier: a tie stays the pause's own
   if (boundAt !== undefined && (earlier === undefined || isBefore(boundAt, earlier)))
     return { expiresAt: boundAt, expiryBound: boundKindOf(pause) };
-  return {
-    ...(earlier === undefined ? {} : { expiresAt: earlier }),
-    expiryBound: PauseExpiryBound.Pause,
-  };
+  return { expiresAt: earlier, expiryBound: PauseExpiryBound.Pause };
 }
 
 /** The deadline after the reassignment; `undefined`: the pause keeps its own. */
@@ -84,7 +81,7 @@ export async function deadlineAfter(
 async function withReminder(site: {
   readonly now: Date;
   readonly span: TimeSpan | undefined;
-  readonly bound: { expiresAt?: Date; expiryBound: PauseExpiryBound };
+  readonly bound: { expiresAt: Date | undefined; expiryBound: PauseExpiryBound };
   readonly to: PauseTarget;
   readonly calendar: Pick<ReturnType<typeof calendarOfTarget>, "add" | "remind">;
 }): Promise<PauseDeadlineSet> {

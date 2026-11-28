@@ -24,7 +24,7 @@ import type { AppDeps } from "./app-deps.js";
 import { calendarOfTarget } from "./pause-calendar.js";
 import { toldTimeoutChanged } from "./pause-change-events.js";
 import { pauseClosed } from "./pause-closed.js";
-import { limitExceeded, limitsOf, timeoutChangesOf } from "./pause-limits.js";
+import { isReached, limitExceeded, limitsOf, timeoutChangesOf } from "./pause-limits.js";
 import { assertNotInFirstSend, maskedReason } from "./pause-reassign-support.js";
 import type { AnswerParts } from "./resume.js";
 import { actorOf, pauseOf } from "./resume.js";
@@ -71,9 +71,12 @@ async function assertOpen(parts: TimeoutParts, pause: PauseRecord): Promise<void
 
 /** The pause's target as its workflow has it now; `undefined`: it is gone (the permit then refuses). */
 function targetOf(deps: AppDeps, pause: PauseRecord): PauseTarget | undefined {
+  // prettier-ignore
   try {
     return targetOfPause(deps, pause);
-  } catch {
+  }
+  // Stryker disable next-line BlockStatement: equivalent: an empty catch leaves the function with `undefined`, as its return does
+  catch {
     return undefined;
   }
 }
@@ -125,7 +128,7 @@ export const setPauseTimeoutOf =
 function assertWithinLimits(pause: PauseRecord, expiresAt: Date | undefined): void {
   // the record's own limits: a deploy since the pause was opened changes none of them (#1307, Q-D)
   const limits = limitsOf(pause);
-  if (limits.maxExtensions !== undefined && timeoutChangesOf(pause) >= limits.maxExtensions)
+  if (isReached(timeoutChangesOf(pause), limits.maxExtensions))
     throw limitExceeded(pause, "maxExtensions");
   const cap = limits.maxExpiresAt;
   if (cap !== undefined && (expiresAt === undefined || isBefore(cap, expiresAt)))
