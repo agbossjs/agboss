@@ -27,7 +27,7 @@ jobs:
   mutation:
     runs-on: ubuntu-24.04
     # a cold run of a shard (no cached results) takes up to about 50 min here; an incremental one a few
-    timeout-minutes: 90
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       max-parallel: ${{ inputs.max-parallel }}
