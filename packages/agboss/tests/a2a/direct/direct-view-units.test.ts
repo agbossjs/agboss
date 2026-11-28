@@ -101,3 +101,24 @@ describe("#860: a direct reply's files", () => {
     });
   });
 });
+
+describe("#1356: the tokens a direct reply's report names", () => {
+  const spendOf = async (message: A2ADirectMessageRecord) => {
+    const mesh = await meshOf(message, true);
+    return verifiedRunReportOf(
+      mesh?.report,
+      new Map([["unit-application", [publicKey]]]),
+      "body-hash-1",
+    )?.spend;
+  };
+  const reply = { finish: "unit-workflow-finish", output: { total: 3 }, spentUsd: usd(0) };
+
+  it("are named when the run used some, and left out when it did not say", async () => {
+    expect(await spendOf(completed({ reply: { ...reply, spentTokens: 500 } }))).toStrictEqual({
+      total: "0",
+      currency: "USD",
+      totalTokens: 500,
+    });
+    expect(await spendOf(completed({ reply }))).toStrictEqual({ total: "0", currency: "USD" });
+  });
+});

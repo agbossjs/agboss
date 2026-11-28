@@ -97,8 +97,8 @@ export const isExpiredAttempt = (
   message.expiresAt.getTime() <= now.getTime();
 
 /** Whether `time` is before `cutoff`; an endpoint with no cutoff is never swept. */
-export const isBefore = (time: Date | undefined, cutoff: Date | undefined): boolean =>
-  time !== undefined && cutoff !== undefined && time.getTime() < cutoff.getTime();
+export const isBefore = (time: Date, cutoff: Date | undefined): boolean =>
+  cutoff !== undefined && time.getTime() < cutoff.getTime();
 
 /** `work`'s result as a store's answer: a refused limit rejects, never throws. */
 const answered = <T>(work: () => T): Promise<T> =>
@@ -206,14 +206,17 @@ export class InMemoryA2ADirectMessageRepository extends A2ADirectMessageReposito
 
   #removedBefore(cutoffs: ReadonlyMap<string, Date>, limit: number): number {
     const { a2aMessages: claims, a2aDirectMessages: messages } = this.database;
+    // an attempt in flight keeps its message (#860 D2): a lost one leaves by `deleteIfInFlight`; it has no `completedAt`
     const gone = [...messages.entries()]
-      // an attempt in flight keeps its message (#860 D2): a lost one leaves by `deleteIfInFlight`
-      .filter(([, kept]) => kept.state === A2ADirectMessageState.Completed)
-      .filter(([, kept]) => isBefore(kept.completedAt, cutoffs.get(kept.endpoint)))
-      .sort(([, a], [, b]) => (a.completedAt?.getTime() ?? 0) - (b.completedAt?.getTime() ?? 0))
+      .flatMap(([row, kept]) =>
+        kept.completedAt === undefined || !isBefore(kept.completedAt, cutoffs.get(kept.endpoint))
+          ? []
+          : [{ row, completedAt: kept.completedAt }],
+      )
+      .sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime())
       .slice(0, limit);
     // a kept message's id is claimed by it alone: a direct claim, never a task's
-    for (const [row] of gone) {
+    for (const { row } of gone) {
       messages.delete(row);
       claims.delete(row);
     }

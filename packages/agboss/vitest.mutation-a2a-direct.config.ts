@@ -20,6 +20,7 @@ export default defineConfig({
       "tests/a2a/direct/*.test.ts",
       "tests/infrastructure/a2a-direct-message.contract.test.ts",
       "tests/infrastructure/a2a-direct-message-units.test.ts",
+      "tests/infrastructure/a2a-direct-message-exact.test.ts",
       "tests/app/without-recovery.test.ts",
       "tests/a2a/client/a2a-client-direct.test.ts",
       "tests/a2a/client/a2a-call-peer-units.test.ts",
