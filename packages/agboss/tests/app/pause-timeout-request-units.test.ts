@@ -146,7 +146,9 @@ describe("#1307d: a reassignment's reason and target", () => {
 describe("#946: a pause whose first send may be in flight", () => {
   const target = { channels: new Map([["refund-approval-channel", {}]]) } as never;
   const refused = (pause: PauseRecord, to = target) => {
-    const error = caught(() => { assertNotInFirstSend(pause, to); });
+    const error = caught(() => {
+      assertNotInFirstSend(pause, to);
+    });
     if (error === undefined) return undefined;
     expect(error).toBeInstanceOf(PauseError.UpdateContended);
     return (error as Error).message;
