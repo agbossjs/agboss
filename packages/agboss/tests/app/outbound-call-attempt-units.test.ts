@@ -234,7 +234,7 @@ describe("#1317: the parts a call's stores and keys are made of", () => {
   });
 
   it("a masking setting of options with no boolean masks", () => {
-    expect(new OutboundMasking({}).requiresMask).toBe(true);
+    expect(new OutboundMasking({} as never).requiresMask).toBe(true);
     expect(new OutboundMasking({ requiresMask: "no" } as never).requiresMask).toBe(true);
   });
 

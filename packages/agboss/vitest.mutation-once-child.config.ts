@@ -20,6 +20,8 @@ export default defineConfig({
       "tests/flow/runtime/remote-child-end.units.test.ts",
       "tests/budgets/remote-child-marks.test.ts",
       "tests/pii/chain-remote.test.ts",
+      // #1356: the claim timeout of an OtherWorker child
+      "tests/flow/runtime/other-worker.test.ts",
     ],
   },
 });

@@ -26,7 +26,9 @@ export default defineConfig({
       // #1356: tests that run files the shards mutate and sat outside their include list
       "tests/infrastructure/pause-fence-units.test.ts",
       "tests/infrastructure/sqlite/sqlite-hold-same-tick.test.ts",
-      "tests/app/idempotency-scope.test.ts",
+      "tests/app/{idempotency-*,stop,cancel-tree-units,cancel-requests-units,unwinding-takeover-units}.test.ts",
+      "tests/infrastructure/{reclaim-pause-fence,cluster-lease}.test.ts",
+      "tests/infrastructure/sqlite/{sqlite-fenced-effect,sqlite-fencing-edges,sqlite-run-once-hold}.test.ts",
     ],
   },
 });
