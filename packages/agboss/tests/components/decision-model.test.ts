@@ -6,6 +6,8 @@ import { withDecisionSpend } from "../../src/finops/failed-decision.js";
 import { inToolCallFrame, runInFrame } from "../../src/flow/context/frame.js";
 import { testExecutionContext } from "../../src/testing/index.js";
 import { usageRecord } from "../helpers.js";
+import { IdempotencyError } from "../../src/core/error-families/effect-errors.js";
+import { inRunOnce } from "../../src/app/idempotency-scope.js";
 
 const request = {
   state: { text: "3 results" },
@@ -117,5 +119,72 @@ describe("DecisionModel (#1313)", () => {
       SpendOutsideStepError,
     );
     expect(service).not.toHaveBeenCalled();
+  });
+
+  it("the injected model is frozen", () => {
+    expect(Object.isFrozen(new LiveDecisionModel("tool:x", answering))).toBe(true);
+  });
+
+  it("inside a runOnce it is refused as a call that could be paid twice, naming the consumer and the effect", async () => {
+    const service = vi.fn(answering);
+    const model = new LiveDecisionModel("tool:x", service);
+
+    const error = await inRunOnce("make-order", () =>
+      runInFrame(frameOf(), () =>
+        inToolCallFrame("call_1", { reportUsage: vi.fn() }, () => model.decide(request)),
+      ),
+    ).catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(IdempotencyError.ExternalCallInTransaction);
+    expect((error as Error).message).toContain(
+      'DecisionModel.decide of tool:x inside runOnce "make-order"',
+    );
+    expect(service).not.toHaveBeenCalled();
+  });
+
+  it("outside a step the refusal names the consumer and says what to do", async () => {
+    const error = await new LiveDecisionModel("tool:x", answering)
+      .decide(request)
+      .catch((thrown: unknown) => thrown);
+
+    expect(error).toBeInstanceOf(SpendOutsideStepError);
+    expect((error as Error).message).toBe(
+      "[spend.outside-step] tool:x asked a decision outside a step or a tool call — ask it while the step (or the tool call) runs, so its cost has an execution to be billed to",
+    );
+  });
+
+  it("in a step's frame with nothing to report to, or in a frame that has closed, it is refused the same way", async () => {
+    const service = vi.fn(answering);
+    const model = new LiveDecisionModel("tool:x", service);
+    let late: Promise<unknown> = Promise.resolve();
+
+    const bare = await runInFrame(frameOf(), () => model.decide(request)).catch(
+      (thrown: unknown) => thrown,
+    );
+    await runInFrame(frameOf(), () =>
+      inToolCallFrame("call_1", { reportUsage: vi.fn() }, () => {
+        late = new Promise((resolve) => setTimeout(resolve, 5)).then(() => model.decide(request));
+        return Promise.resolve();
+      }),
+    );
+    const closed = await late.catch((thrown: unknown) => thrown);
+
+    expect(bare).toBeInstanceOf(SpendOutsideStepError);
+    expect(closed).toBeInstanceOf(SpendOutsideStepError);
+    expect(service).not.toHaveBeenCalled();
+  });
+
+  it("a failure that billed nothing reports nothing: no empty entry in the spend", async () => {
+    const reportUsage = vi.fn();
+    const failure = new Error("refused");
+    const model = new LiveDecisionModel("tool:x", () => Promise.reject(failure));
+
+    await expect(
+      runInFrame(frameOf(), () =>
+        inToolCallFrame("call_1", { reportUsage }, () => model.decide(request)),
+      ),
+    ).rejects.toBe(failure);
+
+    expect(reportUsage).not.toHaveBeenCalled();
   });
 });

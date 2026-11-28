@@ -14,6 +14,7 @@ import {
   serviceUsageOf,
 } from "../../src/components/spend-recorder.js";
 import { usd } from "../../src/units/index.js";
+import { inRunOnce } from "../../src/app/idempotency-scope.js";
 
 describe("#1356: the record of a service's spend", () => {
   it("bills the service as caller and model, at its cost, with no tokens", () => {
@@ -38,6 +39,16 @@ describe("#1356: the record of a service's spend", () => {
     }).toThrow(
       "[spend.outside-step] refund-tool recorded serp-api spend outside a step or a tool call — record it while the step (or the tool call) runs",
     );
+  });
+
+  it("inside a runOnce it is refused as a spend that could be counted twice, naming the service and the effect", () => {
+    const recorder = new LiveSpendRecorder("refund-tool");
+
+    expect(() => {
+      inRunOnce("make-refund", () => {
+        recorder.record({ service: "serp-api", cost: usd(0.002) });
+      });
+    }).toThrow(/SpendRecorder\.record of "serp-api" inside runOnce "make-refund"/);
   });
 
   it("is a named error with its code, and a recorder nobody can change", () => {

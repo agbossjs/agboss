@@ -44,10 +44,11 @@ export const budgetsOfApplication = (
 ): readonly Class[] => {
   const overlays = application.budgetOverlays;
   const listed = (application.budgets ?? []).map((budget) => overlaidBudget(budget, overlays));
-  const attached = (application.workflows ?? []).flatMap((workflow) => {
-    const budget = attachedBudgetOf(workflow, overlays);
-    return budget === undefined ? [] : [overlaidBudget(budget, overlays)];
-  });
+  const attached =
+    application.workflows?.flatMap((workflow) => {
+      const budget = attachedBudgetOf(workflow, overlays);
+      return budget === undefined ? [] : [overlaidBudget(budget, overlays)];
+    }) ?? [];
   // a listed class stays as listed (a class listed twice is still a duplicate); an attached one once
   return [...listed, ...new Set(attached.filter((budget) => !listed.includes(budget)))];
 };
@@ -59,7 +60,7 @@ export const attachedBudgetsOf = (
   } & OverlaidBudgets,
 ): readonly Class[] => [
   ...new Set(
-    (application.workflows ?? []).flatMap((workflow) => {
+    application.workflows?.flatMap((workflow) => {
       const budget = attachedBudgetOf(workflow, application.budgetOverlays);
       return budget === undefined ? [] : [overlaidBudget(budget, application.budgetOverlays)];
     }),
@@ -73,7 +74,7 @@ export const attachedBudgetsOf = (
 export function executionBudgetFor(
   metas: readonly BudgetMeta[],
   workflow: Class,
-  attachedByAny: readonly Class[] = [],
+  attachedByAny?: readonly Class[],
   budgetOverlays?: OverlaidBudgets["budgetOverlays"],
 ): { readonly meta: BudgetMeta; readonly isOwn: boolean } | undefined {
   const execution = metas.filter((meta) => meta.scope === BudgetScope.Execution);
@@ -86,7 +87,7 @@ export function executionBudgetFor(
       ? attachedMeta
       : execution.find((meta) => meta.workflow === workflow);
   if (own !== undefined) return { meta: own, isOwn: true };
-  const others = new Set(attachedByAny.flatMap((cls) => budgetOf(cls)?.name ?? []));
+  const others = new Set(attachedByAny?.map((cls) => budgetOf(cls)?.name));
   const fallback = execution.find((meta) => meta.workflow === undefined && !others.has(meta.name));
   return fallback === undefined ? undefined : { meta: fallback, isOwn: false };
 }
