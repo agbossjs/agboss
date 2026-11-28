@@ -1,12 +1,11 @@
-import { timeText } from "./time-text.js";
+import { instantText } from "./time-text.js";
 import type { AGBossErrorOptions, ErrorDetails } from "../errors.js";
 import type { VariantCommon, VariantSpec } from "./family.js";
 
 /** Plain JSON facts only (a text, a number, a boolean, a list of them): what a record keeps. */
 function detailsOf(facts: Readonly<Record<string, unknown>>): ErrorDetails {
-  // a `Date` fact is an ISO 8601 text on the record (G3: dates in memory, texts on the wire)
   // a `Date` fact is an ISO 8601 text on the record (G3: dates in memory, texts on the wire); one of no instant is shown as such
-  const asText = (value: unknown): unknown => (value instanceof Date ? timeText(value, "") : value);
+  const asText = (value: unknown): unknown => (value instanceof Date ? instantText(value) : value);
   const isPlain = (value: unknown): boolean =>
     value === null || ["string", "number", "boolean"].includes(typeof value);
   return Object.fromEntries(
@@ -15,9 +14,6 @@ function detailsOf(facts: Readonly<Record<string, unknown>>): ErrorDetails {
       .filter(([, value]) => isPlain(value) || (Array.isArray(value) && value.every(isPlain))),
   );
 }
-
-const isDetails = (value: unknown): value is ErrorDetails =>
-  typeof value === "object" && value !== null;
 
 /** A variant's default sentence: a fixed text, or one made of the facts it was given. */
 function defaultMessageOf(spec: VariantSpec[0], facts: object): string {
@@ -65,7 +61,7 @@ export function argsOf(
   readonly base: AGBossErrorOptions;
   readonly facts: Readonly<Record<string, unknown>>;
 } {
-  const { hidden = [], extra, cause: causeOf } = spec[2] ?? {};
+  const { hidden, extra, cause: causeOf } = spec[2] ?? {};
   const {
     message,
     cause,
@@ -85,7 +81,7 @@ export function argsOf(
         ? undefined
         : (causeOf as (facts: object) => unknown)(facts);
   const shown = Object.fromEntries(
-    Object.entries(facts).filter(([key]) => key !== "usage" && !hidden.includes(key)),
+    Object.entries(facts).filter(([key]) => key !== "usage" && hidden?.includes(key) !== true),
   );
   return {
     message: typeof message === "string" ? message : sentenceOf(spec, facts, why),
@@ -99,7 +95,7 @@ export function argsOf(
       details: {
         ...detailsOf(shown),
         ...(extra === undefined ? {} : (extra as (facts: object) => ErrorDetails)(facts)),
-        ...(isDetails(details) ? details : {}),
+        ...(typeof details === "object" ? details : {}),
       },
     },
     facts,

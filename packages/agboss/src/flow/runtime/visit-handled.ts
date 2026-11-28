@@ -1,10 +1,10 @@
+import type { UsageRecord } from "../../finops/usage.js";
 import type { Clock } from "../../infrastructure/clock.js";
 import {
   compensationsOfHeldVisit,
   compensationsOfVisit,
   mergeCompensations,
   type CompensationEntry,
-  type HeldUndo,
 } from "../compensation.js";
 import { heldEntriesUndone, withHeldUndone } from "./compensation/held-on-error.js";
 import type { StepErrorSite } from "./compensation/step-error-undo.js";
@@ -29,11 +29,14 @@ function failedCompensations(
 function withOwnCompensations(
   handled: ExecutionStateUpdate,
   childEntries: readonly CompensationEntry[],
-  own: HeldUndo,
+  own: {
+    readonly compensations?: readonly CompensationEntry[] | undefined;
+    readonly usage: readonly UsageRecord[];
+  },
 ): ExecutionStateUpdate {
   const compensations = [...childEntries, ...(own.compensations ?? [])];
   const visitUsage = Array.isArray(handled.usage) ? handled.usage : [];
-  const usage = [...visitUsage, ...(own.usage ?? [])];
+  const usage = [...visitUsage, ...own.usage];
   return { ...handled, usage, ...(compensations.length === 0 ? {} : { compensations }) };
 }
 

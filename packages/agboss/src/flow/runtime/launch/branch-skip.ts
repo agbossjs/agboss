@@ -18,9 +18,8 @@ export const skipCodesOf = (classes: readonly ErrorClass[]): readonly string[] =
 
 /** Whether the branch of `ticket` that failed with `thrown` (or its record) drops out of the join. */
 export function isSkippedBranch(ticket: Pick<BranchTicket, "skip">, thrown: unknown): boolean {
-  if (ticket.skip === undefined || ticket.skip.length === 0) return false;
-  const record: ErrorRecord = isRecord(thrown) ? thrown : errorRecordOf(thrown);
-  return ticket.skip.some((code) => code === SKIP_ANY || recordMatches(record, code));
+  const record = (): ErrorRecord => (isRecord(thrown) ? thrown : errorRecordOf(thrown));
+  return ticket.skip?.some((code) => code === SKIP_ANY || recordMatches(record(), code)) ?? false;
 }
 
 const isRecord = (value: unknown): value is ErrorRecord =>

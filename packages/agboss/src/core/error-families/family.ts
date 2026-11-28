@@ -186,8 +186,7 @@ function familyBaseOf(family: FamilySpec<object>): typeof AGBossError {
 const families = new WeakSet<object>();
 
 /** Whether `value` is the constructor of an error family (`LimitError`), not an error class of its own. */
-export const isErrorFamily = (value: unknown): boolean =>
-  typeof value === "function" && families.has(value);
+export const isErrorFamily = (value: unknown): boolean => families.has(Object(value) as object);
 
 /** A class of a family: constructible with what its own constructor takes. */
 type ErrorClass = (abstract new (...args: never[]) => AGBossError) & { readonly code: string };

@@ -4,7 +4,11 @@
  * fact is shown, not hidden as an unknown time.
  */
 export const timeText = (at: Date | undefined, fallback: string): string =>
-  at === undefined ? fallback : Number.isNaN(at.getTime()) ? "an invalid time" : at.toISOString();
+  at === undefined ? fallback : instantText(at);
+
+/** A `Date` as `timeText` says it when there is one: ISO 8601, or "an invalid time" for one of no instant. */
+export const instantText = (at: Date): string =>
+  Number.isNaN(at.getTime()) ? "an invalid time" : at.toISOString();
 
 /** The ISO 8601 text of a valid `Date`; `undefined` when absent or of no instant (a wire field is left out, never made up). */
 export const isoOf = (at: Date | undefined): string | undefined =>

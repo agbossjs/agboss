@@ -198,3 +198,33 @@ describe("#633: the join's unwind", () => {
     ]);
   });
 });
+
+describe("#1281: a quorum that went on undoes its excluded branches only", () => {
+  it("covers the entries of the excluded branches' indexes, waits for their bodies, says why", async () => {
+    const entries = [
+      inLaunch("excluded", { branchIndex: 1 }),
+      inLaunch("counted", { branchIndex: 0 }),
+      inLaunch("of no branch"),
+    ];
+    const { site } = siteOf(entries);
+    const ticket = {
+      ...site.ticket,
+      branches: [
+        { index: 0, nodeId: "counted-action" },
+        { index: 1, nodeId: "excluded-action" },
+      ],
+    };
+
+    await unwoundJoin({ ...site, ticket: ticket as never, excluded: new Set([1]) });
+    const unwind = unwindAsked();
+
+    expect(entries.map((entry) => unwind.covers(entry))).toEqual([true, false, false]);
+    expect(unwind.known.map((entry) => entry.key)).toEqual(["excluded"]);
+    const body = (nodeId: string) => ({ executionId: "root-1", nodeId }) as never;
+    expect([unwind.runs(body("excluded-action")), unwind.runs(body("counted-action"))]).toEqual([
+      true,
+      false,
+    ]);
+    expect(unwind.undoSiteOf(entryOf("x")).reason).toBe(CompensationReason.QuorumExcluded);
+  });
+});

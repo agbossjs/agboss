@@ -17,11 +17,15 @@ import type { RuntimeLaunch } from "./runtime-launch.js";
  * the join's `.onError(…)` handler — a required one (`[launch.max-items-handler-required]`).
  */
 
-/** Whether a launch's list passed its `maxItems`: nothing is dispatched then. */
-export function isItemsOverflow(launch: RuntimeLaunch, ticket: LaunchTicket): boolean {
+/** The `maxItems` a launch's list passed (a strict per-item launch, #1280); undefined when it did not. */
+function limitPassedBy(launch: RuntimeLaunch, ticket: LaunchTicket): number | undefined {
   const limit = launch.launch.maxItems;
-  return limit !== undefined && isStrictItems(launch.launch) && ticket.items > limit;
+  return isStrictItems(launch.launch) && ticket.items > (limit ?? Infinity) ? limit : undefined;
 }
+
+/** Whether a launch's list passed its `maxItems`: nothing is dispatched then. */
+export const isItemsOverflow = (launch: RuntimeLaunch, ticket: LaunchTicket): boolean =>
+  limitPassedBy(launch, ticket) !== undefined;
 
 /** The way out of a launch whose list passed `maxItems`; undefined when it did not. */
 export function itemsOverflowOf(
@@ -31,8 +35,8 @@ export function itemsOverflowOf(
   records: ComponentRecords,
 ): { readonly stoppedBy: ExecutionStateUpdate; readonly failure: Error } | undefined {
   const { launch, ticket } = launched;
-  const limit = launch.launch.maxItems;
-  if (limit === undefined || !isItemsOverflow(launch, ticket)) return undefined;
+  const limit = limitPassedBy(launch, ticket);
+  if (limit === undefined) return undefined;
   const error = new LimitError.Items({
     path: [...state.path, node.id],
     spentUsd: usd(0),
