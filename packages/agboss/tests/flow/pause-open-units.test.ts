@@ -31,8 +31,8 @@ class ChannelA {
 class ChannelB {
   readonly mark = "b";
 }
-const channelA = { cls: ChannelA, name: "a" } as unknown as PauseChannel;
-const channelB = { cls: ChannelB, name: "b" } as unknown as PauseChannel;
+const channelA = { cls: ChannelA, name: "a" } as never;
+const channelB = { cls: ChannelB, name: "b" } as never;
 const AT = new Date("2026-11-20T10:00:00.000Z");
 
 const targetOf = (changes: Partial<PauseTarget> = {}): PauseTarget =>
@@ -182,6 +182,7 @@ describe("#1356: the pause a step opens", () => {
     toolCall: { callId: "c-1", tool: "refund" },
   };
   const siteOf = (target: PauseTarget, found?: unknown) => {
+    const clock = new VirtualClock();
     const findBy = vi.fn((..._ids: string[]) => Promise.resolve(found));
     const findOrCreate = vi.fn((record: unknown) => Promise.resolve(record));
     const site = {
@@ -192,9 +193,9 @@ describe("#1356: the pause a step opens", () => {
       target,
       frame,
       signal: undefined,
-      clock: new VirtualClock(),
-    } as unknown as PauseStepSite;
-    return { site, findBy, findOrCreate };
+      clock,
+    } as never;
+    return { site, findBy, findOrCreate, clock };
   };
 
   beforeEach(() => {
@@ -234,11 +235,11 @@ describe("#1356: the pause a step opens", () => {
   it("asks the project's hooks with the question and an opened entry of the trail, the assignees to the timeout's hook", async () => {
     const assign = vi.fn((_context: unknown) => Promise.resolve(["ann"]));
     const resolveTimeout = vi.fn((_context: unknown) => Promise.resolve(seconds(30)));
-    const { site } = siteOf(targetOf({ assign, resolveTimeout }));
+    const { site, clock } = siteOf(targetOf({ assign, resolveTimeout }));
 
     await openedPause(site, question);
 
-    const now = site.clock.now();
+    const now = clock.now();
     const trail = [{ action: "opened", at: now, target: "refund" }];
     expect(assign.mock.calls[0]?.[0]).toStrictEqual({
       input: { amount: 5 },

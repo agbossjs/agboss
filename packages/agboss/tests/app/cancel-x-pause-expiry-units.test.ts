@@ -6,6 +6,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { duePausesOf, expirePauses } from "../../src/app/pause-expiry.js";
+import { UnknownPauseTargetError } from "../../src/app/pause-lookups.js";
 import { NoticeTimeoutError } from "../../src/app/pause-notice-call.js";
 import { PauseExpiration } from "../../src/channels/pause-expiration.js";
 import {
@@ -503,7 +504,7 @@ describe("#1356: the target a pause expires under", () => {
     [
       "a target a deploy removed",
       () => {
-        throw new Error("Unknown target: refund-tool-approval");
+        throw new UnknownPauseTargetError("Unknown pause target: refund-tool-approval");
       },
     ],
   ])("%s: no handler is asked, the pause expires as fail()", async (_name, targetOf) => {
@@ -512,6 +513,21 @@ describe("#1356: the target a pause expires under", () => {
     expect(await expirePauses(parts, [pause() as never])).toBe(1);
 
     expect(expire).toHaveBeenCalledWith("acme", "p-1", {}, NOW, RECIPIENTS);
+  });
+});
+
+describe("#1356: a target lookup that fails for another reason", () => {
+  it("is the look's to retry: no handler is guessed, no decision is recorded against the pause", async () => {
+    const failure = new Error("the container failed");
+    const { parts, expire } = partsOf({
+      targetOf: () => {
+        throw failure;
+      },
+    });
+
+    await expect(expirePauses(parts, [pause() as never])).rejects.toBe(failure);
+
+    expect(expire).not.toHaveBeenCalled();
   });
 });
 

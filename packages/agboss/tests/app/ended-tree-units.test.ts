@@ -6,6 +6,8 @@ import { usd } from "../../src/units/index.js";
  * unknown cost (#860 D1) is kept with its record and tallied only by the call that failed it.
  */
 import { describe, expect, it, vi } from "vitest";
+import { ExecutionCancelledError } from "../../src/core/errors.js";
+import { ExecutionStatus } from "../../src/app/types.js";
 import type { AppDeps } from "../../src/app/app-deps.js";
 import { endedWithoutPass, type EndedTreeParts } from "../../src/app/ended-tree.js";
 
@@ -35,6 +37,10 @@ vi.mock("../../src/app/lost-attempt.js", () => ({
     kept.tallied.push(args);
   },
 }));
+const shown = vi.hoisted((): { output: unknown } => ({ output: undefined }));
+vi.mock("../../src/app/cancelled-output.js", () => ({
+  cancelledOutputOf: () => Promise.resolve(shown.output),
+}));
 vi.mock("../../src/app/run-events.js", () => ({
   executionEventAt: () => ({ executionId: "root-1" }),
 }));
@@ -52,15 +58,24 @@ function partsOf(isFailedHere: boolean, recordThread = "thread-1") {
   };
   const findByTenantIdAndRunId = vi.fn(() => Promise.resolve(record));
   const completeIfStatus = vi.fn(() => Promise.resolve(isFailedHere));
+  const onExecutionStop = vi.fn(() => Promise.resolve());
+  const onExecutionCancel = vi.fn(() => Promise.resolve());
   const deps: AppDeps = {
     turns: { findByTenantIdAndRunId, completeIfStatus },
-    observer: { onExecutionError },
+    observer: { onExecutionError, onExecutionStop, onExecutionCancel },
   } as never;
   const parts: EndedTreeParts = {
     deps,
     paused: { find: () => Promise.resolve(undefined), drop: vi.fn() },
   } as never;
-  return { parts, onExecutionError, findByTenantIdAndRunId, completeIfStatus };
+  return {
+    parts,
+    onExecutionError,
+    onExecutionStop,
+    onExecutionCancel,
+    findByTenantIdAndRunId,
+    completeIfStatus,
+  };
 }
 
 const end = () => ({
@@ -124,5 +139,48 @@ describe("#633: endedWithoutPass", () => {
     expect(kept.ends.map(([, , usage]) => usage)).toEqual([lost]);
     expect(kept.tallied.map(([, state, usage]) => [state, usage])).toEqual([[STATE, lost]]);
     kept.lost.length = 0;
+  });
+
+  it("a tree that ended by a cancel is observed as cancelled, with its undo, spend and reason — by no other observer", async () => {
+    const { parts, onExecutionError, onExecutionStop, onExecutionCancel } = partsOf(true);
+    shown.output = {
+      status: ExecutionStatus.Cancelled,
+      compensations: [{ status: "compensated" }],
+      spend: { totalUsd: usd(1) },
+      reason: "operator",
+    };
+
+    await endedWithoutPass(parts, STATE, { ...end(), cause: new ExecutionCancelledError() });
+
+    expect(onExecutionCancel).toHaveBeenCalledWith({
+      executionId: "root-1",
+      compensations: [{ status: "compensated" }],
+      spend: { totalUsd: usd(1) },
+      reason: "operator",
+    });
+    expect(onExecutionStop).not.toHaveBeenCalled();
+    expect(onExecutionError).not.toHaveBeenCalled();
+    shown.output = undefined;
+  });
+
+  it("a tree that ended by a stop is observed as stopped, with its reason and spend only — by no other observer", async () => {
+    const { parts, onExecutionError, onExecutionStop, onExecutionCancel } = partsOf(true);
+    shown.output = {
+      status: ExecutionStatus.Stopped,
+      compensations: [],
+      spend: { totalUsd: usd(2) },
+      reason: "deploy",
+    };
+
+    await endedWithoutPass(parts, STATE, { ...end(), cause: new ExecutionCancelledError() });
+
+    expect(onExecutionStop).toHaveBeenCalledWith({
+      executionId: "root-1",
+      reason: "deploy",
+      spend: { totalUsd: usd(2) },
+    });
+    expect(onExecutionCancel).not.toHaveBeenCalled();
+    expect(onExecutionError).not.toHaveBeenCalled();
+    shown.output = undefined;
   });
 });

@@ -25,6 +25,7 @@ import { callInFrame, NoticeTimeoutError } from "./pause-notice-call.js";
 import { pauseFrameOf, pauseTreeOf, treeStateOf } from "./pause-frame.js";
 import { trailOf } from "../flow/runtime/pause-chain.js";
 import { ownDepsOf } from "./own-deps.js";
+import { UnknownPauseTargetError } from "./pause-lookups.js";
 import type { TreeMoveParts, TreeState } from "./tree-move-types.js";
 
 /**
@@ -141,10 +142,10 @@ function expiredContextOf(pause: PauseRecord): ExpiredContext<never> {
 /** The target of `pause` in its workflow now; `undefined` when a deploy removed it (its pause expires as `fail()`). */
 function targetOf(parts: TreeMoveParts, pause: PauseRecord): PauseTarget | undefined {
   try {
-    // Stryker disable next-line OptionalChaining: equivalent: a workflow with no targets throws a TypeError without it, which the catch below answers with `undefined` as well
     return ownDepsOf(parts.deps, pause.workflow).targetOf?.(pause.target);
-  } catch {
-    // a target a deploy removed: no handler
+  } catch (error) {
+    // a target a deploy removed: no handler; any other failure of the lookup is the look's to retry
+    if (!(error instanceof UnknownPauseTargetError)) throw error;
     return undefined;
   }
 }

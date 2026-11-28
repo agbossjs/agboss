@@ -1,6 +1,11 @@
 import type { PauseChannel, PauseTarget } from "../flow/runtime/pause-channel.js";
 import type { AssembledWorkflow, WorkflowServices } from "../workflow.js";
 
+/** A pause names a target the workflow no longer has (a deploy removed or renamed it). */
+export class UnknownPauseTargetError extends Error {
+  override name = "UnknownPauseTargetError";
+}
+
 /** What a workflow's pause targets and channels are looked up by (#267, #1307). */
 export interface PauseLookups {
   readonly targetOf: (targetName: string) => PauseTarget;
@@ -26,7 +31,7 @@ export const pauseLookups = (
   return {
     targetOf: (targetName) => {
       const target = targets.get(targetName);
-      if (!target) throw new Error(`Unknown pause target: ${targetName}`);
+      if (!target) throw new UnknownPauseTargetError(`Unknown pause target: ${targetName}`);
       return target;
     },
     targets: [...targets.values()],

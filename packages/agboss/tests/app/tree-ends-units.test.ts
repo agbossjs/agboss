@@ -66,12 +66,15 @@ describe("#633: forgetTree and passEnded", () => {
     const deleteAllInTree = vi.fn(() => Promise.resolve());
     mocks.closeTreePauses.mockClear();
 
+    const markOwnerCompleted = vi.fn(() => Promise.resolve());
+    const forgetStatusHistory = vi.fn(() => Promise.resolve());
+
     await forgetTree(
       {
         deps: {
-          container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
+          container: { get: () => ({ markOwnerCompleted }) },
           config: { name: "w" },
-          turns: { forgetStatusHistory: () => Promise.resolve() },
+          turns: { forgetStatusHistory },
         },
         trees: { deleteAllInTree },
         clock: { now: () => new Date(0) },
@@ -82,6 +85,36 @@ describe("#633: forgetTree and passEnded", () => {
 
     expect(deleteAllInTree).toHaveBeenCalledWith({ tenantId: "acme", rootExecutionId: "root-1" });
     expect(mocks.closeTreePauses).not.toHaveBeenCalled();
+    // its files age from the tree's end (#1316)
+    expect(markOwnerCompleted).toHaveBeenCalledExactlyOnceWith({
+      tenantId: "acme",
+      ownerId: "root-1",
+      workflow: "w",
+      completedAt: new Date(0),
+    });
+    // no history is kept: the thread's status history goes with its tree (#1341d)
+    expect(forgetStatusHistory).toHaveBeenCalledExactlyOnceWith("acme", "thread-1");
+  });
+
+  it("an application that keeps a history keeps the thread's status history with it", async () => {
+    const forgetStatusHistory = vi.fn(() => Promise.resolve());
+
+    await forgetTree(
+      {
+        deps: {
+          container: { get: () => ({ markOwnerCompleted: () => Promise.resolve() }) },
+          config: { name: "w" },
+          turns: { forgetStatusHistory },
+          executionHistory: {},
+        },
+        trees: { deleteAllInTree: () => Promise.resolve() },
+        clock: { now: () => new Date(0) },
+      } as never,
+      STATE,
+      END.cause,
+    );
+
+    expect(forgetStatusHistory).not.toHaveBeenCalled();
   });
 
   it("with all of them: the queued children, branch errors and waiting pauses go too", async () => {

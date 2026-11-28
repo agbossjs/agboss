@@ -27,6 +27,12 @@ export default defineConfig({
       "tests/app/writes-window-{resume,pauses}.test.ts",
       // #1187: the drain's mark before it takes an answer, the wake of a paused root beside one
       "tests/app/{drain-rest-mark,answered-wake-units}.test.ts",
+      // #1356: the wake of a parked root an `app.unpause` died on
+      "tests/app/parked-wake-units.test.ts",
+      // #1090: a new run handed over before its first checkpoint write is told it did not start
+      "tests/app/unstarted-run-units.test.ts",
+      // #1356: how a drained tree stands in its kept record
+      "tests/app/tree-drain-units.test.ts",
       // #1179: the pass of a tree left mid-pass, its waiting check pinned on its own
       "tests/app/stalled-pass-units.test.ts",
       "tests/infrastructure/{orphan-pauses,orphan-wakes,recovery-wake-order}.test.ts",
