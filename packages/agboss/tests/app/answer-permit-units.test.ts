@@ -181,7 +181,7 @@ describe("#1307c: an answer's permission", () => {
           permits: () => {
             throw failure;
           },
-        } as never,
+        },
         PAUSE,
         ACTOR,
         1,
@@ -194,7 +194,7 @@ describe("#1307c: an answer's permission", () => {
   });
 
   it("is given when the application has no permits at all", async () => {
-    await expect(assertAnswerPermitted({} as never, PAUSE, ACTOR, 1)).resolves.toBeUndefined();
+    await expect(assertAnswerPermitted({}, PAUSE, ACTOR, 1)).resolves.toBeUndefined();
   });
 });
 
@@ -298,17 +298,15 @@ describe("#1307, H2: an act of an operator on a pause whose target guards its an
   it.each(["permitTimeoutChange", "permitReassign"] as const)(
     "is let through when the target declares %s, or guards no answer, or cannot be resolved",
     (hook) => {
-      expect(() =>
-        assertNotAnswerGuarded(
+      expect(() => { assertNotAnswerGuarded(
           depsOf({ ...guarded, [hook]: () => Promise.resolve(true) }),
           PAUSE,
           hook,
           "x",
-        ),
+        ); },
       ).not.toThrow();
-      expect(() => assertNotAnswerGuarded(depsOf({}), PAUSE, hook, "x")).not.toThrow();
-      expect(() =>
-        assertNotAnswerGuarded(depsOf(guarded), { ...PAUSE, target: "gone" }, hook, "x"),
+      expect(() => { assertNotAnswerGuarded(depsOf({}), PAUSE, hook, "x"); }).not.toThrow();
+      expect(() => { assertNotAnswerGuarded(depsOf(guarded), { ...PAUSE, target: "gone" }, hook, "x"); },
       ).not.toThrow();
     },
   );
@@ -343,7 +341,7 @@ describe("#1307, H2: an act of an operator on a pause whose target guards its an
     }
   };
 
-  it("is guarded for a deadline that is not longer: an earlier one, none where there was one, one where there was none, the same; a longer one passes", () => {
+  it("is guarded for a deadline that shortens: an earlier one, none where there was one, one where there was none; the same or a longer one, or none for none, passes", () => {
     const at = new Date("2026-01-05T12:00:00.000Z");
     const earlier = new Date("2026-01-05T11:00:00.000Z");
     const later = new Date("2026-01-05T13:00:00.000Z");
@@ -351,7 +349,7 @@ describe("#1307, H2: an act of an operator on a pause whose target guards its an
     expect(guardedBy(at, earlier)).toBe(true);
     expect(guardedBy(at, undefined)).toBe(true);
     expect(guardedBy(undefined, at)).toBe(true);
-    expect(guardedBy(at, new Date(at))).toBe(true);
+    expect(guardedBy(at, new Date(at))).toBe(false);
     expect(guardedBy(at, later)).toBe(false);
     expect(guardedBy(undefined, undefined)).toBe(false);
   });
