@@ -50,10 +50,20 @@ const overlaid = new WeakSet<Class>();
  * never changed, so two applications under two profiles never see each other's limits. The same class
  * and overlay always give the same derived class, so a list that holds it twice still holds one.
  */
-export function overlaidBudget(cls: Class, overlays: BudgetOverlays | undefined): Class {
+export function overlaidBudget(cls: Class, overlays: BudgetOverlays | undefined): Class;
+export function overlaidBudget(
+  cls: Class | undefined,
+  overlays: BudgetOverlays | undefined,
+): Class | undefined;
+export function overlaidBudget(
+  given: Class | undefined,
+  overlays: BudgetOverlays | undefined,
+): Class | undefined {
+  // no class has no record: it is answered as a class that is no budget is
+  const meta = budgetOf(given);
+  if (meta === undefined) return given;
+  const cls: Class = given as never;
   if (overlaid.has(cls)) return cls;
-  const meta = budgetOf(cls);
-  if (meta === undefined) return cls;
   const overlay = overlays?.get(meta.name);
   if (overlay === undefined) return cls;
   const known = derived.get(cls)?.get(overlay);

@@ -48,14 +48,13 @@ export function ragClassesOf(
       const found = componentOf(cls);
       const deps: readonly Token[] | undefined =
         found?.kind === "tool" ? found.meta.deps : undefined;
-      return (
-        deps?.filter((dep): dep is Class => typeof dep === "function" && isRagClass(dep)) ?? []
-      );
+      return deps?.filter(isRagClass) ?? [];
     }) ?? [];
   return [...new Set([...listed, ...injected])];
 }
 
-const isRagClass = (cls: Class): boolean => componentOf(cls)?.kind === "rag";
+/** Whether a dependency is a `@Rag` class: a token that is no class has no record, as a class that is none. */
+const isRagClass = (dep: Token): dep is Class => componentOf(dep)?.kind === "rag";
 
 export const ragMeta = (cls: Class): RagMeta => requireComponent(cls, "rag", "workflowOf").meta;
 

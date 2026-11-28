@@ -15,8 +15,8 @@ import { budgetOf, BudgetScope, type BudgetHandler, type BudgetMeta } from "./bu
 import type { BudgetPeriod } from "./budget.js";
 import { periodStartOf } from "./budget-period.js";
 import type { Spend } from "./budget-spend.js";
-import { attachedBudgetOf } from "./budget-rules.js";
-import { overlaidBudget, type OverlaidBudgets } from "./budget-overlay.js";
+import { overlaidAttachedOf } from "./budget-rules.js";
+import type { OverlaidBudgets } from "./budget-overlay.js";
 import type { ExecutionDeadline } from "./execution-deadline.js";
 
 /** What a check of an execution's budgets needs: no I/O, the counters as last read. */
@@ -145,10 +145,10 @@ export interface ApplicationBudgets extends OverlaidBudgets {
   readonly clock: Clock;
 }
 
-const listed = (budgets: readonly Class[]): readonly ListedBudget[] =>
+const listed = (budgets: readonly (Class | undefined)[]): readonly ListedBudget[] =>
   budgets.flatMap((type) => {
     const meta = budgetOf(type);
-    return meta === undefined ? [] : [{ type, meta }];
+    return meta === undefined ? [] : [{ type: type as never, meta }];
   });
 
 /**
@@ -163,9 +163,7 @@ export function budgetsOfExecution(
   }: Pick<ApplicationBudgets, "budgets" | "attached" | "budgetOverlays">,
   workflow: Class,
 ): readonly ListedBudget[] {
-  const attachedClass = attachedBudgetOf(workflow, budgetOverlays);
-  const attached =
-    attachedClass === undefined ? [] : listed([overlaidBudget(attachedClass, budgetOverlays)]);
+  const attached = listed([overlaidAttachedOf(workflow, budgetOverlays)]);
   const all = listed(budgets);
   const execution = all.filter((budget) => budget.meta.scope === BudgetScope.Execution);
   const ownAttached = attached.find((budget) => budget.meta.scope === BudgetScope.Execution);
