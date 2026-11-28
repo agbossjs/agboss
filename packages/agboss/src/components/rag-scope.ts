@@ -15,11 +15,8 @@ interface ScopeCall {
   readonly services: WorkflowServices;
 }
 
-const tenantScope = ({ frame }: ScopeCall): string => {
-  const { tenantId } = frame.execution.tenant;
-  checkedTenantId(tenantId);
-  return tenantId;
-};
+// the tenant id was checked as a key before any scope is resolved (`scopeKeyOfRetrieval`)
+const tenantScope = ({ frame }: ScopeCall): string => frame.execution.tenant.tenantId;
 
 const ownerScope = ({ consumer, frame }: ScopeCall): string => {
   const { ownerId } = frame.execution;

@@ -187,3 +187,37 @@ describe("#1366: the edge a visit leaves by", () => {
     expect(leave(exits({}), { usage: [] })).toBeUndefined();
   });
 });
+
+describe("#1356: the case of a finish a child ended at", () => {
+  const edge = (to: string) => ({ to });
+  const withCases = (cases: [string, object][]) => ({
+    ...node,
+    exits: { ...node.exits, cases: new Map(cases) },
+  });
+  const exitFor = (n: object, given: object) =>
+    exitOf(n as never, { visits: { clerk: 1 } } as never, given as never, {} as never);
+
+  it("is taken by the finish when the class has no case, and a value with no finish falls to the case of no class", () => {
+    const cases = withCases([
+      ["", edge("none")],
+      ["done", edge("by-finish")],
+    ]);
+
+    expect(exitFor(cases, { read: [], value: { variant: "Z", finish: "done" } })).toEqual(
+      edge("by-finish"),
+    );
+    expect(exitFor(cases, { read: [], value: { variant: "Z" } })).toEqual(edge("none"));
+    expect(exitFor(cases, { read: [] })).toEqual(edge("none"));
+  });
+
+  it("the class first: its own case wins over the finish's", () => {
+    const cases = withCases([
+      ["A", edge("by-class")],
+      ["done", edge("by-finish")],
+    ]);
+
+    expect(exitFor(cases, { read: [], value: { variant: "A", finish: "done" } })).toEqual(
+      edge("by-class"),
+    );
+  });
+});

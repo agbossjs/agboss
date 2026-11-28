@@ -225,6 +225,35 @@ describe("#1356: the budgets of a new execution of an application", () => {
     expect(meter.remaining()).toBe(2);
   });
 
+  it("is capped by the tokens a trusted caller has left, as its own cap beside any dollar claim", async () => {
+    const deps = await fakeDeps({}, { executionBudget: 5 });
+    const tokensOnly = { origin: ORIGIN, budgetTokens: 500 };
+    const both = { origin: ORIGIN, budget: 2, budgetTokens: 500 };
+
+    const only = await openExecutionBudgets(
+      deps,
+      startOf({ ...DEFAULT_CONTEXT_VALUES, mesh: { chain: [], trusted: tokensOnly } }),
+    );
+    const claimed = await openExecutionBudgets(
+      deps,
+      startOf({ ...DEFAULT_CONTEXT_VALUES, mesh: { chain: [], trusted: both } }),
+    );
+
+    expect(only.records.at(-1)).toStrictEqual({
+      budget: { name: CALLER_BUDGET },
+      scope: BudgetScope.Execution,
+      key: "execution-1",
+      maxTokens: 500,
+    });
+    expect(claimed.records.at(-1)).toStrictEqual({
+      budget: { name: CALLER_BUDGET },
+      scope: BudgetScope.Execution,
+      key: "execution-1",
+      maxSpend: 2,
+      maxTokens: 500,
+    });
+  });
+
   it("claims nothing for a mesh request with no trusted claim, or a trusted one without a budget", async () => {
     const deps = await fakeDeps({}, { executionBudget: 5 });
     const claims = [{ chain: [] }, { chain: [], trusted: { origin: ORIGIN } }];

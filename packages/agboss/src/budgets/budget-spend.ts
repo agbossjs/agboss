@@ -91,9 +91,10 @@ export const exhaustedUnitOf = (
   record: ExecutionBudgetRecord,
   spent: Spend,
 ): BudgetUnit | undefined => {
-  if (record.maxSpend !== undefined && isSpendExhausted(spent.usd, record.maxSpend))
+  // a cap the record has not is an end no spend reaches
+  if (isSpendExhausted(spent.usd, record.maxSpend ?? Number.POSITIVE_INFINITY))
     return BudgetUnit.Usd;
-  if (record.maxTokens !== undefined && spent.tokens >= record.maxTokens) return BudgetUnit.Tokens;
+  if (spent.tokens >= (record.maxTokens ?? Number.POSITIVE_INFINITY)) return BudgetUnit.Tokens;
   return undefined;
 };
 
@@ -157,10 +158,7 @@ function checkedLimitsOf(budget: string, limit: BudgetLimit): BudgetLimit {
 /** The limits a budget declares in `@Budget({ maxSpend, maxTokens })`, an `env` value read from the process environment. */
 function declaredLimitOf(meta: BudgetMeta): BudgetLimit | undefined {
   if (meta.maxSpend === undefined && meta.maxTokens === undefined) return undefined;
-  const declared = {
-    ...(meta.maxSpend === undefined ? {} : { maxSpend: meta.maxSpend }),
-    ...(meta.maxTokens === undefined ? {} : { maxTokens: meta.maxTokens }),
-  };
+  const declared = { maxSpend: meta.maxSpend, maxTokens: meta.maxTokens };
   return resolveReferences(declared, process.env, `${meta.name} limits`);
 }
 

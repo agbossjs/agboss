@@ -76,7 +76,30 @@ vi.mock("../../../src/core/run-context.js", () => ({
 }));
 vi.mock("../../../src/flow/runtime/workflow-keys.js", () => ({ recordOfNode: vi.fn() }));
 
+vi.mock("../../../src/flow/runtime/launch/launch-attempt.js", async (original) => {
+  const real =
+    await original<typeof import("../../../src/flow/runtime/launch/launch-attempt.js")>();
+  return { ...real, launchAttemptOf: vi.fn(real.launchAttemptOf) };
+});
+vi.mock("../../../src/flow/runtime/visit-handled.js", async (original) => ({
+  ...(await original<typeof import("../../../src/flow/runtime/visit-handled.js")>()),
+  stoppedAtDispatch: vi.fn(),
+}));
+vi.mock("../../../src/flow/runtime/compensation/held-entries.js", async (original) => ({
+  ...(await original<typeof import("../../../src/flow/runtime/compensation/held-entries.js")>()),
+  withTaken: vi.fn((_site: unknown, own: unknown) => own),
+}));
+vi.mock("../../../src/flow/observers/execution-event.js", async (original) => ({
+  ...(await original<typeof import("../../../src/flow/observers/execution-event.js")>()),
+  nodeEventOf: vi.fn(() => ({ event: true })),
+}));
+
 import { reportingOf } from "../../../src/flow/runtime/node-runner.js";
+import { launchAttemptOf } from "../../../src/flow/runtime/launch/launch-attempt.js";
+import { stoppedAtDispatch } from "../../../src/flow/runtime/visit-handled.js";
+import { withTaken } from "../../../src/flow/runtime/compensation/held-entries.js";
+import { extractRunContext } from "../../../src/core/run-context.js";
+import { runInFrame } from "../../../src/flow/context/frame.js";
 import { reportOutdating } from "../../../src/flow/runtime/outdating-report.js";
 import { visitWrite } from "../../../src/flow/runtime/visit-write.js";
 import {
@@ -563,5 +586,142 @@ describe("#1366: the way out of a visit, and what the visit writes", () => {
     await run(node, { read: [] }, deps);
 
     expect(vi.mocked(sidePathAfter).mock.calls[0]?.[2]).toBeUndefined();
+  });
+});
+
+describe("#1356: what a visit tells its launch, its undo and its interrupted cleanups", () => {
+  const framed = () => vi.mocked(runInFrame).mock.calls[0]?.[0];
+
+  it("a launch is counted its deadline on the visit's clock and the config's signal, in the visit's frame and container", async () => {
+    const { deps } = setup();
+    const clock = { now: () => new Date("2026-11-21T12:00:00.000Z") };
+    vi.mocked(extractRunContext).mockReturnValue({ clock } as never);
+    vi.mocked(launchAttemptOf).mockResolvedValue(undefined);
+    const interruption = new AbortController().signal;
+
+    await visitNode(
+      node as never,
+      (() => Promise.resolve({ read: [] })) as never,
+      deps as never,
+    )(stateOf(), { signal: interruption });
+
+    const site = vi.mocked(launchAttemptOf).mock.calls[0]?.[3];
+    expect(site?.calendar).toStrictEqual({
+      clock,
+      interruption,
+      frame: framed(),
+      container: deps.container,
+    });
+  });
+
+  it("the entries a child's finish moved up are taken with the instance's parts, in the visit's frame, onto the visit's own", async () => {
+    const { deps } = setup();
+    const withParts = { ...deps, compensation: { parts: true } };
+    vi.mocked(compensationsOfVisit).mockResolvedValue({ compensations: ["own"] } as never);
+    const taken = [{ key: "held" }];
+
+    await visitNode(
+      node as never,
+      (() => Promise.resolve({ read: [], compensations: taken })) as never,
+      withParts as never,
+    )(stateOf(), undefined);
+
+    expect(withTaken).toHaveBeenCalledWith(
+      { taken, parts: { parts: true }, frame: framed() },
+      { compensations: ["own"] },
+    );
+  });
+
+  it("a launch its dispatch stopped is handled where its join takes the error: with the visit's update, the state, frame, deps, clock and the cause", async () => {
+    const { deps } = setup();
+    const clock = { now: () => new Date("2026-11-21T12:00:00.000Z") };
+    vi.mocked(extractRunContext).mockReturnValue({ clock } as never);
+    const cause = new Error("calendar broke");
+    vi.mocked(launchAttemptOf).mockResolvedValue({ failure: cause, stoppedBy: {} });
+    vi.mocked(stoppedAtDispatch).mockResolvedValue({ handled: true } as never);
+    const state = stateOf();
+
+    const out = await visitNode(
+      node as never,
+      (() => Promise.resolve({ read: [] })) as never,
+      deps as never,
+    )(state, undefined);
+
+    expect(out).toEqual({ handled: true });
+    const [visited, site] = vi.mocked(stoppedAtDispatch).mock.calls[0] ?? [];
+    expect(visited).toMatchObject({ path: ["n"] });
+    expect(site).toStrictEqual({ state, frame: framed(), deps, clock, cause });
+  });
+
+  it("a launch no one stopped ends the visit as it is, nothing handled", async () => {
+    const { deps } = setup();
+    vi.mocked(launchAttemptOf).mockResolvedValue(undefined);
+
+    await visitNode(
+      node as never,
+      (() => Promise.resolve({ read: [] })) as never,
+      deps as never,
+    )(stateOf(), undefined);
+
+    expect(stoppedAtDispatch).not.toHaveBeenCalled();
+  });
+
+  it("an application with a shutdown timeout bounds the cleanups of an interrupted step by it, on the run's clock; one without leaves them unbounded", async () => {
+    const { deps } = setup();
+    const sleep = vi.fn();
+    vi.mocked(extractRunContext).mockReturnValue({
+      clock: { now: () => new Date("2026-11-21T12:00:00.000Z"), sleep },
+    } as never);
+    const signal = new AbortController().signal;
+
+    await visitNode(
+      node as never,
+      (() => Promise.resolve({ read: [] })) as never,
+      { ...deps, compensation: { interruptTimeout: 5000 } } as never,
+    )(stateOf(), undefined);
+    const bound = framed()?.services?.interruptBound;
+    void bound?.sleep(250, signal);
+
+    expect(bound?.timeout).toBe(5000);
+    expect(sleep).toHaveBeenCalledWith(250, signal);
+
+    vi.mocked(runInFrame).mockClear();
+    await visitNode(
+      node as never,
+      (() => Promise.resolve({ read: [] })) as never,
+      deps as never,
+    )(stateOf(), undefined);
+    expect(Object.keys(framed()?.services ?? {})).not.toContain("interruptBound");
+  });
+
+  it("an interrupted step's cleanup that threw is told to the observers with the step's event, the component, the reason and the error; none to tell is a resolved promise", async () => {
+    const { deps } = setup();
+    const onInterruptCleanupError = vi.fn(() => Promise.resolve());
+    const reason = "shutdown";
+    const error = new Error("cleanup broke");
+
+    await visitNode(
+      node as never,
+      (() => Promise.resolve({ read: [] })) as never,
+      { ...deps, observer: { onInterruptCleanupError } } as never,
+    )(stateOf(), undefined);
+    await framed()?.services?.interruptCleanupFailed?.(reason as never, error);
+
+    expect(onInterruptCleanupError).toHaveBeenCalledWith({
+      event: true,
+      component: "component",
+      reason,
+      error,
+    });
+
+    vi.mocked(runInFrame).mockClear();
+    await visitNode(
+      node as never,
+      (() => Promise.resolve({ read: [] })) as never,
+      deps as never,
+    )(stateOf(), undefined);
+    await expect(
+      framed()?.services?.interruptCleanupFailed?.(reason as never, error),
+    ).resolves.toBeUndefined();
   });
 });

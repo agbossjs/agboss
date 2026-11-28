@@ -67,15 +67,9 @@ export async function chargedCall<T extends { readonly response_metadata?: unkno
     // the call keeps the callbacks it would have inherited (the trace, the stream), the counter beside them
     const inherited = callbacks ?? ensureConfig().callbacks;
     const answer = await call(withChunkCounter(inherited, counter));
-    const metadata: unknown = answer.response_metadata;
-    const earlier = earlierUsageRecordsOf(
-      spec.caller,
-      spec.settings,
-      typeof metadata === "object" && metadata !== null
-        ? (metadata as Readonly<Record<string, unknown>>)
-        : undefined,
-      chars,
-    );
+    // a metadata that is no record carries no mark: `fallbackMarkOf` reads it as none
+    const metadata = answer.response_metadata as Readonly<Record<string, unknown>> | undefined;
+    const earlier = earlierUsageRecordsOf(spec.caller, spec.settings, metadata, chars);
     if (earlier.length > 0) spec.sink(earlier);
     return answer;
   } catch (error) {

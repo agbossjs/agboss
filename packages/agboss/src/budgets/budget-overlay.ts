@@ -53,8 +53,9 @@ const overlaid = new WeakSet<Class>();
 export function overlaidBudget(cls: Class, overlays: BudgetOverlays | undefined): Class {
   if (overlaid.has(cls)) return cls;
   const meta = budgetOf(cls);
-  const overlay = meta === undefined ? undefined : overlays?.get(meta.name);
-  if (meta === undefined || overlay === undefined) return cls;
+  if (meta === undefined) return cls;
+  const overlay = overlays?.get(meta.name);
+  if (overlay === undefined) return cls;
   const known = derived.get(cls)?.get(overlay);
   if (known !== undefined) return known;
   const subclass = class extends (cls as new (...args: never[]) => object) {};

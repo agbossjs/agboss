@@ -45,12 +45,13 @@ function openFrameOf(name: string): Frame {
  */
 function reportSpend(frame: Frame, name: string, retrieval: KnowledgeRetrieval): void {
   const records = retrievalRecordsOf(name, retrieval);
+  if (records.length === 0) return;
   const report = frame.services.reportUsage;
-  if (report === undefined && records.length > 0)
+  if (report === undefined)
     throw new SpendOutsideStepError({
       message: `[spend.outside-step] @Rag ${name} made a paid search outside a step or a tool call — search while the step (or the tool call) runs`,
     });
-  for (const record of records) report?.(record);
+  for (const record of records) report(record);
 }
 
 /** The core binds a source's pipeline when its container creates it (internal). */

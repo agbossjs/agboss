@@ -29,11 +29,14 @@ export function withPartialSpend(error: unknown, spend: PartialSpend): unknown {
 
 /** The partial spend of a failed streamed call: the error's, or that of one of its causes. */
 export function partialSpendOf(error: unknown): PartialSpend | undefined {
-  let cause: unknown = error;
-  while (typeof cause === "object" && cause !== null) {
-    const found = partials.get(cause);
+  // a cause that is no object is no key of the map: its read gives none, and it has no cause to follow
+  for (
+    let cause: unknown = error;
+    cause !== undefined;
+    cause = cause instanceof Error ? cause.cause : undefined
+  ) {
+    const found = partials.get(cause as object);
     if (found !== undefined) return found;
-    cause = cause instanceof Error ? cause.cause : undefined;
   }
   return undefined;
 }
@@ -75,11 +78,14 @@ export function withFailoverTrace(error: unknown, trace: FailoverTrace): unknown
 
 /** The failover trace of a failed call: the error's, or one of its causes'. */
 export function failoverTraceOf(error: unknown): FailoverTrace | undefined {
-  let cause: unknown = error;
-  while (typeof cause === "object" && cause !== null) {
-    const found = traces.get(cause);
+  // a cause that is no object is no key of the map: its read gives none, and it has no cause to follow
+  for (
+    let cause: unknown = error;
+    cause !== undefined;
+    cause = cause instanceof Error ? cause.cause : undefined
+  ) {
+    const found = traces.get(cause as object);
     if (found !== undefined) return found;
-    cause = cause instanceof Error ? cause.cause : undefined;
   }
   return undefined;
 }

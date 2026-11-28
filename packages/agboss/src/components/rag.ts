@@ -14,8 +14,7 @@ export type RagMeta = Extract<ReturnType<typeof componentOf>, { kind: "rag" }>["
 /** `[agent.duplicate-rag]`: one `@Rag` listed twice in one agent's `rag`. */
 const duplicateRagViolations = (agents: readonly AgentMeta[]): RuleViolation[] =>
   agents.flatMap((agent) => {
-    const rags = agent.rag ?? [];
-    const twice = rags.filter((cls, index) => rags.indexOf(cls) !== index);
+    const twice = agent.rag?.filter((cls, index, rags) => rags.indexOf(cls) !== index) ?? [];
     return [...new Set(twice)].map((cls) =>
       violation(
         "agent.duplicate-rag",
@@ -32,7 +31,7 @@ const duplicateRagViolations = (agents: readonly AgentMeta[]): RuleViolation[] =
 export function ragClassesOf(
   bundle: WorkflowMeta,
   agents: readonly AgentMeta[],
-  tools: readonly Class[] = [],
+  tools?: readonly Class[],
 ): Class[] {
   const duplicates = duplicateRagViolations(agents);
   if (duplicates.length > 0) throw new ConfigError.GraphRules({ violations: duplicates });
@@ -44,11 +43,15 @@ export function ragClassesOf(
       });
     }
   }
-  const injected = tools.flatMap((cls) => {
-    const found = componentOf(cls);
-    const deps: readonly Token[] = found?.kind === "tool" ? found.meta.deps : [];
-    return deps.filter((dep): dep is Class => typeof dep === "function" && isRagClass(dep));
-  });
+  const injected =
+    tools?.flatMap((cls) => {
+      const found = componentOf(cls);
+      const deps: readonly Token[] | undefined =
+        found?.kind === "tool" ? found.meta.deps : undefined;
+      return (
+        deps?.filter((dep): dep is Class => typeof dep === "function" && isRagClass(dep)) ?? []
+      );
+    }) ?? [];
   return [...new Set([...listed, ...injected])];
 }
 
@@ -60,7 +63,7 @@ export const ragMeta = (cls: Class): RagMeta => requireComponent(cls, "rag", "wo
 export async function checkedRagClassesOf(
   bundle: WorkflowMeta,
   agents: readonly AgentMeta[],
-  tools: readonly Class[] = [],
+  tools?: readonly Class[],
 ): Promise<Class[]> {
   const rags = ragClassesOf(bundle, agents, tools);
   if (rags.length > 0) (await lazyLoad(import("../rag/rag-checks.js"))).checkRags(rags);

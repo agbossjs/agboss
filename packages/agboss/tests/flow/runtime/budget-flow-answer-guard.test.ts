@@ -344,3 +344,76 @@ describe("#1366: the output guardrails' spend is the answer's", () => {
     });
   });
 });
+
+describe("#1356: an agent with no output guardrail but a PII block rule holds its stream back", () => {
+  const holding = (blocks: unknown) => {
+    const set = { blocks, withValues: vi.fn(() => set), withFieldKey: vi.fn(() => set) };
+    return { set, deps: { guardrails: { outputOf: () => [] }, pii: { policiesOf: () => set } } };
+  };
+  const result = { reply: "mail a@b.c", usage: [], answerFiles: [], fileTranscripts: {} } as never;
+  const given = {
+    loop: { values: ["v"], key: "k" },
+    tokens: { "<t>": "t" },
+  } as never;
+  const files = { reading: undefined, state: stateOf() };
+
+  it("its answer is read through its policies, keyed by the execution's values and key: the stream goes out as the masked text, its spend the answer's", async () => {
+    const { set, deps } = holding(true);
+    vi.mocked(maskedModelText).mockResolvedValue({
+      text: "mail [EMAIL_1]",
+      tokens: {},
+      usage: [record(0.25, "pii:detect")],
+    });
+
+    const out = await guardedAnswer("alpha", result, given, deps as never, files);
+
+    expect(out).toStrictEqual({
+      usage: [record(0.25, "pii:detect")],
+      decisions: [],
+      text: "mail [EMAIL_1]",
+    });
+    expect(set.withValues).toHaveBeenCalledWith(["v"]);
+    expect(set.withFieldKey).toHaveBeenCalledWith("k");
+    expect(maskedModelText).toHaveBeenCalledWith(set, "mail a@b.c", { "<t>": "t" });
+    expect(runGuardrails).not.toHaveBeenCalled();
+  });
+
+  it("an answer the policies left as it was carries no text of its own", async () => {
+    const { deps } = holding(true);
+    vi.mocked(maskedModelText).mockResolvedValue({
+      text: "mail a@b.c",
+      tokens: {},
+      usage: [record(0.125, "pii:detect")],
+    });
+
+    const out = await guardedAnswer("alpha", result, given, deps as never, files);
+
+    expect(out).toStrictEqual({ usage: [record(0.125, "pii:detect")], decisions: [] });
+  });
+
+  it.each([
+    ["policies with no block rule", holding(false).deps],
+    ["a policy set that says nothing of blocking", holding(undefined).deps],
+    ["no PII runtime", { guardrails: { outputOf: () => [] } }],
+  ])("%s: nothing is read and nothing spent", async (_why, deps) => {
+    const out = await guardedAnswer("alpha", result, given, deps as never, files);
+
+    expect(out).toStrictEqual({ usage: [], decisions: [] });
+    expect(maskedModelText).not.toHaveBeenCalled();
+  });
+
+  it("the answer the guardrails read masked is told as text only when masking changed it", async () => {
+    const { set } = holding(true);
+    vi.mocked(runGuardrails).mockResolvedValue({ usage: [], decisions: [] });
+    vi.mocked(guardedFilesOf).mockResolvedValue({ files: [], usage: [] });
+    const deps = { guardrails: { outputOf: () => ["g"] }, pii: { policiesOf: () => set } };
+    vi.mocked(maskedModelText).mockResolvedValueOnce({ text: "masked", tokens: {}, usage: [] });
+    vi.mocked(maskedModelText).mockResolvedValueOnce({ text: "mail a@b.c", tokens: {}, usage: [] });
+
+    const changed = await guardedAnswer("alpha", result, given, deps as never, files);
+    const same = await guardedAnswer("alpha", result, given, deps as never, files);
+
+    expect(changed.text).toBe("masked");
+    expect(Object.keys(same)).not.toContain("text");
+  });
+});

@@ -35,7 +35,8 @@ export interface DecisionCall {
 
 const sizeOf = (value: unknown): number => {
   try {
-    return (JSON.stringify(value) as string | undefined)?.length ?? 0;
+    // `undefined` and a function stringify to nothing: no `length` to read, counted as none
+    return JSON.stringify(value).length;
   } catch {
     return 0;
   }
@@ -87,9 +88,8 @@ export function billedDecisionRecord(
     provider: call.provider ?? NO_PROVIDER,
   };
   const reported = data?.usage;
-  const cost = reported?.cost;
-  return reported !== undefined && cost !== undefined
-    ? reportedRecord(base, reported, cost)
+  return reported?.cost !== undefined
+    ? reportedRecord(base, reported, reported.cost)
     : estimatedRecord(base, reported, { request: sizeOf(request), response: sizeOf(response) });
 }
 
@@ -107,11 +107,14 @@ export function withDecisionSpend(error: unknown, record: UsageRecord): unknown 
 
 /** The record a failed decision call carries: the error's, or one of its causes'. */
 export function decisionSpendOf(error: unknown): UsageRecord | undefined {
-  let cause: unknown = error;
-  while (typeof cause === "object" && cause !== null) {
-    const found = spends.get(cause);
+  // a cause that is no object is no key of the map: its read gives none, and it has no cause to follow
+  for (
+    let cause: unknown = error;
+    cause !== undefined;
+    cause = cause instanceof Error ? cause.cause : undefined
+  ) {
+    const found = spends.get(cause as object);
     if (found !== undefined) return found;
-    cause = cause instanceof Error ? cause.cause : undefined;
   }
   return undefined;
 }

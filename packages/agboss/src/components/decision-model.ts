@@ -65,8 +65,11 @@ export class LiveDecisionModel extends DecisionModel {
     // a store may run a `runOnce`'s `execute` again: a decision paid in it would be paid twice
     assertOutsideRunOnce(`DecisionModel.decide of ${this.consumer}`);
     const frame = currentFrame();
-    const report = frame?.isClosed() === false ? frame.services.reportUsage : undefined;
-    if (frame === undefined || report === undefined) {
+    const live =
+      frame?.isClosed() === false
+        ? { report: frame.services.reportUsage, signal: frame.execution.signal }
+        : undefined;
+    if (live?.report === undefined) {
       throw new SpendOutsideStepError({
         message: `[spend.outside-step] ${this.consumer} asked a decision outside a step or a tool call — ask it while the step (or the tool call) runs, so its cost has an execution to be billed to`,
       });
@@ -75,7 +78,7 @@ export class LiveDecisionModel extends DecisionModel {
       throw new TypeError(`${this.consumer}: this application has no model gateway for decisions`);
     }
     // an exhausted budget (or a cancel) aborts the execution's signal: no request is made after it
-    const { signal } = frame.execution;
+    const { report, signal } = live;
     if (signal.aborted) throw signal.reason;
     const outcome = await this.service({
       caller: decisionCaller(this.consumer),

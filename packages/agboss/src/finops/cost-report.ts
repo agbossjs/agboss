@@ -149,7 +149,7 @@ export const budgetLeftAfter = (left: Usd | undefined, spent: Usd): Usd | undefi
   left === undefined ? undefined : usd(Math.max(0, left - spent));
 
 /** Whether `left` is used up: an amount at 0 (`undefined` is never used up). */
-export const isBudgetLeftUsed = (left: Usd | undefined): boolean => left !== undefined && left <= 0;
+export const isBudgetLeftUsed = (left: Usd | undefined): boolean => left === 0;
 
 // a paid error's `spend` (the family machinery imports no finops at run time)
 setSpendReport((usage) => CostReport.fromUsage(usage));

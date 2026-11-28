@@ -11,6 +11,7 @@ import {
   arbiterOf,
   hasArbiterModel,
   isCodeArbiter,
+  type ArbiterOptions,
   type ModelArbiterOptions,
 } from "../../decorators/arbiter.js";
 import { declarationOf } from "../../decorators/declaration.js";
@@ -90,8 +91,8 @@ function untilDecided(work: Promise<unknown>, signal: AbortSignal): Promise<unkn
 class Abandoned extends Error {}
 
 /** The answer as the method reads it: tracked as given by its target (`Metadata.createdBy`, #1274). */
-function trackedAnswer(answer: unknown, target: Class | undefined): unknown {
-  if (target === undefined || typeof answer !== "object" || answer === null) return answer;
+function trackedAnswer(answer: unknown, target: Class): unknown {
+  if (typeof answer !== "object" || answer === null) return answer;
   if (Metadata.has(answer)) return answer;
   return Metadata.with(isTextAgent(target) ? asTextDto(answer) : answer, { createdBy: target });
 }
@@ -111,11 +112,11 @@ function asTextDto(answer: object): object {
 
 /** The method judging `site`'s target, with that target. */
 function methodFor(arbiter: ArbiterClass, site: JudgedAnswer) {
-  const method = answerMethodsOf(arbiter).find(({ targets }) =>
-    targets.some((target) => nameOfTarget(target) === site.node),
-  );
-  if (method === undefined) throw new TypeError(`no @Arbitrate method for ${site.node}`);
-  return { method, target: method.targets.find((one) => nameOfTarget(one) === site.node) };
+  for (const method of answerMethodsOf(arbiter)) {
+    const target = method.targets.find((one) => nameOfTarget(one) === site.node);
+    if (target !== undefined) return { method, target };
+  }
+  throw new TypeError(`no @Arbitrate method for ${site.node}`);
 }
 
 /** A method with a model of its own is awaited for the calls it made (their cost is the branch's). */
@@ -144,6 +145,7 @@ async function byCodeWithModel(
 
 async function byCode(
   arbiter: ArbiterClass,
+  options: ArbiterOptions,
   site: JudgedAnswer,
   spent: UsageRecord[],
   deps: ArbiterDeps,
@@ -153,9 +155,7 @@ async function byCode(
   const judge = judgementOf(instance, method.method);
   if (typeof judge !== "function") throw new TypeError(`${method.method} is not a method`);
   const answer = trackedAnswer(site.answer, target);
-  const options = arbiterOf(arbiter)?.options;
-  const models =
-    options !== undefined && hasArbiterModel(options) ? deps.modelOf?.(arbiter) : undefined;
+  const models = hasArbiterModel(options) ? deps.modelOf?.(arbiter) : undefined;
   const run = (): unknown => Reflect.apply(judge, instance, [answer]);
   const passed =
     models === undefined
@@ -213,7 +213,7 @@ async function judgeOnce(
     if (declaration === undefined) throw new TypeError(`${arbiter.name} is not an @Arbiter`);
     const { options } = declaration;
     return isCodeArbiter(options)
-      ? await byCode(arbiter, site, spent, deps)
+      ? await byCode(arbiter, options, site, spent, deps)
       : await byModel(arbiter, options, site, spent, deps);
   } catch (error) {
     if (passesThrough(error) || error instanceof StepError.Arbiter) throw error;

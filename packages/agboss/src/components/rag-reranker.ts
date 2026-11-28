@@ -46,7 +46,7 @@ function modelRerankersOf(rags: readonly Class[]): ReadonlyMap<string, RecordedR
   for (const rag of rags) {
     const reranked = rerankedBy(ragMeta(rag));
     if (reranked === undefined || isCodeRerankerClass(reranked.cls)) continue;
-    if (!found.has(reranked.meta.name)) found.set(reranked.meta.name, reranked.meta);
+    found.set(reranked.meta.name, reranked.meta);
   }
   return found;
 }
@@ -80,14 +80,8 @@ export async function rerankerPromptsOf(
   rags: readonly Class[],
   loader: PromptLoader,
 ): Promise<ReadonlyMap<string, string>> {
-  const found = new Map<string, RecordedRerankerMeta>();
-  for (const rag of rags) {
-    const reranked = rerankedBy(ragMeta(rag));
-    if (reranked === undefined || isCodeRerankerClass(reranked.cls)) continue;
-    found.set(reranked.meta.name, reranked.meta);
-  }
   const loaded = await Promise.all(
-    [...found].map(async ([name, meta]): Promise<[string, string]> => [
+    [...modelRerankersOf(rags)].map(async ([name, meta]): Promise<[string, string]> => [
       name,
       await loader.load({
         label: `@RagReranker "${name}"`,
