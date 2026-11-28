@@ -35,6 +35,12 @@ describe("#1356: an A2A client at construction", () => {
     await expect(new Bare().execute({})).rejects.toThrow("[a2a.no-contract]");
   });
 
+  it("refuses a typed call of a client with no declaration at all: [a2a.no-contract] as well", async () => {
+    class Raw extends A2AClient {}
+
+    await expect(new Raw({ url: AGENT_URL }).execute({})).rejects.toThrow("[a2a.no-contract]");
+  });
+
   it("is a writer under business keys: a component that reaches it is told so", () => {
     @A2AAgent({ name: "desk-a2a-agent", url: AGENT_URL })
     class Desk extends A2AClient {}

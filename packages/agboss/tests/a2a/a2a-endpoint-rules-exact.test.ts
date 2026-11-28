@@ -49,6 +49,7 @@ describe("#1356: the ttl of an endpoint", () => {
     expect(ttlOf({ tasks: Infinity, messages: minutes(15) })).toEqual([tasksProblem("Infinity")]);
     expect(ttlOf({ tasks: Ttl.None, messages: minutes(15) })).toEqual([tasksProblem("a string")]);
     expect(ttlOf({ tasks: "1h", messages: minutes(15) })).toEqual([tasksProblem("a string")]);
+    expect(ttlOf({ tasks: "5", messages: minutes(15) })).toEqual([tasksProblem("a string")]);
     expect(ttlOf({ tasks: {}, messages: minutes(15) })).toEqual([tasksProblem("an object")]);
     expect(ttlOf({ messages: minutes(15) })).toEqual([tasksProblem("undefined")]);
   });
@@ -62,6 +63,7 @@ describe("#1356: the ttl of an endpoint", () => {
     ]);
     expect(ttlOf({ tasks: hours(1), messages: Number.NaN })).toEqual([messagesProblem("NaN")]);
     expect(ttlOf({ tasks: hours(1) })).toEqual([messagesProblem("undefined")]);
+    expect(ttlOf({ tasks: hours(1), messages: "60000" })).toEqual([messagesProblem("a string")]);
   });
 
   it("says both, tasks first, when neither is a duration, and without a ttl at all", () => {

@@ -78,7 +78,7 @@ function replyOf(result: ExecutionOutput, skill: ServedSkill): A2ADirectMessageR
   // a cancel is no reply (#1341): the attempt fails as a cancel did when it rejected — its row
   // removed, the client told it was cancelled
   if (result.status === ExecutionStatus.Cancelled || result.status === ExecutionStatus.Stopped)
-    throw new ExecutionCancelledError({ message: "the execution was cancelled externally" });
+    throw new ExecutionCancelledError();
   // Stryker disable next-line StringLiteral: the invariant's text, never read while it holds
   const finish = definedOf(result.finish, "a direct skill cannot pause (assembly)");
   return {
