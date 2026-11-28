@@ -7,25 +7,25 @@ import { ConfigError } from "../../../src/core/error-families/config-errors.js";
 import { LiveArbiterModel, runArbiterCall } from "../../../src/flow/runtime/launch/arbiter-live.js";
 import type { ArbiterModel } from "../../../src/flow/decorators/arbiter.js";
 
-const modelOf = (name: string) =>
-  ({
+const modelOf = (name: string) => {
+  const decide = vi.fn(() => Promise.resolve({ answered: name }));
+  const arbiter = {
     model: name,
-    invoke: vi.fn((input: unknown) => Promise.resolve(`${name} says ${JSON.stringify(input)}`)),
-    decide: vi.fn(() => Promise.resolve({ answered: name })),
-  }) as unknown as ArbiterModel & {
-    invoke: ReturnType<typeof vi.fn>;
-    decide: ReturnType<typeof vi.fn>;
-  };
+    invoke: (input: unknown) => Promise.resolve(`${name} says ${JSON.stringify(input)}`),
+    decide,
+  } as unknown as ArbiterModel;
+  return { arbiter, decide };
+};
 
 describe("#1356: the model of the arbiter that runs now", () => {
   it("is the model, the chat call and the decision of the method's own arbiter, and the instance is frozen", async () => {
     const live = new LiveArbiterModel("desk-arbiter");
-    const own = modelOf("own-model");
+    const { arbiter: own, decide } = modelOf("own-model");
 
     const seen = await runArbiterCall(own, async () => ({
       model: live.model,
       text: await live.invoke("hi"),
-      decided: await live.decide({ state: "s", questions: {} } as never),
+      decided: await live.decide({ state: "s", questions: {} }),
     }));
 
     expect(seen).toEqual({
@@ -33,17 +33,17 @@ describe("#1356: the model of the arbiter that runs now", () => {
       text: 'own-model says "hi"',
       decided: { answered: "own-model" },
     });
-    expect(own.decide).toHaveBeenCalledWith({ state: "s", questions: {} });
+    expect(decide).toHaveBeenCalledWith({ state: "s", questions: {} });
     expect(Object.isFrozen(live)).toBe(true);
   });
 
   it("arbiters of parallel branches never mix: each method reads its own", async () => {
     const live = new LiveArbiterModel("desk-arbiter");
-    const slow = runArbiterCall(modelOf("first"), async () => {
+    const slow = runArbiterCall(modelOf("first").arbiter, async () => {
       await new Promise((resolve) => setTimeout(resolve, 5));
       return live.model;
     });
-    const quick = runArbiterCall(modelOf("second"), () => live.model);
+    const quick = runArbiterCall(modelOf("second").arbiter, () => live.model);
 
     expect(await Promise.all([slow, quick])).toEqual(["first", "second"]);
   });
@@ -51,7 +51,7 @@ describe("#1356: the model of the arbiter that runs now", () => {
   it.each([
     ["model", (live: LiveArbiterModel) => live.model],
     ["invoke", (live: LiveArbiterModel) => live.invoke("x")],
-    ["decide", (live: LiveArbiterModel) => live.decide({ state: "s", questions: {} } as never)],
+    ["decide", (live: LiveArbiterModel) => live.decide({ state: "s", questions: {} })],
   ])(
     "%s outside an @Arbitrate method is ConfigError.Component, naming the consumer and the member",
     (member, use) => {

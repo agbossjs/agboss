@@ -166,7 +166,9 @@ describe("#1356: the answer a code arbiter's method reads", () => {
   });
 
   it("a target with no declaration is known by its class's name, and its answer is still tracked as its own", async () => {
-    class Plain {}
+    class Plain {
+      readonly kind = "plain";
+    }
     const seen: unknown[] = [];
 
     await judgeAnswer(
@@ -284,7 +286,9 @@ describe("#1356: what the observer is told of who judges", () => {
   });
 
   it("a class that is no arbiter counts as code", async () => {
-    class Stranger {}
+    class Stranger {
+      readonly kind = "stranger";
+    }
 
     await judgeAnswer(Stranger as never, { node: "skills-agent", answer: {} }, depsOf()).catch(
       () => undefined,
